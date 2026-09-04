@@ -1,0 +1,5 @@
+-- classificacao_sistema_compressor — bloco 1 de 1 (3 registros no total)
+
+INSERT INTO "classificacao_sistema_compressor" ("id", "tipo", "temp_evap_sistema_min", "temp_evap_sistema_max", "motor_compressor", "semi_hermetico_te_min", "semi_hermetico_te_max", "duplo_estagio_te_min", "duplo_estagio_te_max") VALUES (1, 'Sistema de Alta', 5.0, 10.0, 1, -25.0, 25.0, NULL, NULL);
+INSERT INTO "classificacao_sistema_compressor" ("id", "tipo", "temp_evap_sistema_min", "temp_evap_sistema_max", "motor_compressor", "semi_hermetico_te_min", "semi_hermetico_te_max", "duplo_estagio_te_min", "duplo_estagio_te_max") VALUES (2, 'Sistema de Média', -10.0, 4.0, 2, -30.0, 10.0, NULL, NULL);
+INSERT INTO "classificacao_sistema_compressor" ("id", "tipo", "temp_evap_sistema_min", "temp_evap_sistema_max", "motor_compressor", "semi_hermetico_te_min", "semi_hermetico_te_max", "duplo_estagio_te_min", "duplo_estagio_te_max") VALUES (3, 'Sistema de Baixa', -60.0, -11.0, 3, -35.0, 0.0, -60.0, -25.0);

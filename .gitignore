@@ -1,0 +1,120 @@
+# ============================================================
+# Credenciais e segredos
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Ambientes Python e runtime empacotado
+# ============================================================
+venv/
+.venv/
+env/
+python-embed/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ============================================================
+# Node / Electron
+# ============================================================
+node_modules/
+electron/node_modules/
+dist/
+out/
+
+# ============================================================
+# Bancos de dados (todos — dados voláteis, não código)
+# ============================================================
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ============================================================
+# Artefatos de build (electron-builder)
+# ============================================================
+Instalação EXE/
+Instalacao EXE/
+
+# ============================================================
+# Instaladores de terceiros (na raiz)
+# ============================================================
+LibreOffice_*.msi
+*.msi
+
+# ============================================================
+# Pastas de trabalho, backup e reversão históricas
+# ============================================================
+A - Backup Banco de Dados/
+_tmp_proposta/
+_reversao_*/
+_copy_result.txt
+_copy_to_pf.ps1
+_restore_pf.ps1
+
+# ============================================================
+# Uploads de usuário (dados voláteis)
+# ============================================================
+uploads/
+
+# ============================================================
+# Ferramentas de IDE e SO
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Ferramentas locais do Claude Code
+# ============================================================
+.claude/
+
+# ============================================================
+# Logs
+# ============================================================
+*.log
+logs/
+
+# ============================================================
+# Pastas particulares do usuário
+# ============================================================
+Documentos/
+Documentos de Criação/
+
+# ============================================================
+# Design/mockups (não são executados pelo sistema)
+# ============================================================
+mockups/
+
+# ============================================================
+# Scripts operacionais/históricos (não empacotados, não runtime)
+# ============================================================
+Iniciar Carga Térmica.vbs
+converter_fotos_base64.py
+push_local_para_flyio.py
+sync_flyio_para_local.py
+rodar_servidor_teste_alpha.py
+
+# ============================================================
+# Backups históricos em database/ (escapam da regra *.db)
+# ============================================================
+*.db.bak*
+database/backup_*.json
+database/_backups_frontend/
+
+# ============================================================
+# Previews/rascunhos sem uso no sistema
+# ============================================================
+frontend/_preview_casca.html

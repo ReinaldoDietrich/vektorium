@@ -1,0 +1,79 @@
+{
+  "name": "vektorium",
+  "version": "1.4.0",
+  "description": "Vektorium — Sistema de Cálculos Térmicos",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "author": "Vektorium",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.0.0"
+  },
+  "build": {
+    "appId": "com.vektorium.app",
+    "productName": "Vektorium",
+    "copyright": "Copyright © 2026 Vektorium",
+    "directories": {
+      "output": "B:\\Documentos Programas\\App Carga Térmica\\Instalação EXE"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "../frontend/img/icon.ico",
+      "artifactName": "Vektorium-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "../frontend/img/icon.ico",
+      "uninstallerIcon": "../frontend/img/icon.ico",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vektorium"
+    },
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*", "!__pycache__/**", "!scripts/**"]
+      },
+      {
+        "from": "../frontend",
+        "to": "frontend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../python-embed",
+        "to": "python-embed",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../database",
+        "to": "database",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../dados",
+        "to": "dados",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../iniciar_app.py",
+        "to": "iniciar_app.py"
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "ReinaldoDietrich",
+      "repo": "vektorium"
+    }
+  }
+}

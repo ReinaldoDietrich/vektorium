@@ -1,0 +1,114 @@
+/* Navegação lateral — só estrutura (topbar/sidebar/boas-vindas). Não estiliza nada dentro
+   das telas (inputs, botões, grids, tabelas seguem 100% style.css original). */
+:root{ --sb-rail:#0f2942; --sb-bg:#eef2f7; --sb-side:#f4f7fb; --sb-line:#dbe3ec;
+       --sb-ink:#16283b; --sb-muted:#5c7186; --sb-faint:#8598a9; --sb-acc:#1668c7; }
+html,body{height:100%;}
+body{margin:0;background:var(--sb-bg);}
+
+.topbar{height:46px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--sb-rail);color:#c7d6e6;font-size:13px;}
+.topbar-brand{font-weight:600;color:#fff;display:flex;align-items:center;gap:8px;letter-spacing:.02em;}
+.topbar-brand img{height:24px;width:auto;object-fit:contain;background:#fff;padding:2px 4px;border-radius:4px;}
+.topbar-crumbs{color:#9fb4c9;font-size:12.5px;display:flex;gap:7px;align-items:center;}
+.topbar-crumbs b{color:#e9f1f9;font-weight:600;}
+.topbar-acts{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.topbar-acts #btnSair{background:transparent;border:1px solid #ffffff26;color:#d4e2f0;
+  border-radius:7px;padding:6px 11px;font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:500;cursor:pointer;}
+.topbar-acts #btnSair:hover{background:#ffffff12;border-color:#e6b8b2;color:#ffd0cc;}
+
+.shell{display:flex;height:calc(100vh - 46px);min-height:0;}
+.sidebar{width:300px;flex:0 0 auto;background:var(--sb-side);border-right:1px solid var(--sb-line);
+  display:flex;flex-direction:column;min-height:0;transition:width .16s ease;}
+.sidebar.collapsed{width:52px;}
+.sidebar-head{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid #e8eef4;}
+.sidebar-head span{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--sb-faint);white-space:nowrap;overflow:hidden;}
+.sidebar-head button{margin-left:auto;border:none;background:transparent;color:var(--sb-muted);cursor:pointer;font-size:15px;line-height:1;padding:4px 6px;border-radius:6px;}
+.sidebar-head button:hover{background:#e3eefb;color:var(--sb-acc);}
+.sidebar-search{padding:8px 10px;border-bottom:1px solid #e8eef4;display:flex;gap:6px;}
+.sidebar-search input{flex:1;min-width:0;border:1px solid #cfdae6;background:#f7fafd;border-radius:7px;padding:7px 9px;font:inherit;font-size:12.5px;}
+.sidebar-btn-novo{background:var(--sb-acc);color:#fff;border:1px solid var(--sb-acc);border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.sidebar-btn-novo:hover{filter:brightness(1.06);}
+
+.sidebar-tree{flex:1 1 auto;overflow:auto;padding:6px;font-size:12.5px;}
+.sidebar-empty{padding:12px;color:#9ca3af;font-size:12px;}
+.sidebar-load{padding:6px 10px;color:#9ca3af;font-size:11.5px;}
+.sidebar-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;}
+.sidebar-row:hover{background:#e8eef4;}
+.sidebar-row.sel{background:#e3eefb;}
+.sidebar-row.sel .sidebar-nm{color:var(--sb-acc);font-weight:600;}
+.sidebar-tw{width:12px;flex:0 0 auto;text-align:center;color:var(--sb-faint);font-size:9px;transition:transform .15s;}
+.sidebar-node.open > .sidebar-row > .sidebar-tw{transform:rotate(90deg);}
+.sidebar-nm{overflow:hidden;text-overflow:ellipsis;}
+.sidebar-mt{margin-left:auto;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;max-width:80px;padding-left:6px;background:#eef2ff;color:#3730a3;padding:1px 5px;border-radius:3px;font-weight:600;}
+.sidebar-projbox > .sidebar-row{flex-wrap:wrap;align-items:flex-start;padding-top:6px;padding-bottom:6px;}
+.sidebar-projbox > .sidebar-row .sidebar-nm{flex:1 1 auto;overflow:visible;text-overflow:clip;white-space:normal;font-weight:600;color:var(--sb-ink);}
+.sidebar-projbox > .sidebar-row .sidebar-mt{flex:1 0 100%;margin-left:23px;max-width:none;background:transparent;color:var(--sb-faint);padding:2px 0 0;font-weight:400;font-size:10.5px;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;}
+.sidebar-cam .sidebar-mt,.sidebar-sis .sidebar-mt{background:transparent;color:var(--sb-faint);font-weight:400;}
+.sidebar-kids{margin-left:14px;border-left:1px solid var(--sb-line);padding-left:3px;display:none;}
+.sidebar-node.open > .sidebar-kids{display:block;}
+.sidebar-projbox.open > .sidebar-kids{border-left:2px solid var(--sb-acc);}
+.sidebar-rev-top > .sidebar-row .sidebar-nm{font-weight:600;color:var(--sb-ink);}
+.sidebar-rev-top > .sidebar-row .sidebar-mt{background:#dcfce7;color:#166534;}
+.sidebar-tela{padding-left:10px;}
+
+.sidebar-catalogos{border-top:1px solid var(--sb-line);padding:6px;}
+.sidebar-cat-head{display:flex;align-items:center;gap:8px;padding:8px 9px 6px;font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--sb-faint);}
+.sidebar-cat{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--sb-ink);}
+.sidebar-cat:hover{background:#e3eefb;}
+.sidebar-versao{padding:6px 12px;font-size:30px;color:var(--sb-faint);text-align:center;border-top:1px solid var(--sb-line);margin-top:auto;}
+.sidebar.collapsed .sidebar-versao{display:none;}
+
+.sidebar.collapsed .sidebar-head span,
+.sidebar.collapsed .sidebar-search,
+.sidebar.collapsed .sidebar-tree,
+.sidebar.collapsed .sidebar-cat-head,
+.sidebar.collapsed .sidebar-cat span{display:none;}
+.sidebar.collapsed .sidebar-cat{justify-content:center;}
+
+.main-content{flex:1 1 auto;min-width:0;overflow:auto;background:var(--sb-bg);}
+.main-content .wrap{max-width:none;width:auto;margin:0;padding:16px 22px 48px;}
+
+/* barra de abas antiga: mantida no DOM (showTab depende dela), só oculta visualmente —
+   navegação passa a ser pela árvore lateral. */
+.tabs-legado{display:none;}
+
+/* tela de boas-vindas */
+.welcome{display:none;align-items:center;justify-content:center;min-height:calc(100vh - 46px);
+  flex-direction:column;text-align:center;padding:24px;}
+body.sem-projeto .welcome:not(.login-screen){display:flex;}
+body.sem-projeto .main-content .wrap{display:none;}
+.welcome-logo{width:420px;max-width:80%;margin-bottom:16px;object-fit:contain;}
+.welcome-logo.nologo{display:none;}
+.welcome-sub{font-size:20px;color:var(--sb-muted);letter-spacing:.1em;font-weight:500;margin:0 0 36px;}
+.welcome h2{font-size:15px;color:var(--sb-ink);margin:0 0 6px;font-weight:600;}
+.welcome p{font-size:13px;color:var(--sb-muted);margin:0 0 22px;line-height:1.55;}
+.welcome-cta{background:var(--sb-acc);color:#fff;border:1px solid var(--sb-acc);border-radius:8px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;}
+.welcome-cta:hover{filter:brightness(1.06);}
+
+/* Tela 1: a árvore lateral substitui a navegação por lista — a lista antiga e seus botões
+   continuam existindo no DOM (tela1.js não foi tocado nessa lógica) só ficam ocultos aqui. */
+#tela1 > .body-pad > .sec-title,
+#tela1 > .body-pad > div[style*="text-align:right"],
+#tela1 > .body-pad > #listaProjetos{display:none;}
+
+/* Tela de login */
+.login-screen{display:none;position:fixed;inset:0;z-index:900;background:var(--sb-bg);}
+body.sem-login .login-screen{display:flex;}
+body.sem-login .topbar,body.sem-login .shell{visibility:hidden;}
+.login-form{width:280px;max-width:90vw;text-align:left;margin:0 auto;}
+.login-form label.lbl{display:block;font-size:11px;font-weight:600;color:var(--sb-muted);margin:10px 0 4px;}
+.login-form input{width:100%;box-sizing:border-box;border:1px solid #cfdae6;background:#f7fafd;border-radius:8px;padding:9px 10px;font-size:13px;}
+.login-erro{margin-top:10px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:12px;}
+
+/* barra de ações do projeto ativo, dentro de "1. Dados do Cliente" */
+.acoes-projeto-ativo{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:0 0 14px;padding:9px 12px;
+  background:#f7fafd;border:1px solid var(--sb-line);border-radius:8px;font-size:12.5px;}
+.acoes-projeto-ativo .info{color:var(--sb-muted);margin-right:auto;}
+.acoes-projeto-ativo .info b{color:var(--sb-ink);}
+
+/* Impressão (window.print / PDF): a página inteira (topo + árvore) nunca deve aparecer no
+   PDF — só o conteúdo da tela ativa, igual funcionava antes da barra lateral existir. */
+@media print{
+  .topbar,.sidebar{display:none!important;}
+  .shell{display:block!important;height:auto!important;}
+  .main-content{overflow:visible!important;}
+}

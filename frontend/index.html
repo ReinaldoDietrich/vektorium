@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carga Térmica</title>
+<link rel="stylesheet" href="/css/style.css?v=20260902090000">
+<link rel="stylesheet" href="/css/sidebar.css?v=20260902090000">
+<style>body{visibility:hidden}</style>
+<script>setTimeout(function(){ document.body.style.visibility='visible'; }, 1500);</script>
+</head>
+<body autocomplete="off">
+
+<div class="topbar">
+  <span class="topbar-brand"><img src="/img/LOGO%20VEKTORIUM.jpeg" alt="" onerror="this.style.display='none'"><span>Vektorium</span></span>
+  <span class="topbar-crumbs" id="crumbs">Projetos</span>
+  <span class="topbar-acts">
+    <button class="btn-text" id="btnLogin">Entrar</button>
+    <button class="btn-text danger" id="btnSair">Sair</button>
+  </span>
+</div>
+
+<div id="loginScreen" class="welcome login-screen">
+  <img class="welcome-logo" src="/img/LOGO%20VEKTORIUM.jpeg" alt="Vektorium" onerror="this.classList.add('nologo')">
+  <div class="welcome-sub">Sistema de Cálculos Térmicos</div>
+  <h2>Entrar</h2>
+  <p>Login com assinatura ativa para acessar o sistema.</p>
+  <div class="login-form">
+    <label class="lbl">E-mail</label>
+    <input type="email" id="login_email" autocomplete="username">
+    <label class="lbl">Senha</label>
+    <input type="password" id="login_senha" autocomplete="current-password">
+    <div id="login_erro" class="login-erro" style="display:none;"></div>
+    <button class="welcome-cta" id="btnLoginEntrar" style="width:100%;margin-top:14px;">Entrar</button>
+
+  </div>
+  <div class="login-form" id="novaSenhaForm" style="display:none;">
+    <label class="lbl">Nova senha</label>
+    <input type="password" id="nova_senha_1" autocomplete="new-password">
+    <label class="lbl">Confirmar nova senha</label>
+    <input type="password" id="nova_senha_2" autocomplete="new-password">
+    <div id="nova_senha_erro" class="login-erro" style="display:none;"></div>
+    <button class="welcome-cta" id="btnDefinirNovaSenha" style="width:100%;margin-top:14px;">Salvar nova senha</button>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <span>EXPLORADOR DE PROJETOS</span>
+      <button id="btnColapsarSidebar" title="Recolher (Ctrl+B)">&#8676;</button>
+    </div>
+    <div class="sidebar-search">
+      <input id="buscaProjetoSidebar" placeholder="Buscar projeto…" autocomplete="off">
+      <button class="sidebar-btn-novo" id="btnNovoProjetoSidebar" title="Novo projeto">+ Novo</button>
+    </div>
+    <div class="sidebar-tree" id="arvoreProjetos"><div class="sidebar-empty">carregando projetos…</div></div>
+    <div class="sidebar-catalogos">
+      <div class="sidebar-cat-head">CATÁLOGOS &amp; CONFIGURAÇÕES</div>
+      <div class="sidebar-cat" data-tab="6">Forçadores</div>
+      <div class="sidebar-cat" data-tab="8">Unidades Condensadoras</div>
+      <div class="sidebar-cat" data-tab="15">Condensadores</div>
+      <div class="sidebar-cat" data-tab="13">Cadastro Comercial</div>
+      <div class="sidebar-cat" data-tab="7">Configurações</div>
+      <div class="sidebar-cat" data-tab="14">Teste — Memorial (Ids Comerciais)</div>
+    </div>
+    <div class="sidebar-versao" id="sidebarVersao"></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="welcome" id="welcomeScreen">
+      <img class="welcome-logo" src="/img/LOGO%20VEKTORIUM.jpeg" alt="Vektorium" onerror="this.classList.add('nologo')">
+      <div class="welcome-sub">Sistema de Cálculos Térmicos</div>
+      <h2>Nenhum projeto selecionado</h2>
+      <p>Escolha um projeto na barra lateral, ou crie um novo.</p>
+      <button class="welcome-cta" id="btnNovoProjetoWelcome">+ Novo Projeto</button>
+    </div>
+
+    <div class="wrap">
+
+      <div class="no-print tabs-legado">
+        <button class="tab-btn active" data-tab="1">Tela 1 — Cadastro</button>
+        <button class="tab-btn" data-tab="2">Tela 2 — Câmara Completo</button>
+        <button class="tab-btn" data-tab="3">Tela 3 — Câmara Simples</button>
+        <button class="tab-btn" data-tab="4">Tela 4 — Expositor</button>
+        <button class="tab-btn" data-tab="5">Tela 5 — Compilação Linhas</button>
+        <button class="tab-btn" data-tab="11">Tela 6 — Rack Paralelo/Condensador Remoto</button>
+        <button class="tab-btn" data-tab="10">Tela 7 — Painéis e Portas</button>
+        <button class="tab-btn" data-tab="12">Tela 8 — Compilação Geral</button>
+        <button class="tab-btn" data-tab="9">Tela 9 — Consumo Elétrico</button>
+        <button class="tab-btn" data-tab="17">Tela 10 — Resumo Equip./Materiais</button>
+        <button class="tab-btn" data-tab="18">Tela 11 — Estudo Luminotécnico</button>
+        <button class="tab-btn" data-tab="16">Tela 12 — Comparativo de Revisões</button>
+        <button class="tab-btn" data-tab="19">Tela 13 — Proposta Comercial</button>
+        <button class="tab-btn" data-tab="6">Tela A — Forçador</button>
+        <button class="tab-btn" data-tab="8">Tela B — Un. Condensadoras</button>
+        <button class="tab-btn" data-tab="15">Tela C — Condensadores</button>
+        <button class="tab-btn" data-tab="13">Tela D — Cadastro Comercial</button>
+        <button class="tab-btn" data-tab="7">Tela E — Configurações</button>
+        <button class="tab-btn" data-tab="14">Teste — Memorial (Ids Comerciais)</button>
+      </div>
+
+  <div id="overlaySaida" style="display:none;position:fixed;inset:0;background:#111827;color:#fff;z-index:999;align-items:center;justify-content:center;text-align:center;font-size:14px;">
+    <div>
+      <p>Aplicativo encerrado.</p>
+      <p class="small" style="color:#9ca3af;">Você já pode fechar esta janela.</p>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 1 ===================== -->
+  <div class="screen active" id="tela1">
+    <div class="titlebar"><span>TELA 1 — CADASTRO DO PROJETO</span>
+      <small id="projetoStatus">nenhum projeto ativo</small>
+      <small id="btnFecharProjetoAtivo" style="display:none;cursor:pointer;margin-left:10px;text-decoration:underline;">— Fechar projeto ativo ✕</small>
+    </div>
+    <div class="body-pad">
+
+      <div class="sec-title">Projetos</div>
+      <div style="text-align:right;margin:0 0 8px;">
+        <span class="btn-text" id="btnRetrairTudo">Retrair tudo</span>
+        <button class="btn-wide" id="btnNovoProjeto">+ Novo Projeto</button>
+      </div>
+      <div id="listaProjetos"></div>
+
+      <div id="formProjetoWrap" style="display:none;">
+        <details class="cfg-accordion" id="accDadosCliente">
+        <summary class="sec-title">1. Dados do Cliente</summary>
+        <div id="acoesProjetoAtivo" class="acoes-projeto-ativo" style="display:none;"></div>
+        <div class="grid g3">
+          <div><label class="lbl">Código Projeto</label><input type="text" id="p_codigo_projeto" data-id-campo="T11"></div>
+          <div><label class="lbl">Data</label><input type="date" id="p_data" data-id-campo="T12"></div>
+          <div><label class="lbl">Cliente</label><input type="text" id="p_cliente" data-id-campo="T13"></div>
+          <div><label class="lbl">Razão Social Faturamento</label><input type="text" id="p_razao_social_faturamento"></div>
+          <div><label class="lbl">CNPJ Faturamento</label><input type="text" id="p_cnpj_faturamento" maxlength="18" placeholder="00.000.000/0000-00"></div>
+          <div style="grid-column:span 2;"><label class="lbl">Endereço de Faturamento</label><input type="text" id="p_endereco_faturamento"></div>
+          <div><label class="lbl">CEP Faturamento</label><input type="text" id="p_cep_faturamento" maxlength="9" placeholder="00000-000"></div>
+          <div style="grid-column:span 2;"><label class="lbl">Endereço completo da Obra</label><input type="text" id="p_endereco_obra"></div>
+          <div><label class="lbl">CEP da Obra</label><input type="text" id="p_cep_obra" maxlength="9" placeholder="00000-000"></div>
+          <div><label class="lbl">Cidade de Instalação</label><input type="text" id="p_cidade_instalacao" data-id-campo="T14"></div>
+          <div><label class="lbl">Estado</label>
+            <select id="p_estado_uf" data-id-campo="T15"><option value="">—</option></select></div>
+          <div><label class="lbl">Altitude da Instalação (m)</label><input type="text" id="p_altitude_m" data-id-campo="T16"></div>
+          <div style="position:relative;"><label class="lbl">Estação Climatológica (INMET)</label>
+            <input type="text" id="p_estacao_busca" data-id-campo="T17" placeholder="clique ou digite pra buscar..." autocomplete="off">
+            <div id="p_estacao_lista" style="display:none;position:absolute;z-index:20;top:100%;left:0;right:0;max-height:220px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;box-shadow:0 4px 10px rgba(0,0,0,.12);"></div>
+          </div>
+          <div><label class="lbl">Temperatura Ambiente (°C)</label>
+            <input type="text" id="p_temp_ambiente" data-id-campo="T18"></div>
+          <div><label class="lbl">UR Externa (%)</label>
+            <input type="text" id="p_ur_externa" data-id-campo="T19"></div>
+          <div><label class="lbl">Contato</label><input type="text" id="p_contato" data-id-campo="T110"></div>
+          <div><label class="lbl">Telefone</label><input type="text" id="p_telefone" data-id-campo="T111"></div>
+        </div>
+        </details>
+
+        <details class="cfg-accordion" id="accDadosProjeto">
+        <summary class="sec-title">2. Dados do Projeto</summary>
+        <div class="grid g3">
+          <div><label class="lbl">Tipo de Comando</label>
+            <select id="p_tipo_comando" data-id-campo="T112"><option value="">—</option><option value="1.1.1">Quadro Distribuído (QD)</option><option value="1.1.2">Quadro de Linhas (QL)</option></select></div>
+          <div><label class="lbl">Tensão Elétrica dos Equipamentos</label>
+            <select id="p_tensao_equipamentos" data-id-campo="T113"><option value="">—</option><option>127V/1F/60Hz</option><option>220V/1F/60Hz</option><option>220V/3F/60Hz</option><option>380V/3F/60Hz</option><option>440V/3F/60Hz</option></select></div>
+          <div><label class="lbl">Tensão Elétrica de Comando</label>
+            <select id="p_tensao_comando" data-id-campo="T114"><option value="">—</option><option>127V/1F/60Hz</option><option>220V/1F/60Hz</option><option>220V/3F/60Hz</option><option>380V/3F/60Hz</option><option>440V/3F/60Hz</option></select></div>
+          <div><label class="lbl">Custo de Energia (R$/kWh)</label><input type="text" id="p_custo_energia" data-id-campo="T115" placeholder="0,00"></div>
+          <div><label class="lbl">Pasta de Salvamento do Projeto</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="p_pasta_salvamento" data-id-campo="T116" placeholder="(padrão: download do navegador)" style="flex:1;">
+              <button type="button" class="btn-text" id="btnEscolherPastaSalvamento">Procurar...</button>
+            </div>
+          </div>
+          <div><label class="lbl">Condição do Salão de Vendas</label>
+            <select id="p_condicao_salao" data-id-campo="T117"><option>25°C - 60% UR (com ar condicionado)</option><option>28°C - 70% UR (sem ar condicionado)</option></select></div>
+          <div><label class="lbl">Considerar Iluminação Ambiente</label>
+            <select id="p_considerar_iluminacao_ambiente" data-id-campo="T118"><option value="1">Sim</option><option value="0">Não</option></select></div>
+        </div>
+        <div style="text-align:right;margin:10px 0;">
+          <button class="btn-text" id="btnCancelarProjeto">Cancelar</button>
+          <button class="btn-wide" id="btnSalvarProjeto">Salvar Projeto</button>
+        </div>
+        </details>
+
+        <div id="blocoSistemas" style="display:none;">
+          <details class="cfg-accordion" id="accSistemas">
+          <summary class="sec-title">3. Sistemas de Refrigeração</summary>
+          <p style="margin:0 0 8px;"><button class="btn-wide" id="btnRevelarFormSistema" type="button">+ Adicionar Sistema</button></p>
+          <div id="formSistemaWrap" style="display:none;">
+          <div class="add-row" style="grid-template-columns:1.3fr 0.8fr 1.3fr 1.3fr 1fr 0.8fr 56px;">
+            <div><label class="lbl">Nome</label><input type="text" id="sNome" data-id-campo="T119"></div>
+            <div><label class="lbl">Classificação do Sistema</label>
+              <input type="text" id="sNivel" disabled></div>
+            <div><label class="lbl">Gás Refrigerante</label>
+              <select id="sGas" data-id-campo="T120"><option value="">—</option></select></div>
+            <div><label class="lbl">Válvula de Expansão</label>
+              <select id="sExp" data-id-campo="T121"><option value="">—</option></select></div>
+            <div><label class="lbl">Fabricante Válvula</label>
+              <select id="sFabricanteValvula" data-id-campo="T122"><option value="">—</option></select></div>
+            <div><label class="lbl">Temp. Evaporação (°C)</label><input type="text" id="sTempEvap" data-id-campo="T123"></div>
+            <div><label class="lbl">&nbsp;</label><button class="btn" id="btnAddSistema">+</button></div>
+          </div>
+
+          <div class="grid g4" style="margin-top:8px;">
+            <div><label class="lbl">Custo Sistema Simples (R$) <span class="sub">— p/ payback</span></label><input type="text" id="sCustoSistemaSimples" data-id-campo="T124"></div>
+            <div><label class="lbl">Custo Sistema Projeto (R$) <span class="sub">— p/ payback</span></label><input type="text" id="sCustoSistemaProjeto" data-id-campo="T125"></div>
+            <div><label class="lbl">Nº de Degelos/Dia <span class="sub">— só degelo elétrico</span></label><input type="text" id="sQuantidadeDegeloDia" data-id-campo="T126" placeholder="4"></div>
+            <div><label class="lbl">Tempo de Degelo por Ciclo (min) <span class="sub">— só degelo elétrico</span></label><input type="text" id="sTempoDegeloMin" data-id-campo="T127" placeholder="60"></div>
+          </div>
+
+          <div class="grid g4" style="margin-top:8px;">
+            <div><label class="lbl">Tipo de Equipamento Compressão</label>
+              <select id="sTipoCompressao" data-id-campo="T130"><option value="">—</option></select></div>
+            <div><label class="lbl">Estrutura</label>
+              <select id="sEstruturaCompressao" data-id-campo="T131"><option value="">—</option></select></div>
+            <div><label class="lbl">Tipo Automação Linhas</label>
+              <select id="sTipoAutomacaoLinhas" data-id-campo="T128"><option value="">—</option></select></div>
+            <div><label class="lbl">Fornecedor Automação Linhas</label>
+              <select id="sAutomacaoLinhasFabricante" data-id-campo="T129"><option value="">—</option></select></div>
+          </div>
+
+          <div class="grid g4" style="margin-top:8px;">
+            <div id="sCampoPartidaWrap"><label class="lbl">Tipo de Partida - Compressores</label>
+              <select id="sPartida" data-id-campo="T134"><option value="">—</option></select></div>
+            <div><label class="lbl">Modo Operação - Compressores</label>
+              <select id="sModoOperacao" data-id-campo="T135"></select></div>
+            <div><label class="lbl">Modelo Controlador Linhas</label>
+              <select id="sModeloControladorLinhas" data-id-campo="T142"><option value="">—</option></select></div>
+          </div>
+
+          <div class="grid g4" style="margin-top:8px;">
+            <div><label class="lbl">Temp. Linha de Líq. — Após Condensador (°C)</label><input type="text" id="sTempAposCondensador" disabled></div>
+            <div><label class="lbl">Temp. Condensação (°C)</label><input type="text" id="sTempCondensacao" disabled></div>
+            <div id="sCampoAutomacaoWrap"><label class="lbl">Tipo Automação Equipamentos</label>
+              <select id="sAutomacao" data-id-campo="T136"><option value="">—</option></select></div>
+            <div id="sCampoFabricanteWrap" style="display:none;"><label class="lbl">Fornecedor Automação Equipamentos</label>
+              <select id="sAutomacaoFabricante" data-id-campo="T137"><option value="">—</option></select></div>
+          </div>
+
+          <div class="grid g4" style="margin-top:8px;">
+            <div><label class="lbl">Tipo de Condensador <span class="readonly-tag">editável na Tela 6</span></label>
+              <input type="text" id="sSelecaoCondensadorAr_display" disabled></div>
+            <div><label class="lbl">Delta de Condensação (°C) <span class="readonly-tag">editável na Tela 6</span></label><input type="text" id="sDeltaCondensacao" disabled></div>
+            <div><label class="lbl">Modelo Controlador Equipamentos</label>
+              <select id="sModeloControladorEquipamentos" data-id-campo="T143"><option value="">—</option></select></div>
+          </div>
+
+          <div style="display:none;"><label class="lbl">Linha de Líquido — Temp. após Sub-resfriamento (°C)</label><input type="text" id="sTempAposSubresfriamento" data-id-campo="T138"></div>
+
+          <div style="text-align:right;margin:6px 0;"><span class="btn-text danger" id="btnCancelarEdicaoSistema" style="display:none;">Cancelar edição</span></div>
+          </div>
+          <div class="small" style="margin-bottom:6px;color:#6b7280;">
+            <strong>Notas:</strong> 1) É de responsabilidade do usuário conferir a temperatura ambiente apontada pelos dados climatológicos desse sistema.
+            2) Temperatura de Sub-resfriamento fixa de 3ºC por limitações de cálculo do sistema.
+            3) Classificação do Sistema calculada automaticamente pela Temp. Evaporação, conforme a tabela "Tela 6 - Classificação de Sistemas e Envelope Compressores" (Configurações).
+          </div>
+          <div id="sistemasList" style="border:1px solid var(--line);"></div>
+          </details>
+
+          <details class="cfg-accordion" id="accSelecaoUC">
+          <summary class="sec-title">4. Seleção de Unidade Condensadora por Sistema</summary>
+          <div id="ucSelecaoSistemas"></div>
+          </details>
+
+          <details class="cfg-accordion" id="accFiltroFabGlobal">
+          <summary class="sec-title">5. Filtro Global de Fabricante</summary>
+          <div id="filtroFabGlobalWrap" style="padding:4px 0;">
+            <div class="grid g3" style="align-items:end;margin-bottom:8px;">
+              <div><label class="lbl">Forçadores</label>
+                <select id="p_fab_global_forcador" data-id-campo="T139"><option value="">—</option></select></div>
+              <div><button class="btn-wide" id="btnFabGlobal_forcador">Aplicar aos forçadores</button></div>
+              <div class="small" id="msg_fab_forcador" style="color:#6b7280;align-self:center;"></div>
+            </div>
+            <div class="grid g3" style="align-items:end;margin-bottom:8px;">
+              <div><label class="lbl">Unidades Condensadoras</label>
+                <select id="p_fab_global_uc" data-id-campo="T140"><option value="">—</option></select></div>
+              <div><button class="btn-wide" id="btnFabGlobal_uc">Aplicar às UCs</button></div>
+              <div class="small" id="msg_fab_uc" style="color:#6b7280;align-self:center;"></div>
+            </div>
+            <div class="grid g3" style="align-items:end;">
+              <div><label class="lbl">Condensadores</label>
+                <select id="p_fab_global_condensador" data-id-campo="T141"><option value="">—</option></select></div>
+              <div><button class="btn-wide" id="btnFabGlobal_condensador">Aplicar aos condensadores</button></div>
+              <div class="small" id="msg_fab_condensador" style="color:#6b7280;align-self:center;"></div>
+            </div>
+          </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 2 — CÂMARA COMPLETO ===================== -->
+  <div class="screen" id="tela2">
+    <div class="titlebar"><span>TELA 2 — CÂMARA / CÁLCULO COMPLETO</span><small>ASHRAE</small></div>
+    <div id="t2_aviso_sem_projeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t2_conteudo" style="display:none;">
+    <div id="c2_formWrap" style="display:none;">
+    <div class="layout2">
+    <div><div class="body-pad">
+
+      <div class="grid g4" style="margin-bottom:6px;">
+        <div><label class="lbl">Nome da Câmara</label><input type="text" id="c2_nome" data-id-campo="T21"></div>
+        <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c2_sistema_id" data-id-campo="T22"></select></div>
+        <div><label class="lbl">Linha de Sucção</label><input type="text" id="c2_linha_succao" data-id-campo="T23"></div>
+        <div><label class="lbl">Linha Elétrica</label><input type="text" id="c2_linha_eletrica" data-id-campo="T24" placeholder="ex.: c ou abc"></div>
+      </div>
+      <p class="small">Código completo: <strong id="c2_codigo">—</strong></p>
+      <div class="grid g4">
+        <div><label class="lbl">Temp. Interna (°C)</label><input type="text" id="c2_temp_interna" data-id-campo="T25"></div>
+        <div id="c2_valvRegWrap" style="display:none;"><label class="lbl">Utilizar Válv. Reg. de Pressão?</label>
+          <select id="c2_utilizar_valv_reg_pressao" data-id-campo="T26"><option value="">—</option><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
+        <div id="c2_dtDesejadoWrap" style="display:none;"><label class="lbl">Dt. Evaporação Desejado (°C)</label>
+          <input type="text" id="c2_dt_evaporacao_desejado" data-id-campo="T27" placeholder="entre 4 e 10"></div>
+        <div></div>
+      </div>
+      <div class="grid g4">
+        <div><label class="lbl">Largura (m)</label><input type="text" id="c2_largura" data-id-campo="T28"></div>
+        <div><label class="lbl">Comprimento (m)</label><input type="text" id="c2_comprimento" data-id-campo="T29"></div>
+        <div><label class="lbl">Pé-Direito (m)</label><input type="text" id="c2_pedireito" data-id-campo="T210"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">1. Calor de Produto</div>
+      <div class="grid g4">
+        <div style="grid-column:span 2"><label class="lbl">Produto Estocado <span class="readonly-tag">catálogo</span></label>
+          <select id="c2_produto_id" data-id-campo="T211"><option value="">—</option></select></div>
+        <div><label class="lbl">Qtd. Estocada (kg)</label><input type="text" id="c2_qtd_estocada" data-id-campo="T212"></div>
+        <div><label class="lbl">Movim. Diária (kg/24h)</label><input type="text" id="c2_mov_diaria" data-id-campo="T213"></div>
+      </div>
+      <div class="grid g4" style="margin-top:8px;">
+        <div><label class="lbl">Tempo de Processo (h)</label><input type="text" id="c2_tempo_processo" data-id-campo="T214"></div>
+        <div><label class="lbl">Temp. Entrada (°C)</label><input type="text" id="c2_temp_entrada" data-id-campo="T215"></div>
+        <div><label class="lbl">Temp. Saída (°C)</label><input type="text" id="c2_temp_saida" data-id-campo="T216"></div>
+        <div><label class="lbl">ΔT Evaporação (°C)</label><input type="text" id="c2_dtCamara" value="—" disabled></div>
+      </div>
+
+      <div class="sec-title">2. Calor de Embalagem</div>
+      <div class="grid g3">
+        <div><label class="lbl">Tipo de Embalagem</label><select id="c2_tipo_embalagem_id" data-id-campo="T217"></select></div>
+        <div><label class="lbl">Massa de Embalagem (kg/24h)</label><input type="text" id="c2_massa_embalagem" data-id-campo="T218"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">3. Calor de Penetração (Parede / Teto / Piso)</div>
+      <div class="grid g3">
+        <div><label class="lbl">Isolamento Parede</label><select id="c2_isolamento_parede_id" data-id-campo="T219"></select></div>
+        <div><label class="lbl">Isolamento Teto</label><select id="c2_isolamento_teto_id" data-id-campo="T220"></select></div>
+        <div><label class="lbl">Isolamento Piso</label><select id="c2_isolamento_piso_id" data-id-campo="T221"></select></div>
+      </div>
+
+      <div class="sec-title">4. Infiltração de Ar — Portas</div>
+      <div class="grid g3">
+        <div><label class="lbl">Fonte do ar das paredes <span class="sub">— penetração (Q3)</span></label><select id="c2_fonte_ar" data-id-campo="T222"><option value="Externo">Ambiente externo (projeto)</option><option value="Adjacente">Ambiente adjacente</option></select></div>
+        <div id="c2_adjWrapTemp" style="display:none;"><label class="lbl">Temp. Adjacente Paredes (°C)</label><input type="text" id="c2_temp_adjacente" data-id-campo="T223"></div>
+        <div id="c2_adjWrapUr" style="display:none;"><label class="lbl">Umidade Adjacente Paredes (%)</label><input type="text" id="c2_umidade_adjacente" data-id-campo="T224"></div>
+      </div>
+      <p class="small" style="margin-bottom:6px;">Adicione uma linha por porta (ou tipo de porta). Cada porta tem sua própria <b>fonte de ar</b> — uma pode dar para fora (externo) e outra para um galpão interno (adjacente). A infiltração total (Q4) é a <b>soma de todas as portas</b>.</p>
+      <div class="add-row" style="grid-template-columns:0.6fr 0.9fr 0.9fr 1fr 1.2fr 1.2fr 56px;">
+        <div><label class="lbl">Qtd</label><input type="text" id="c2_pt_qtd" data-id-campo="T225" value="1"></div>
+        <div><label class="lbl">Largura (m)</label><input type="text" id="c2_pt_larg" data-id-campo="T226"></div>
+        <div><label class="lbl">Altura (m)</label><input type="text" id="c2_pt_alt" data-id-campo="T227"></div>
+        <div><label class="lbl">Abertura (min/h)</label><input type="text" id="c2_pt_freq" data-id-campo="T228"></div>
+        <div><label class="lbl">Proteção</label><select id="c2_pt_protecao" data-id-campo="T229"><option>Nenhuma</option><option>Cortina de tiras</option><option>Cortina de ar</option><option>Antecâmara</option></select></div>
+        <div><label class="lbl">Fonte do ar</label><select id="c2_pt_fonte" data-id-campo="T230"><option value="Externo">Externo</option><option value="Adjacente">Adjacente</option></select></div>
+        <div><label class="lbl">&nbsp;</label><button class="btn" id="c2_btnAddPorta">+</button></div>
+      </div>
+      <div class="grid g2" id="c2_pt_adjWrap" style="display:none;">
+        <div><label class="lbl">Temp. Adjacente da porta (°C)</label><input type="text" id="c2_pt_temp" data-id-campo="T231" value="25"></div>
+        <div><label class="lbl">Umidade Adjacente da porta (%)</label><input type="text" id="c2_pt_ur" data-id-campo="T232" value="60"></div>
+      </div>
+      <div id="c2_portasList" style="margin-top:6px;"></div>
+      <p class="small">Referência para frequência de abertura: a) Uso leve (estoque e pouca movimentação): 1 a 2 min/h. b) Uso comercial médio (reposição frequente): 3 a 4 min/h. c) Uso pesado (logística, paleteiras, congelados): 5 a 6 min/h.</p>
+
+      <div class="grid g2" style="margin-top:4px;">
+        <div>
+          <div class="sec-title">5. Calor de Pessoas</div>
+          <div class="grid g2"><div><label class="lbl">Nº Pessoas</label><input type="text" id="c2_num_pessoas" data-id-campo="T233"></div><div><label class="lbl">Tempo (h/24h)</label><input type="text" id="c2_tempo_pessoas" data-id-campo="T234"></div></div>
+        </div>
+        <div>
+          <div class="sec-title">6. Iluminação</div>
+          <div class="grid g3">
+            <div><label class="lbl">Qtd. Luminárias</label><input type="text" id="c2_qtd_luminarias" data-id-campo="T235"></div>
+            <div><label class="lbl">Tipo Ambiente</label><select id="c2_tipo_ambiente_lumino_id" data-id-campo="T264"><option value="">—</option></select></div>
+            <div><label class="lbl">Horas Iluminação/Dia (carga)</label><input type="text" id="c2_horas_iluminacao_carga" data-id-campo="T236"></div>
+            <div><label class="lbl">Potência/Luminária (W)</label><select id="c2_potencia_luminaria_texto" data-id-campo="T266"><option value="">—</option></select></div>
+            <div><label class="lbl">Modelo Luminária</label><select id="c2_modelo_luminaria_texto" data-id-campo="T265"><option value="">—</option></select></div>
+            <div><label class="lbl">Fluxo Luminoso (lm) <span class="readonly-tag">calculado</span></label><input type="text" id="c2_lumFluxo" disabled></div>
+            <div><label class="lbl">Lux Calculado <span class="readonly-tag">calculado</span></label><input type="text" id="c2_lumLuxCalc" disabled></div>
+            <div><label class="lbl">Diferença (Lux Calc.-Req.) <span class="readonly-tag">calculado</span></label><input type="text" id="c2_lumDiferenca" disabled></div>
+            <div><label class="lbl">Atende Norma? <span class="readonly-tag">calculado</span></label><input type="text" id="c2_lumAtende" disabled></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-title">7. Calor de Equipamentos</div>
+      <div class="add-row" style="grid-template-columns:2fr 1fr 1fr 56px;">
+        <div><label class="lbl">Tipo (catálogo)</label><select id="c2_eqTipo" data-id-campo="T237"></select></div>
+        <div><label class="lbl">Qtd.</label><input type="text" id="c2_eqQtd" data-id-campo="T238" value="1"></div>
+        <div><label class="lbl">Tempo (h/24h)</label><input type="text" id="c2_eqTempo" data-id-campo="T239"></div>
+        <div><label class="lbl">&nbsp;</label><button class="btn" id="c2_btnAddEquip">+</button></div>
+      </div>
+      <div id="c2_equipList" style="border:1px solid var(--line);"></div>
+
+      <div class="sec-title">Parâmetros de Dimensionamento</div>
+      <div class="grid g3">
+        <div><label class="lbl">Fator de Segurança (%)</label><input type="text" id="c2_fator_seguranca" data-id-campo="T240" value="10"></div>
+        <div><label class="lbl">Tempo Func. Compressores (h/24h)</label><input type="text" id="c2_tempo_func_compressores" data-id-campo="T241" value="18"></div>
+        <div><label class="lbl">Capacidade Requerida (kcal/h) <span class="readonly-tag">calculada</span></label><input type="text" id="c2_capRequerida" disabled value="—"></div>
+      </div>
+
+      <div class="sec-title">8. Seleção de Forçadores de Ar (Evaporador)
+        <span class="sub" id="c2_btnAtualizarCalculo" style="cursor:pointer;">— Atualizar Cálculo ↻</span>
+      </div>
+      <div class="add-row" style="grid-template-columns:1.6fr 1.3fr 56px;margin-top:8px;">
+        <div><label class="lbl">Fabricante</label><select id="c2_evFab" data-id-campo="T242"></select></div>
+        <div><label class="lbl">Linha</label><select id="c2_evLinha" data-id-campo="T243"></select></div>
+        <div><label class="lbl">&nbsp;</label><button class="btn" id="c2_btnAddEvap">+</button></div>
+      </div>
+      <p class="small">Folga Alvo editável direto na linha. Máximo 5 linhas. "Considerar" define a vinculada à Válvula (8.1).</p>
+      <div id="c2_evapList" style="border:1px solid var(--line);"></div>
+      <p class="small" style="color:#6b7280;">A seleção de Válvula de Expansão de cada linha de forçador aparece dentro da própria linha, acima.</p>
+      <div id="c2_alertas"></div>
+
+      <div style="text-align:right;margin:14px 0;">
+        <button class="btn-text" id="c2_btnExcluir" style="display:none;">Excluir Câmara</button>
+        <button class="btn-text" id="c2_btnDuplicar" style="display:none;">Duplicar Câmara</button>
+        <button class="btn-text" id="c2_btnNova">+ Nova Câmara</button>
+        <span class="btn-text" id="c2_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <button class="btn-wide" id="c2_btnSalvar">Salvar Câmara</button>
+      </div>
+
+    </div></div>
+    <div class="side">
+      <h4>Carga Térmica Total</h4>
+      <div class="side-row"><span>Q1 Produto</span><span id="c2_sideQ1">—</span></div>
+      <div class="side-row"><span>Q2 Embalagem</span><span id="c2_sideQ2">—</span></div>
+      <div class="side-row"><span>Q3 Penetração</span><span id="c2_sideQ3">—</span></div>
+      <div class="side-row"><span>Q4 Infiltração</span><span id="c2_sideQ4">—</span></div>
+      <div class="side-row"><span>Q5 Pessoas</span><span id="c2_sideQ5">—</span></div>
+      <div class="side-row"><span>Q6 Iluminação</span><span id="c2_sideQ6">—</span></div>
+      <div class="side-row"><span>Q7 Equipamentos</span><span id="c2_sideQ7">—</span></div>
+      <div class="side-row"><span>Q8 Forçadores</span><span id="c2_sideQ8">—</span></div>
+      <div class="side-row"><span>Fator Segurança</span><span id="c2_sideFator">—</span></div>
+      <div class="side-row"><span>Tempo Func. Compr.</span><span id="c2_sideTempo">—</span></div>
+      <div class="cap-box">Capacidade Requerida<br>(kcal/h)<br><span id="c2_sideCap" style="font-size:15px;">—</span></div>
+    </div>
+    </div>
+    </div>
+    </div>
+
+    <div class="body-pad">
+      <div class="sec-title">Lista de Câmaras Calculadas — Cálculo Completo
+        <span class="btn-text" id="c2_btnNovaTopo" style="margin-left:12px;">+ Nova Câmara</span>
+      </div>
+      <div id="c2_lista"></div>
+
+      <div class="sec-title" style="margin-top:18px;">Importação de Válvulas de Expansão (Excel)
+        <span class="sub">— cobre câmaras Completo e Simples deste projeto num upload só</span></div>
+      <p class="small">
+        <a href="/api/valvulas-import/documento" download class="btn-text">Baixar Instruções (Word)</a> ·
+        <a href="/api/valvulas-import/template" download class="btn-text">Baixar Modelo (Excel)</a>
+      </p>
+      <input type="file" id="vi_arquivo" accept=".xlsx">
+      <div id="vi_previewWrap" style="display:none;margin-top:10px;">
+        <div id="vi_preview"></div>
+        <p style="text-align:right;margin-top:8px;">
+          <span class="btn-text" id="vi_btnCancelar">Cancelar</span>
+          <button class="btn-wide" id="vi_btnConfirmar">Confirmar Importação</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 3 — CÂMARA SIMPLES ===================== -->
+  <div class="screen" id="tela3">
+    <div class="titlebar"><span>TELA 3 — CÂMARA / CÁLCULO SIMPLES</span><small>Tabela 02</small></div>
+    <div id="t3_aviso_sem_projeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t3_conteudo" style="display:none;">
+    <div id="c3_formWrap" style="display:none;">
+    <div class="layout2">
+    <div><div class="body-pad">
+      <div class="grid g4" style="margin-bottom:6px;">
+        <div><label class="lbl">Nome da Câmara</label><input type="text" id="c3_nome" data-id-campo="T31"></div>
+        <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c3_sistema_id" data-id-campo="T32"></select></div>
+        <div><label class="lbl">Linha de Sucção</label><input type="text" id="c3_linha_succao" data-id-campo="T33"></div>
+        <div><label class="lbl">Linha Elétrica</label><input type="text" id="c3_linha_eletrica" data-id-campo="T34"></div>
+      </div>
+      <p class="small">Código completo: <strong id="c3_codigo">—</strong></p>
+
+      <div class="sec-title">1. Tipo de Câmara (Tabela 02)</div>
+      <div class="grid g4">
+        <div style="grid-column:span 2"><label class="lbl">Tipo</label><select id="c3_tabela02_id" data-id-campo="T35"></select></div>
+        <div><label class="lbl">Pé-Direito (m)</label><select id="c3_pedireito" data-id-campo="T37"></select></div>
+        <div></div>
+      </div>
+      <div class="grid g4" style="margin-top:8px;">
+        <div><label class="lbl">Largura (m)</label><input type="text" id="c3_largura" data-id-campo="T329"></div>
+        <div><label class="lbl">Comprimento (m)</label><input type="text" id="c3_comprimento" data-id-campo="T330"></div>
+        <div><label class="lbl">Área (m²) <span class="readonly-tag">calculada</span></label><input type="text" id="c3_area" disabled></div>
+        <div></div>
+      </div>
+      <div class="grid g4" style="margin-top:8px;">
+        <div><label class="lbl">Temp. Interna (°C) <span class="readonly-tag">default do tipo, editável</span></label><input type="text" id="c3_temp_interna" data-id-campo="T38"></div>
+        <div id="c3_valvRegWrap" style="display:none;"><label class="lbl">Utilizar Válv. Reg. de Pressão?</label>
+          <select id="c3_utilizar_valv_reg_pressao" data-id-campo="T39"><option value="">—</option><option value="Sim">Sim</option><option value="Não">Não</option></select></div>
+        <div id="c3_dtDesejadoWrap" style="display:none;"><label class="lbl">Dt. Evaporação Desejado (°C)</label>
+          <input type="text" id="c3_dt_evaporacao_desejado" data-id-campo="T310" placeholder="entre 4 e 10"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">2. Vão de Porta <span class="sub">— só gera a carga elétrica de Res. Portas na Tela 5, não entra na carga térmica</span></div>
+      <div class="grid g4">
+        <div><label class="lbl">Nº de Portas</label><input type="text" id="c3_num_portas" data-id-campo="T311"></div>
+        <div><label class="lbl">Largura do Vão (m)</label><input type="text" id="c3_porta_largura" data-id-campo="T312"></div>
+        <div><label class="lbl">Altura do Vão (m)</label><input type="text" id="c3_porta_altura" data-id-campo="T313"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">3. Iluminação</div>
+      <div class="grid g4">
+        <div><label class="lbl">Qtd. Luminárias</label><input type="text" id="c3_qtd_luminarias" data-id-campo="T331"></div>
+        <div><label class="lbl">Tipo Ambiente</label><select id="c3_tipo_ambiente_lumino_id" data-id-campo="T332"><option value="">—</option></select></div>
+        <div><label class="lbl">Horas Iluminação/Dia (carga)</label><input type="text" id="c3_horas_iluminacao_carga" data-id-campo="T333"></div>
+        <div><label class="lbl">Potência/Luminária (W)</label><select id="c3_potencia_luminaria_texto" data-id-campo="T335"><option value="">—</option></select></div>
+        <div><label class="lbl">Modelo Luminária</label><select id="c3_modelo_luminaria_texto" data-id-campo="T334"><option value="">—</option></select></div>
+        <div><label class="lbl">Fluxo Luminoso (lm) <span class="readonly-tag">calculado</span></label><input type="text" id="c3_lumFluxo" disabled value="—"></div>
+        <div><label class="lbl">Lux Calculado <span class="readonly-tag">calculado</span></label><input type="text" id="c3_lumLuxCalc" disabled value="—"></div>
+        <div><label class="lbl">Diferença (Lux Calc.-Req.) <span class="readonly-tag">calculado</span></label><input type="text" id="c3_lumDiferenca" disabled value="—"></div>
+        <div><label class="lbl">Atende Norma? <span class="readonly-tag">calculado</span></label><input type="text" id="c3_lumAtende" disabled value="—"></div>
+      </div>
+
+      <div class="sec-title">Resultado</div>
+      <div class="grid g3">
+        <div><label class="lbl">Carga Térmica (calculada)</label><input type="text" id="c3_cargaCalc" disabled value="—"></div>
+        <div><label class="lbl">Potência Ilum. (W) <span class="sub">— usada em Compilação/Consumo</span></label><input type="text" id="c3_potenciaIlum" disabled value="—"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">Parâmetros de Dimensionamento</div>
+      <div class="grid g3">
+        <div><label class="lbl">Fator de Segurança (%)</label><input type="text" id="c3_fator_seguranca" data-id-campo="T314" value="10"></div>
+        <div><label class="lbl">Capacidade Requerida (kcal/h)</label><input type="text" id="c3_capRequerida" disabled value="—"></div>
+        <div></div>
+      </div>
+
+      <div class="sec-title">2. Seleção de Forçadores de Ar (Evaporador)
+        <span class="sub" id="c3_btnAtualizarCalculo" style="cursor:pointer;">— Atualizar Cálculo ↻</span>
+      </div>
+      <div class="add-row" style="grid-template-columns:1.6fr 1.3fr 56px;margin-top:8px;">
+        <div><label class="lbl">Fabricante</label><select id="c3_evFab" data-id-campo="T315"></select></div>
+        <div><label class="lbl">Linha</label><select id="c3_evLinha" data-id-campo="T316"></select></div>
+        <div><label class="lbl">&nbsp;</label><button class="btn" id="c3_btnAddEvap">+</button></div>
+      </div>
+      <div id="c3_evapList" style="border:1px solid var(--line);"></div>
+      <p class="small" style="color:#6b7280;">A seleção de Válvula de Expansão de cada linha de forçador aparece dentro da própria linha, acima.</p>
+      <div id="c3_alertas"></div>
+
+      <div style="text-align:right;margin:14px 0;">
+        <button class="btn-text" id="c3_btnExcluir" style="display:none;">Excluir Câmara</button>
+        <button class="btn-text" id="c3_btnDuplicar" style="display:none;">Duplicar Câmara</button>
+        <button class="btn-text" id="c3_btnNova">+ Nova Câmara</button>
+        <span class="btn-text" id="c3_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <button class="btn-wide" id="c3_btnSalvar">Salvar Câmara</button>
+      </div>
+    </div></div>
+    <div class="side">
+      <h4>Resumo</h4>
+      <div class="side-row"><span>Carga Térmica</span><span id="c3_sideCarga">—</span></div>
+      <div class="side-row"><span>Fator Segurança</span><span id="c3_sideFator">—</span></div>
+      <div class="cap-box">Capacidade Requerida<br>(kcal/h)<br><span id="c3_sideCap" style="font-size:15px;">—</span></div>
+    </div>
+    </div>
+    </div>
+    </div>
+    <div class="body-pad">
+      <div class="sec-title">Lista de Câmaras Calculadas — Cálculo Simples
+        <span class="btn-text" id="c3_btnNovaTopo" style="margin-left:12px;">+ Nova Câmara</span>
+      </div>
+      <div id="c3_lista"></div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 4 — EXPOSITOR ===================== -->
+  <div class="screen" id="tela4">
+    <div class="titlebar"><span>TELA 4 — EXPOSITOR</span><small></small></div>
+    <div id="t4_aviso_sem_projeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t4_conteudo" style="display:none;">
+    <div id="c4_formWrap" style="display:none;">
+    <div class="body-pad" style="max-width:900px;">
+      <div class="grid g4" style="margin-bottom:6px;">
+        <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c4_sistema_id" data-id-campo="T41"></select></div>
+        <div><label class="lbl">Linha de Sucção</label><input type="text" id="c4_linha_succao" data-id-campo="T42"></div>
+        <div><label class="lbl">Linha Elétrica</label><input type="text" id="c4_linha_eletrica" data-id-campo="T43"></div>
+        <div><label class="lbl">Setor</label><select id="c4_setor_id" data-id-campo="T44"></select></div>
+      </div>
+      <div class="sec-title">Banco de Dados</div>
+      <div class="grid g2">
+        <div><label class="lbl">Banco de Dados</label><select id="c4_banco_id" data-id-campo="T45"></select></div>
+        <div><label class="lbl">Modelo</label><select id="c4_modelo_expositor_id" data-id-campo="T46"></select></div>
+      </div>
+
+      <div class="sec-title">Modulação <span class="sub">— módulos pré-definidos do fabricante, combináveis</span></div>
+      <div class="add-row" style="grid-template-columns:1.3fr 1fr 56px;">
+        <div><label class="lbl">Comprimento do Módulo (m)</label>
+          <select id="c4_modCompr" data-id-campo="T47"><option>0,75</option><option>1,25</option><option>1,50</option><option>2,50</option><option>3,75</option></select></div>
+        <div><label class="lbl">Quantidade</label><input type="text" id="c4_modQtd" data-id-campo="T48" value="1"></div>
+        <div><label class="lbl">&nbsp;</label><button class="btn" id="c4_btnAddModulo">+</button></div>
+      </div>
+      <p class="small">Resultado: <strong id="c4_modulacaoResultado">—</strong></p>
+      <div id="c4_modulosList"></div>
+
+      <div class="sec-title">Atributos do Modelo <span class="sub">— vem pronto do catálogo, não calculado</span></div>
+      <div class="grid g3">
+        <div><label class="lbl">Carga Térmica (kcal/h)</label><input type="text" id="c4_cargaExpositor" disabled value="—"></div>
+        <div></div><div></div>
+      </div>
+
+      <div style="text-align:right;margin:14px 0;">
+        <button class="btn-text" id="c4_btnExcluir" style="display:none;">Excluir Expositor</button>
+        <button class="btn-text" id="c4_btnNovo">+ Novo Expositor</button>
+        <span class="btn-text" id="c4_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <button class="btn-wide" id="c4_btnSalvar">Salvar Expositor</button>
+      </div>
+    </div>
+    </div>
+    <div class="body-pad">
+      <div class="sec-title">Lista de Expositores Cadastrados
+        <span class="btn-text" id="c4_btnNovoTopo" style="margin-left:12px;">+ Novo Expositor</span>
+      </div>
+      <div id="c4_lista"></div>
+    </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 5 — COMPILAÇÃO ===================== -->
+  <div class="screen" id="tela5">
+    <div class="titlebar"><span>TELA 5 — COMPILAÇÃO LINHAS</span><small></small></div>
+    <div id="t5_aviso_sem_projeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t5_conteudo" class="body-pad" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span class="sec-title" style="border-bottom:none;margin:0;">Compilação — Expositores + Cálculo Simples + Cálculo Completo</span>
+        <div class="no-print" style="display:flex;align-items:center;gap:10px;">
+          <label class="lbl" style="margin:0;">Fator de Potência <span class="sub">(p/ kVA)</span>
+            <input type="text" id="t5_fatorPotencia" data-id-campo="T51" value="0,92" style="width:50px;display:inline-block;margin-left:4px;"></label>
+          <button class="btn-text" id="btnAtualizarCompilacao">Atualizar</button>
+          <span class="btn-text" id="btnExportarExcel" style="margin-left:6px;">Exportar Excel</span>
+          <span class="btn-text" id="btnExportarPdf" style="margin-left:6px;">Imprimir / Salvar PDF</span>
+        </div>
+      </div>
+      <div id="compilacaoView"></div>
+      <div class="no-print" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:center;">
+        <div id="t5_colunasResumoBox" style="display:flex;flex-wrap:wrap;gap:2px 12px;align-items:center;"></div>
+        <label class="lbl" style="margin:0;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">Fonte Tensão Quadro de Linhas
+          <span class="sub" title="Decisão do projetista elétrico — vale pra todos os Quadros de Linhas do projeto. Não afeta a elétrica dos forçadores por linha (fixa em Tensão de Comando).">?</span>
+          <select id="t5_quadroTensaoFonte" data-id-campo="T52" style="width:170px;display:inline-block;">
+            <option value="equipamentos">Tensão de Equipamentos</option>
+            <option value="comando">Tensão de Comando</option>
+          </select>
+        </label>
+      </div>
+      <div id="t5_notaQuadroTensao" class="no-print" style="margin-top:6px;font-size:12.5px;color:#a15c00;background:#fff6e5;border:1px solid #f0d59a;border-radius:4px;padding:6px 10px;"></div>
+      <div id="t5_resumoPotenciaView"></div>
+      <div id="t5_colunasResumoCompressaoBox" class="no-print" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:center;"></div>
+      <div id="t5_resumoCompressaoView"></div>
+      <div id="t5_totalGeralView"></div>
+
+      <div class="sec-title" style="margin-top:14px;">Observações Técnicas <span class="sub">— aparece na tela e nas exportações</span></div>
+      <textarea id="t5_observacao" data-id-campo="T53" rows="8" style="width:100%;font-size:12px;"></textarea>
+      <p class="no-print" style="text-align:right;margin-top:6px;">
+        <span class="btn-text" id="t5_btnRestaurarObs">Restaurar Padrão</span>
+        <button class="btn-wide" id="t5_btnSalvarObs">Salvar Observação</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 6 — FORÇADORES + IMPORTAÇÃO ===================== -->
+  <div class="screen" id="tela6">
+    <div class="titlebar"><span>TELA A — CATÁLOGO DE FORÇADORES DE AR</span><small>Etapa 3</small></div>
+    <div class="body-pad">
+
+      <div class="sec-title">Importar Planilha (.xlsx)</div>
+      <p class="small">Estrutura fixa (5 abas: Modelos, Capacidades, Eletrica, Fisicos, Dimensionais) — leitura direta de célula, sem nenhuma adivinhação de texto/imagem. Depois de subir o arquivo, os dados aparecem numa tabela para você conferir e corrigir antes de confirmar. Reimportar uma linha com dados idênticos não duplica nada, só anota; dados diferentes criam uma nova versão, mantendo a anterior intacta.</p>
+      <div class="grid g3">
+        <div><a class="btn-wide" id="f6_btnBaixarTemplate" style="display:inline-block;text-decoration:none;text-align:center;">Baixar Planilha Modelo</a></div>
+        <div style="grid-column:span 2;"><input type="file" id="f6_arquivoExcel" accept=".xlsx"></div>
+      </div>
+      <div id="f6_resultadoExcel" class="small" style="margin-top:8px;"></div>
+
+      <div id="f6_previewWrap" style="display:none;">
+        <div class="sec-title">Revisão da Importação <span class="sub">— confira e corrija antes de gravar</span></div>
+        <div id="f6_previewLinhas"></div>
+        <div style="margin-top:10px;margin-bottom:6px;">
+          <label style="font-size:13px;font-weight:600;">Destino na Árvore de IDs Comerciais:</label>
+          <select id="f6_idPai" style="margin-left:6px;font-size:13px;"></select>
+        </div>
+        <p style="margin-top:12px;"><button class="btn" id="f6_btnConfirmarImportacao">Confirmar Importação</button>
+          <span class="btn-text" id="f6_btnCancelarPreview" style="margin-left:12px;">Cancelar</span></p>
+      </div>
+
+      <div class="sec-title">Preparar Importação a partir de Imagens <span class="sub">— gera um Word para você preencher e colar os prints do catálogo, e levar numa conversa com o Claude para gerar o Excel acima</span></div>
+      <p><a class="btn-wide" id="f6_btnBaixarDocumento" style="display:inline-block;text-decoration:none;">Gerar Documento de Importação (.docx)</a></p>
+
+      <div class="sec-title">Catálogo Cadastrado <span class="sub">— Fabricantes são criados automaticamente ao importar uma linha</span>
+        <span class="btn-text" id="f6_btnExportar" style="margin-left:12px;">⭳ Exportar Banco (Excel)</span>
+      </div>
+      <div id="f6_exportFiltro" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:12px;">
+        <div class="grid g4">
+          <div><label class="lbl">Fabricante</label><select id="f6exp_fabricante"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Linha</label><select id="f6exp_linha"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Aletas por Polegada (FPI)</label><select id="f6exp_fpi"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Pé-Direito Recomendado (PDL)</label><select id="f6exp_pdl"><option value="">Todos</option></select></div>
+        </div>
+        <p style="text-align:right;margin-top:8px;">
+          <span class="btn-text" id="f6exp_cancelar">Cancelar</span>
+          <button class="btn" id="f6exp_gerar" style="margin-left:8px;">Gerar Excel</button>
+        </p>
+      </div>
+      <div id="f6_linhasList"></div>
+
+      <div id="f6_linhaDetalheWrap" style="display:none;">
+        <div class="sec-title" id="f6_linhaDetalheTitulo">Modelos
+          <span class="sub" id="f6_btnFecharLinha" style="cursor:pointer;">— Fechar ✕</span>
+        </div>
+        <div class="grid g3" style="margin-bottom:10px;">
+          <div><label class="lbl">Nome do Catálogo/Linha</label><input type="text" id="f6_linhaNome"></div>
+          <div><label class="lbl">Id Comercial <span class="sub">— auto-gerado, categoria 6 = Forçador de Ar</span></label>
+            <input type="text" id="f6_linhaIdComercial" disabled></div>
+          <div><label class="checkrow"><input type="checkbox" id="f6_linhaObsoleto"> Obsoleto
+            <span class="sub" style="margin-left:6px;">— some da seleção nas Telas 2/3, continua salvo no banco</span></label></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:10px;">
+          <div><label class="lbl">Descrição Comercial <span class="sub">— vale pro catálogo inteiro</span></label>
+            <textarea id="f6_linhaDescricao" rows="3" style="width:100%;"></textarea></div>
+          <div><label class="lbl">Foto do Equipamento <span class="sub">— vale pro catálogo inteiro</span></label>
+            <input type="file" id="f6_linhaFotoInput" accept="image/*">
+            <div id="f6_linhaFotoPreview" style="margin-top:8px;"></div></div>
+        </div>
+        <div id="f6_linhaMatrizView"></div>
+        <p style="margin-top:8px;">
+          <button class="btn" id="f6_btnSalvarLinha">Salvar</button>
+          <span class="btn-text danger" id="f6_btnExcluirLinha" style="margin-left:8px;">Excluir Catálogo</span>
+        </p>
+
+        <div class="sec-title">Fator de Correção por Gás Refrigerante</div>
+        <div id="f6_fatoresGas"></div>
+
+        <div class="sec-title">Nomenclatura de Compra <span class="sub">— rótulo, opções, ordem e Modo de cada coluna do código comercial deste catálogo</span></div>
+        <div id="f6_nomenclatura"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 8 — CONFIGURAÇÕES / BANCO DE DADOS ===================== -->
+  <div class="screen" id="tela7">
+    <div class="titlebar"><span>TELA E — CONFIGURAÇÕES DE SISTEMA E BANCO DE DADOS</span><small></small></div>
+    <div class="body-pad">
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Backup do Banco de Dados</summary>
+        <p class="sub">Gera uma cópia do banco de dados inteiro (todos os projetos) no momento atual. Você escolhe onde salvar o arquivo.</p>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnBackupBanco">Fazer Backup do Banco de Dados</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Configurações Globais</summary>
+        <div id="cfg_lista"></div>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Equipamentos Diversos (Q7)</summary>
+        <div id="cfg_equipamentos"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddEquipamento">+ adicionar equipamento</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Majoração de Insolação por Orientação <span class="sub">— referência de mercado, ver item 12.1</span></summary>
+        <div id="cfg_fatorInsolacao"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddInsolacao">+ adicionar orientação</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 11 - Ambientes para Estudo Luminotécnico</summary>
+        <div id="cfg_ambientesLuminotecnico"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddAmbienteLuminotecnico">+ adicionar ambiente</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 11 - Cadastro Lâmpadas</summary>
+        <div id="cfg_lampadas"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddLampada">+ adicionar lâmpada</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Produtos Estocados (Câmara Completa) <span class="sub">— 209 itens</span></summary>
+        <div id="cfg_produtos"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddProduto">+ adicionar produto</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 3 – Tipos de Produto (Cálculo Simples)</summary>
+        <div id="cfg_tabela02"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabela02">+ adicionar tipo</span></p>
+        <p class="small" style="margin-top:12px;">Carga tabelada por faixa de área (kcal/h) — a fonte real do usuário ("Tabela Câmaras Simples.xlsx"). O cálculo consulta esta tabela pela área da câmara e multiplica pelo Fator Altura; não é mais um fator fixo por m².</p>
+        <div id="cfg_tabela02Faixas" style="max-height:420px;overflow-y:auto;"></div>
+        <p style="margin-top:8px;"><button class="btn" id="cfg_btnSalvarTabela02Faixas">Salvar alterações da tabela</button> <span class="btn-text" id="cfg_btnAddFaixaTabela02" style="margin-left:12px;">+ adicionar faixa de área</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 6 - Polinômios de Compressor <span class="sub">— coeficientes EN12900 (c1..c10) importados por fabricante, usados no cálculo em tempo real da Tela 6</span></summary>
+        <div class="add-row" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:10px;">
+          <div><label class="lbl">Fabricante</label><select id="cfg_poli_fabricante"></select></div>
+          <div><label class="lbl">Linha</label><select id="cfg_poli_linha"></select></div>
+          <div><label class="lbl">Gás</label><select id="cfg_poli_gas"></select></div>
+          <div><label class="lbl">Modelo</label><select id="cfg_poli_modelo"><option value="">— todos —</option></select></div>
+        </div>
+        <div id="cfg_poli_tabela"></div>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 10 - Tabela Centro de Custos <span class="sub">— mestre global, usada nos filtros/vínculos da Tela 10 de todos os projetos</span></summary>
+        <div id="cfg_centroCusto" style="display:none;">
+          <table class="list">
+            <thead><tr><th style="width:120px;">Código</th><th style="width:120px;">Referência ID</th><th>Descrição</th><th style="width:40px;"></th></tr></thead>
+            <tbody id="cfg_centroCustoLista"></tbody>
+          </table>
+          <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddCentroCusto">+ adicionar centro de custo</span></p>
+        </div>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 7 - Painéis e Portas <span class="sub">— listas de seleção de lançamento</span></summary>
+        <div class="small" style="font-weight:bold;margin-bottom:4px;">Painel + Piso</div>
+        <div id="cfg_lkp_painelPiso"></div>
+        <div class="small" style="font-weight:bold;margin:16px 0 4px;">Portas</div>
+        <div id="cfg_lkp_portas"></div>
+        <p class="small" style="margin-top:8px;color:#6b7280;">Para incluir, digite na linha vazia no fim de cada coluna. Para excluir, apague o conteúdo da célula. Grupo é obrigatório em Modelo/Sentido (Frio/Preparo/Doca).</p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 7 - Painéis Isolantes — Parede/Teto <span class="sub">— fornecedor padrão único (Kingspan), U em kcal/h·m²·°C</span></summary>
+        <div id="cfg_isolamentoParedeTeto"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddEspessura">+ adicionar espessura</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 7 - Painéis Isolantes — Piso</summary>
+        <div id="cfg_isolamentoPiso"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddPiso">+ adicionar opção</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela D - Tabela de Ids Comerciais <span class="sub">— árvore de códigos (ver Instruções de Id) que liga cada campo/opção do app ao texto comercial certo</span></summary>
+        <div id="cfg_idsComerciais"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddIdComercial">+ adicionar Id</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Configurações Sistema <span class="sub">— Ids de todo campo de preenchimento das Telas 1 a 7, somente consulta (nunca editável aqui)</span></summary>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <span class="btn-text" id="cfg_btnExportarCamposExcel">Exportar Excel</span>
+        </div>
+        <div id="cfg_camposSistema"></div>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 6 - Classificação de Sistemas e Envelope Compressores <span class="sub">— faixa de Temp. Evap. do sistema x faixa de cada família Bitzer (Semi-Hermético/Duplo Estágio)</span></summary>
+        <div id="cfg_classificacaoSistema"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddClassificacaoSistema">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 6 - Lubrificante Compressores <span class="sub">— Gás Refrigerante x Tipo de Óleo recomendado, por fabricante</span></summary>
+        <div id="cfg_lubrificanteCompressor"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddLubrificanteCompressor">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 6 - Dados Físicos Compressores Bitzer <span class="sub">— 89 modelos cadastrados, dados técnicos em branco (preenchimento manual)</span></summary>
+        <div id="cfg_dadosFisicosBitzer"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddDadosFisicosBitzer">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 5 - Tabela de Disjuntores (Termomagnético) <span class="sub">— fonte: Tabela de Disjuntores.xlsx</span></summary>
+        <div id="cfg_tabelaDisjuntorTermomagnetico"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabelaDisjuntorTermomagnetico">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 5 - Tabela de Disjuntores (DDR) <span class="sub">— fonte: Tabela de Disjuntores.xlsx</span></summary>
+        <div id="cfg_tabelaDisjuntorDdr"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabelaDisjuntorDdr">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela A - Tabelas de Válvulas de Expansão (Válvulas) <span class="sub">— mecânica por modelo; fonte: Tabela Válvulas de Expansão.xlsx</span></summary>
+        <div id="cfg_tabelaValvulaExpansao"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabelaValvulaExpansao">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela A - Tabelas de Válvulas de Expansão (Controladores/Drivers) <span class="sub">— classificação Universal / Alta-Média / Baixa</span></summary>
+        <div id="cfg_tabelaControladorValvula"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabelaControladorValvula">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela A - Tabelas de Válvulas de Expansão (Compatibilidade) <span class="sub">— um par válvula × controlador por linha (só os compatíveis)</span></summary>
+        <div id="cfg_tabelaCompatibilidadeValvula"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddTabelaCompatibilidadeValvula">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 1 - Lista de Estados Brasileiros <span class="sub">— fonte: Tabela Lista Estados.xlsx</span></summary>
+        <div id="cfg_estadosBrasileiros"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddEstadoBrasileiro">+ adicionar</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 1 - Dados Climatológicos INMET 1990-2020 <span class="sub">— fonte: Tabela de Dados Climatológicos.xlsx (Temp. Máx. Histórica + UR Média pareada)</span></summary>
+        <div id="cfg_dadosClimatologicosInmet"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddDadosClimatologicosInmet">+ adicionar</span></p>
+      </details>
+    </div>
+  </div>
+
+  <div class="screen" id="tela8">
+    <div class="titlebar"><span>TELA B — UNIDADES CONDENSADORAS COMERCIAIS</span></div>
+    <div class="body-pad">
+      <div class="sec-title">Importação de Catálogo</div>
+      <p class="small">Planilha gerada a partir da leitura do catálogo completo do fabricante (script de extração). Suba o .xlsx aqui.</p>
+      <div class="add-row" style="grid-template-columns:1.4fr 1.6fr;">
+        <div><a class="btn-wide" id="ucBtnTemplate" style="display:inline-block;text-decoration:none;text-align:center;">Baixar Planilha Modelo (.xlsx)</a></div>
+        <div><input type="file" id="ucArquivo" accept=".xlsx"></div>
+      </div>
+
+      <div class="sec-title" style="margin-top:14px;">Preparar Importação a partir de Imagens <span class="sub">— alternativa: gera um Word pra você preencher e colar prints do catálogo (quando não tiver o PDF completo), e levar numa conversa com o Claude pra gerar o Excel acima</span></div>
+      <p><a class="btn-wide" id="ucBtnDocumento" style="display:inline-block;text-decoration:none;">Baixar Documento de Importação (.docx)</a></p>
+
+      <div id="ucResultado" class="small" style="margin-top:8px;"></div>
+      <div id="ucPreviewWrap" style="display:none;margin-top:10px;">
+        <div class="sec-title">Prévia — confira e corrija antes de gravar</div>
+        <div class="tabs" style="margin-bottom:8px;">
+          <button class="subtab-btn active" id="ucPrevTabMec" type="button">Mecânica</button>
+          <button class="subtab-btn" id="ucPrevTabEle" type="button">Elétrica / Física / Dimensional</button>
+        </div>
+        <div id="ucPreviewMecanica"></div>
+        <div id="ucPreviewEletrica" style="display:none;"></div>
+        <div style="margin-top:10px;margin-bottom:6px;">
+          <label style="font-size:13px;font-weight:600;">Destino na Árvore de IDs Comerciais:</label>
+          <select id="uc_idPai" style="margin-left:6px;font-size:13px;"></select>
+        </div>
+        <p style="margin-top:10px;"><button class="btn" id="ucBtnConfirmar">Confirmar Importação</button>
+          <span class="btn-text" id="ucBtnCancelar" style="margin-left:12px;">Cancelar</span></p>
+      </div>
+
+      <div class="sec-title" style="margin-top:20px;">Catálogo de Unidades Condensadoras
+        <span class="btn-text" id="ucBtnExportar" style="margin-left:12px;">⭳ Exportar Banco (Excel)</span>
+      </div>
+      <div id="ucCatalogo"></div>
+
+      <div id="ucDetalheWrap" style="display:none;margin-top:16px;">
+        <div class="sec-title" id="ucDetalheTitulo">Unidade
+          <span class="sub" id="ucBtnFechar" style="cursor:pointer;">— Fechar ✕</span>
+        </div>
+        <div class="tabs" style="margin-bottom:8px;">
+          <button class="subtab-btn active" id="ucDetTabMec" type="button">Mecânica</button>
+          <button class="subtab-btn" id="ucDetTabEle" type="button">Elétrica</button>
+        </div>
+        <div id="ucDetalhe"></div>
+        <div id="ucDetalheEletrica" style="display:none;"></div>
+        <p style="margin-top:8px;">
+          <button class="btn" id="ucBtnSalvar">Salvar</button>
+          <span class="btn-text danger" id="ucBtnExcluir" style="margin-left:8px;">Excluir Unidade</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA D — CONSUMO ELÉTRICO ===================== -->
+  <div class="screen" id="tela9">
+    <div class="titlebar"><span>TELA 9 — CÁLCULO DE CONSUMO ELÉTRICO E PAYBACK</span></div>
+    <div class="body-pad">
+      <p class="small">Calculado por sistema, a partir da Unidade Condensadora considerada (Tela 1)
+        e dos forçadores considerados em cada câmara — dois cenários: <strong>Projeto</strong>
+        (conforme configurado) e <strong>Simples</strong> (sem inversor/EEV/degelo a gás quente,
+        pra medir o payback dos otimizadores). Só disponível para sistemas com Unidade Condensadora
+        Comercial — Rack Paralelo ainda não tem catálogo elétrico no app.</p>
+      <div id="t9_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+      <div id="t9_conteudo" style="display:none;">
+        <div style="text-align:right;margin-bottom:8px;" class="no-print">
+          <span class="btn-text" id="t9_btnImprimir">Imprimir / Salvar PDF</span>
+          <span class="btn-text" id="t9_btnExportarExcel" style="margin-left:10px;">Exportar Excel</span>
+        </div>
+        <div id="t9_sistemas"></div>
+        <div class="sec-title" style="margin-top:20px;">Total do Projeto</div>
+        <div id="t9_total"></div>
+
+        <div class="sec-title" style="margin-top:14px;">Observações Técnicas <span class="sub">— metodologia e premissas deste cálculo</span></div>
+        <textarea id="t9_observacao" rows="10" style="width:100%;font-size:12px;"></textarea>
+        <p style="text-align:right;margin-top:6px;">
+          <span class="btn-text" id="t9_btnRestaurarObs">Restaurar Padrão</span>
+          <button class="btn-wide" id="t9_btnSalvarObs">Salvar Observação</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA E — PAINÉIS TÉRMICOS E PORTAS ===================== -->
+  <div class="screen" id="tela10">
+    <div class="titlebar"><span>TELA 7 — PAINÉIS TÉRMICOS E PORTAS</span></div>
+    <div class="body-pad">
+      <div id="t10_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+      <div id="t10_conteudo" style="display:none;">
+
+        <div class="no-print" style="text-align:right;margin-bottom:8px;">
+          <span class="btn-text danger" id="t10_btnLimparTudo" title="Apaga todos os painéis e portas deste projeto — use se aparecer câmara de outro projeto na lista">Limpar Tudo (Painéis e Portas)</span>
+        </div>
+        <div class="no-print">
+        <div class="sec-title">Configuração de Placas do Projeto <span class="sub">— um valor só por projeto, vale pra todos os painéis lançados</span></div>
+        <div class="grid g4">
+          <div><label class="lbl">Largura da Placa (Parede/Teto) (m)</label><input type="text" id="t10_largPlaca" data-id-campo="T71"></div>
+          <div><label class="lbl">Largura da Placa de Piso (m)</label><input type="text" id="t10_pisoLarg" data-id-campo="T72"></div>
+          <div><label class="lbl">Comprimento da Placa de Piso (m)</label><input type="text" id="t10_pisoComp" data-id-campo="T73"></div>
+          <div><label class="lbl">Largura Mín. de Aproveitamento (m) <span class="sub">— sobra de placa (Parede/Teto) abaixo desse valor é descartada</span></label><input type="text" id="t10_larguraMinAprov" data-id-campo="T74"></div>
+        </div>
+        <p style="margin-top:8px;"><button class="btn" id="t10_btnSalvarPlacas">Salvar Configuração de Placas</button></p>
+
+        <div class="sec-title" style="margin-top:20px;">Painéis <span class="sub">— Parede, Teto e Isolamento de Piso</span></div>
+        <div id="t10_paineisTabela" style="overflow-x:auto;"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="t10_btnAddPainel">+ Adicionar Painel</span></p>
+
+        <div class="sec-title" style="margin-top:20px;">Portas</div>
+        <div id="t10_portasTabela" style="overflow-x:auto;"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="t10_btnAddPorta">+ Adicionar Porta</span> <label class="lbl" style="display:inline;margin-left:8px;">Qtd:</label> <input type="number" id="t10_qtdPortas" value="1" min="1" max="50" style="width:50px;display:inline-block;"></p>
+        </div>
+
+        <div class="sec-title" style="margin-top:20px;">Resumo</div>
+        <div class="tabs no-print" style="margin-bottom:8px;">
+          <button class="subtab-btn active" data-t10-modo="total">Total</button>
+          <button class="subtab-btn" data-t10-modo="painel_portas">Por Id. Painel + Portas por Câmara</button>
+          <button class="subtab-btn" data-t10-modo="painel_portas_geral">Por Id. Painel + Portas Lista Geral</button>
+          <button class="subtab-btn" data-t10-modo="camara">Por Câmara</button>
+        </div>
+        <div style="text-align:left;margin-bottom:8px;" class="no-print">
+          <span class="btn-text" id="t10_btnImprimir">Imprimir / Salvar PDF</span>
+          <span class="btn-text" id="t10_btnExportarExcel" style="margin-left:10px;">Exportar Excel</span>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:6px;padding:10px;width:fit-content;max-width:100%;">
+          <div id="t10_resumo"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 11 — ESTUDO LUMINOTÉCNICO ===================== -->
+  <div class="screen" id="tela18">
+    <div class="titlebar"><span>TELA 11 — ESTUDO LUMINOTÉCNICO</span></div>
+    <div class="body-pad">
+      <div id="t18_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+      <div id="t18_conteudo" style="display:none;">
+        <div style="text-align:right;margin-bottom:8px;" class="no-print">
+          <span class="btn-text" id="t18_btnImprimir">Imprimir / Salvar PDF</span>
+          <span class="btn-text" id="t18_btnExportarExcel" style="margin-left:10px;">Exportar Excel</span>
+        </div>
+        <p class="small" style="color:#6b7280;">Reflete automaticamente as câmaras (Completo/Simples) lançadas nas Telas 2/3 que já têm Tipo Ambiente + Modelo Luminária preenchidos — não é editável nem excluível aqui.</p>
+        <div id="t18_tabela" style="overflow-x:auto;"></div>
+        <div class="sec-title" style="margin-top:20px;">Resumo de Luminárias por Potência</div>
+        <div id="t18_resumo"></div>
+        <div class="sec-title" style="margin-top:20px;">Notas</div>
+        <div id="t18_notas" class="small" style="color:#374151;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 12 — COMPARATIVO DE REVISÕES ===================== -->
+  <div class="screen" id="tela16">
+    <div class="titlebar"><span>TELA 12 — COMPARATIVO DE REVISÕES DO PROJETO</span></div>
+    <div class="body-pad">
+      <div class="grid g3" style="align-items:end;">
+        <div><label class="lbl">Revisão A</label><select id="t16_revA"></select></div>
+        <div><label class="lbl">Revisão B</label><select id="t16_revB"></select></div>
+        <div><span class="btn-wide" id="t16_btnComparar" style="cursor:pointer;display:inline-block;text-align:center;">Comparar</span></div>
+      </div>
+      <p class="small" id="t16_aviso" style="color:#9ca3af;margin-top:10px;">Escolha as 2 revisões e clique em Comparar.</p>
+      <div id="t16_resultado" style="display:none;margin-top:16px;">
+        <div style="text-align:right;margin-bottom:8px;" class="no-print">
+          <span class="btn-text" id="t16_btnImprimir">Imprimir / Salvar PDF</span>
+          <span class="btn-text" id="t16_btnExportarExcel" style="margin-left:10px;">Exportar Excel</span>
+        </div>
+        <div id="t16_blocos"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA 6 — RACK PARALELO ===================== -->
+  <div class="screen" id="tela11">
+    <div class="titlebar"><span>TELA 6 — RACK PARALELO/CONDENSADOR REMOTO</span></div>
+    <div class="body-pad">
+      <div id="t11_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+
+      <div id="t11_importacao" style="display:none;">
+        <div class="sec-title">Importação de Rack (Excel)
+          <span class="sub">— a partir do relatório de seleção de compressores do fabricante</span></div>
+        <p class="small">
+          <a href="/api/rack-import/documento/bitzer" download class="btn-text">Baixar Instruções Bitzer (Word)</a> ·
+          <a href="/api/rack-import/documento/copeland" download class="btn-text">Baixar Instruções Copeland (Word)</a> ·
+          <a href="/api/rack-import/template" download class="btn-text">Baixar Modelo (Excel)</a>
+        </p>
+        <input type="file" id="t11_ri_arquivo" accept=".xlsx">
+        <div id="t11_ri_previewWrap" style="display:none;margin-top:10px;">
+          <div id="t11_ri_preview"></div>
+          <p style="text-align:right;margin-top:8px;">
+            <span class="btn-text" id="t11_ri_btnCancelar">Cancelar</span>
+            <button class="btn-wide" id="t11_ri_btnConfirmar">Confirmar Importação</button>
+          </p>
+        </div>
+      </div>
+
+      <div id="t11_semSistema" class="small" style="padding:16px;text-align:center;color:#9ca3af;display:none;">Nenhum sistema com Tipo de Compressão "Rack Paralelo" neste projeto (Tela 1 → Sistemas).</div>
+      <div id="t11_conteudo" style="display:none;">
+        <div class="sec-title">Sistema</div>
+        <div class="grid g3">
+          <div><label class="lbl">Sistema (Rack Paralelo)</label><select id="t11_sistema_id" data-id-campo="T61"></select></div>
+        </div>
+
+        <div class="sec-title" style="margin-top:16px;">Racks do Sistema <span class="sub">— opções alternativas; marque o considerado (é o que entra no cálculo/compilação). Clique num rack para editá-lo abaixo.</span></div>
+        <div id="t11_racksLista" style="width:fit-content;max-width:100%;"></div>
+        <p style="margin:4px 0 12px;"><span class="btn-text" id="t11_btnAddRack">+ Adicionar rack</span></p>
+
+        <div class="sec-title" style="margin-top:16px;">Informações Rack</div>
+        <div class="grid g3" style="grid-auto-flow:row;row-gap:10px;">
+          <div><label class="lbl">Tipo de Equipamento <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_tipoEquipamento" disabled></div>
+          <div><label class="lbl">Estrutura Equipamento <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_estrutura" disabled></div>
+          <div><label class="lbl">Modelo Comercial <span class="readonly-tag">gerado automaticamente</span></label><input type="text" id="t11_modelo_comercial" disabled></div>
+          <div><label class="lbl">Temp. Linha de Líquido (°C) <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_tempLinhaLiquido" disabled></div>
+          <div><label class="lbl">Tipo de Partida <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_tipoPartida" disabled></div>
+          <div style="grid-row:2 / span 3;grid-column:3;">
+            <pre style="margin:0;height:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:4px;padding:8px 10px;font-size:11.5px;line-height:1.5;color:#555;background:#fafafa;white-space:pre;">RK    — código base do Rack
+XXX   — capacidade (kW)
+N     — qtd. compressores
+X     — fabricante (1ª letra)
+CC/SC — carenado / sem carenagem
+CR    — condensador remoto
+CP/SP — com / sem supervisão</pre>
+          </div>
+          <div><label class="lbl">Gás Refrigerante <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_gasRefrigerante" disabled></div>
+          <div><label class="lbl">Modo Operação <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_tipoOperacao" disabled></div>
+          <div><label class="lbl">Carga Requerida do Sistema (kcal/h) <span class="readonly-tag">calculado</span></label><input type="text" id="t11_cargaRequerida" disabled></div>
+          <div><label class="lbl">Tensão <span class="readonly-tag">Projeto — Tela 1</span></label><input type="text" id="t11_tensao" disabled></div>
+          <div><label class="lbl">Fabricante Compressor</label><select id="t11_fabricante_compressor" data-id-campo="T62"></select></div>
+          <div><label class="lbl">Linha Compressor</label><select id="t11_linha_compressor" data-id-campo="T63"><option value="">—</option></select></div>
+          <div></div>
+        </div>
+        <p style="text-align:right;margin-top:8px;"><button class="btn-wide" id="t11_btnSalvar">Salvar Informações Rack</button></p>
+
+        <div class="sec-title" style="margin-top:20px;">Seleção de Compressores <span class="sub">— cálculo em tempo real pelo polinômio EN12900 (padrão Bitzer)</span></div>
+        <div class="grid g3" style="margin-top:6px;">
+          <div><label class="lbl">Quantidade de Compressores/Rack</label><input type="text" id="t11_quantidade_compressores" data-id-campo="T64"></div>
+          <div><label class="lbl">Folga Técnica (%) <span class="sub">— mesmo conceito de Forçadores/UC</span></label><input type="text" id="t11_folga_tecnica_pct" data-id-campo="T65"></div>
+          <div><label class="lbl">Qtd. de Racks em Paralelo <span class="sub">— divide a demanda do sistema por N racks idênticos</span></label><input type="text" id="t11_quantidade_paralelo" placeholder="1"></div>
+          <div><label class="lbl">Tipo Motor Compress. <span class="sub">— trava a faixa manualmente</span></label>
+            <select id="t11_filtro_motor_compressor" data-id-campo="T66">
+              <option value="">Automático (segue tabela)</option>
+              <option value="1">Motor 1</option>
+              <option value="2">Motor 2</option>
+              <option value="3">Motor 3</option>
+            </select>
+          </div>
+        </div>
+        <div id="t11_comp_semDados" class="small" style="padding:12px;text-align:center;color:#9ca3af;">Defina Quantidade de Compressores acima e salve pra habilitar a seleção.</div>
+        <div id="t11_comp_conteudo" style="display:none;">
+          <p class="small">Carga requerida do sistema (câmaras + expositores): <strong id="t11_comp_cargaRequerida"></strong> ·
+            Demanda total (com folga técnica): <strong id="t11_comp_demandaTotal"></strong> ·
+            Te = <strong id="t11_comp_te"></strong>°C · Tc = <strong id="t11_comp_tc"></strong>°C</p>
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+            <div style="flex:2;min-width:460px;">
+              <div id="t11_comp_posicoes"></div>
+              <p class="small" style="margin-top:10px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;" id="t11_comp_nota"></p>
+            </div>
+            <div style="flex:1;min-width:300px;border:1px solid var(--line);border-radius:6px;padding:10px;">
+              <div class="sec-title" style="margin-top:0;">Resumo do Rack <span class="readonly-tag">gerado automaticamente</span></div>
+              <table class="list"><tbody id="t11_resumoCampos"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec-title" style="margin-top:20px;">Seleção de Condensador Remoto <span class="sub">— catálogo da Tela C; capacidade corrigida pelos 5 fatores, ≥ calor rejeitado do rack</span></div>
+        <div class="small" style="color:#6b7280;margin-bottom:4px;">Opções (marque a considerada — é a que entra no cálculo/compilação):</div>
+        <div id="t11_cond_opcoesLista" style="width:fit-content;max-width:100%;"></div>
+        <p style="margin:4px 0 12px;"><span class="btn-text" id="t11_cond_btnAdd">+ Adicionar condensador</span></p>
+        <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:420px;">
+            <div class="grid g2" style="row-gap:10px;">
+              <div><label class="lbl">Temp. Linha de Líq. — Após Condensador (°C) <span class="readonly-tag">calculado</span></label><input type="text" id="t11_cond_tempAposCondensador" disabled></div>
+              <div><label class="lbl">Temp. Condensação (°C) <span class="readonly-tag">calculado</span></label><input type="text" id="t11_cond_tempCondensacao" disabled></div>
+              <div><label class="lbl">Fabricante Condensador</label><select id="t11_cond_fabricante" data-id-campo="T67"><option value="">—</option></select></div>
+              <div><label class="lbl">Linha Condensador</label><select id="t11_cond_linha" data-id-campo="T68"><option value="">—</option></select></div>
+              <div><label class="lbl">Tipo Condensador</label><select id="t11_cond_tipoCondensador" data-id-campo="T69"><option value="">—</option></select></div>
+              <div><label class="lbl" id="t11_cond_polos_label">Tipo de Motor</label><select id="t11_cond_polos" data-id-campo="T610"><option value="">Qualquer</option></select></div>
+              <div><label class="lbl">Aletas por Polegada (FPI)</label><select id="t11_cond_fpi" data-id-campo="T611"><option value="">Qualquer</option></select></div>
+              <div><label class="lbl">Proteção de Aletas</label><select id="t11_cond_protecaoAletas" data-id-campo="T612"><option value="">Padrão</option><option value="true">Protegida</option></select></div>
+              <div><label class="lbl">Delta de Condensação (°C)</label><input type="text" id="t11_cond_deltaCondensacao" data-id-campo="T133"></div>
+              <div><label class="lbl">Folga Condensador (%)</label><input type="text" id="t11_cond_folga" data-id-campo="T613"></div>
+              <div><label class="lbl">Quantidade de Condensadores <span class="readonly-tag">divide a capacidade necessária, dimensiona unidades iguais</span></label><input type="text" id="t11_cond_qtdCondensadores" data-id-campo="T614"></div>
+              <div style="grid-column:span 2;"><label class="lbl">Notas</label><textarea id="t11_cond_notas" data-id-campo="T615" rows="3" style="width:100%;"></textarea></div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:300px;border:1px solid var(--line);border-radius:6px;padding:10px;">
+            <div class="sec-title" style="margin-top:0;">Resumo do Condensador Remoto <span class="readonly-tag">gerado automaticamente</span></div>
+            <div id="t11_cond_resultado"></div>
+          </div>
+        </div>
+        <div id="t11_cond_nomenclatura" style="border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:12px;">
+          <div class="sec-title" style="margin-top:0;">Nomenclatura de Compra (Código Comercial)</div>
+          <div data-nomenc-cond-wrap></div>
+        </div>
+
+        <div class="sec-title" style="margin-top:20px;">Lista de Materiais Rack</div>
+        <div id="t11_materiais" style="overflow-x:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA F — COMPILAÇÃO GERAL ===================== -->
+  <div class="screen" id="tela12">
+    <div class="titlebar no-print"><span>TELA 8 — COMPILAÇÃO GERAL</span></div>
+    <div class="body-pad">
+      <div id="t12_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+      <div id="t12_conteudo" style="display:none;">
+        <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="sec-title" style="border-bottom:none;margin:0;">Carga + Forçadores + Unidades/Rack + Condensadores</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn-text" id="t12_btnAtualizar">Atualizar</button>
+            <span class="btn-text" id="t12_btnImprimir">Imprimir / Salvar PDF</span>
+            <span class="btn-text" id="t12_btnExportarExcel">Exportar Excel</span>
+          </div>
+        </div>
+        <div id="t12_tabela" class="t12-tabela"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="tela13">
+    <div class="titlebar"><span>TELA D — CADASTRO COMERCIAL</span></div>
+    <div class="body-pad">
+      <p class="small">Texto e foto de Painéis, Portas, Válvulas de Expansão, Rack Paralelo, Expositor,
+        Supervisório e outros — insumo pros relatórios de memorial/proposta.</p>
+      <div id="t13_catalogoComercial"></div>
+
+      <div class="sec-title" style="margin-top:24px;">FATORES DE VENDA <span class="sub">— % Impostos/Comissão/Margem por código, usados na Composição de Preço</span></div>
+      <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddFator">+ Fator</span></div>
+      <div style="overflow-x:auto;">
+      <table class="list" style="min-width:700px;">
+        <thead><tr><th style="width:80px;">Código</th><th style="width:110px;">Tipo</th><th>Descrição</th>
+          <th style="width:90px;">Impostos %</th><th style="width:90px;">Comissão %</th><th style="width:90px;">Margem %</th><th style="width:30px;"></th></tr></thead>
+        <tbody id="t13_fatores"></tbody>
+      </table>
+      </div>
+
+      <div class="sec-title" style="margin-top:24px;">ITENS DEFAULT DA COMPOSIÇÃO DE PREÇO <span class="sub">— sempre entram em todo projeto novo (mão de obra, frete, etc.), sem vínculo com dado do sistema</span></div>
+      <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddItemDefault">+ Item</span></div>
+      <div style="overflow-x:auto;">
+      <table class="list" style="min-width:850px;">
+        <thead><tr><th style="width:170px;">Bloco</th><th>Descrição</th><th style="width:180px;">Centro de Custo</th><th style="width:150px;">Fator Padrão</th><th style="width:120px;">Custo Padrão</th><th style="width:30px;"></th></tr></thead>
+        <tbody id="t13_itensDefault"></tbody>
+      </table>
+      </div>
+
+      <div class="sec-title" style="margin-top:24px;">VENDEDORES <span class="sub">— comissionamento da Composição de Preço; "Default" entra automaticamente em todo projeto novo</span></div>
+      <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddVendedor">+ Vendedor</span></div>
+      <div style="overflow-x:auto;">
+      <table class="list" style="min-width:500px;">
+        <thead><tr><th>Nome</th><th style="width:110px;">% Padrão</th><th style="width:70px;">Default</th><th style="width:30px;"></th></tr></thead>
+        <tbody id="t13_vendedores"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="tela14">
+    <div class="titlebar"><span>TESTE — MEMORIAL (BUSCA CRUZADA DE IDS COMERCIAIS)</span></div>
+    <div class="body-pad">
+      <p class="small">Página de teste (item 1.1) — junta os Ids referenciados pelas seleções de todos
+        os Sistemas do projeto ativo (Tipo de Comando, Válvula, Automações, Forçador/UC considerados)
+        com os itens cadastrados na Tela D. Só aparece o que realmente tem foto/texto cadastrado; o que
+        não achar não entra.</p>
+      <div id="t14_semProjeto" class="small" style="padding:16px;text-align:center;color:#9ca3af;">Nenhum projeto ativo.</div>
+      <div id="t14_conteudo" style="display:none;">
+        <div id="t14_idsResolvidos" class="small" style="margin-bottom:10px;color:#6b7280;"></div>
+        <div id="t14_itens"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELA C — CONDENSADORES REMOTOS ===================== -->
+  <div class="screen" id="tela15">
+    <div class="titlebar"><span>TELA C — CATÁLOGO DE CONDENSADORES REMOTOS A AR</span><small>Etapa 3</small></div>
+    <div class="body-pad">
+
+      <div class="sec-title">Importar Planilha (.xlsx)</div>
+      <p class="small">Estrutura fixa (3 abas: Modelos, Fatores, Campos) — leitura direta de célula. Depois de subir o arquivo, os dados aparecem numa tabela para conferir e corrigir antes de confirmar. Reimportar dados idênticos não duplica; dados diferentes criam nova versão, mantendo a anterior. Tipo de Estrutura (Plano/V) é tratado como catálogo separado.</p>
+      <div class="grid g3">
+        <div><a class="btn-wide" id="c15_btnBaixarTemplate" style="display:inline-block;text-decoration:none;text-align:center;">Baixar Planilha Modelo</a></div>
+        <div style="grid-column:span 2;"><input type="file" id="c15_arquivoExcel" accept=".xlsx"></div>
+      </div>
+      <div id="c15_resultadoExcel" class="small" style="margin-top:8px;"></div>
+
+      <div id="c15_previewWrap" style="display:none;">
+        <div class="sec-title">Revisão da Importação <span class="sub">— confira e corrija antes de gravar</span></div>
+        <div id="c15_previewLinhas"></div>
+        <div style="margin-top:10px;margin-bottom:6px;">
+          <label style="font-size:13px;font-weight:600;">Destino na Árvore de IDs Comerciais:</label>
+          <select id="c15_idPai" style="margin-left:6px;font-size:13px;"></select>
+        </div>
+        <p style="margin-top:12px;"><button class="btn" id="c15_btnConfirmarImportacao">Confirmar Importação</button>
+          <span class="btn-text" id="c15_btnCancelarPreview" style="margin-left:12px;">Cancelar</span></p>
+      </div>
+
+      <div class="sec-title">Preparar Importação a partir de Imagens <span class="sub">— gera um Word para preencher e colar os prints do catálogo, e levar numa conversa com o Claude para gerar o Excel acima</span></div>
+      <p><a class="btn-wide" id="c15_btnBaixarDocumento" style="display:inline-block;text-decoration:none;">Gerar Documento de Importação (.docx)</a></p>
+
+      <div class="sec-title">Catálogo Cadastrado <span class="sub">— Fabricantes são criados automaticamente ao importar uma linha</span>
+        <span class="btn-text" id="c15_btnExportar" style="margin-left:12px;">⭳ Exportar Banco (Excel)</span>
+      </div>
+      <div id="c15_exportFiltro" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:12px;">
+        <div class="grid g5">
+          <div><label class="lbl">Fabricante</label><select id="c15exp_fabricante"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Linha</label><select id="c15exp_linha"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Tipo Estrutura</label><select id="c15exp_estrutura"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Aletas por Polegada (FPI)</label><select id="c15exp_fpi"><option value="">Todos</option></select></div>
+          <div><label class="lbl">Tipo Motor</label><select id="c15exp_motor"><option value="">Todos</option></select></div>
+        </div>
+        <p style="text-align:right;margin-top:8px;">
+          <span class="btn-text" id="c15exp_cancelar">Cancelar</span>
+          <button class="btn" id="c15exp_gerar" style="margin-left:8px;">Gerar Excel</button>
+        </p>
+      </div>
+      <div id="c15_linhasList"></div>
+
+      <div id="c15_linhaDetalheWrap" style="display:none;">
+        <div class="sec-title" id="c15_linhaDetalheTitulo">Modelos
+          <span class="sub" id="c15_btnFecharLinha" style="cursor:pointer;">— Fechar ✕</span>
+        </div>
+        <div class="grid g4" style="margin-bottom:10px;">
+          <div><label class="lbl">Nome do Catálogo/Linha</label><input type="text" id="c15_linhaNome"></div>
+          <div><label class="lbl">Tipo Estrutura</label><input type="text" id="c15_linhaEstrutura"></div>
+          <div><label class="lbl">DT de Catálogo (°C) <span class="sub">— delta de condensação em que as capacidades foram medidas; usado na correção proporcional</span></label>
+            <input type="text" id="c15_linhaDtCatalogo"></div>
+          <div><label class="lbl">Id Comercial <span class="sub">— auto-gerado, categoria 7 = Condensador Remoto</span></label>
+            <input type="text" id="c15_linhaIdComercial" disabled></div>
+          <div><label class="checkrow"><input type="checkbox" id="c15_linhaObsoleto"> Obsoleto
+            <span class="sub" style="margin-left:6px;">— some da seleção no Rack, continua salvo no banco</span></label></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:10px;">
+          <div><label class="lbl">Descrição Comercial <span class="sub">— vale pro catálogo (por tipo de estrutura)</span></label>
+            <textarea id="c15_linhaDescricao" rows="3" style="width:100%;"></textarea></div>
+          <div><label class="lbl">Foto do Equipamento</label>
+            <input type="file" id="c15_linhaFotoInput" accept="image/*">
+            <div id="c15_linhaFotoPreview" style="margin-top:8px;"></div></div>
+        </div>
+        <div id="c15_modelosView" style="overflow-x:auto;"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="c15_btnAddModelo">+ Adicionar Modelo</span></p>
+        <p style="margin-top:8px;">
+          <button class="btn" id="c15_btnSalvarLinha">Salvar</button>
+          <span class="btn-text danger" id="c15_btnExcluirLinha" style="margin-left:8px;">Excluir Catálogo</span>
+        </p>
+
+        <div class="sec-title">Fatores de Correção de Capacidade <span class="sub">— 5 tipos; capacidade corrigida = catálogo × todos os fatores</span></div>
+        <div id="c15_fatores"></div>
+
+        <div class="sec-title">Nomenclatura de Compra <span class="sub">— rótulo, opções, ordem e Modo de cada coluna do código comercial</span></div>
+        <div id="c15_nomenclatura"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="tela17">
+    <div class="titlebar"><span>TELA 10 — RESUMO EQUIP./MATERIAIS E COMPOSIÇÃO DE PREÇO</span></div>
+    <div id="t17_semProjeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t17_conteudo" class="body-pad" style="display:none;">
+
+      <!-- Lista de Materiais e Equipamentos — só aparece na impressão (ver #t17_btnImprimir) -->
+      <div id="t17_listaMateriaisPrint" style="display:none;"></div>
+
+      <!-- Exportação -->
+      <div class="no-print" style="display:flex;justify-content:flex-end;gap:12px;margin-bottom:8px;">
+        <span class="btn-text" id="t17_btnImprimir">Imprimir / PDF</span>
+        <span class="btn-text" id="t17_btnExportarExcel">Exportar Excel</span>
+      </div>
+
+      <!-- Filtros -->
+      <div class="no-print" style="display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
+        <div><label class="lbl">Filtro Fabricante</label><select id="t17_filtroFab"><option value="">— Todos —</option></select></div>
+        <div><label class="lbl">Filtro Centro de Custo</label><select id="t17_filtroCC"><option value="">— Todos —</option></select></div>
+        <div><label class="lbl">Tipo de Lista</label><select id="t17_filtroTipo"><option value="">Todos</option></select></div>
+      </div>
+
+      <!-- Dados do Projeto -->
+      <div class="sec-title">DADOS DO PROJETO</div>
+      <div id="t17_dadosProjeto" class="grid g4" style="margin-bottom:16px;"></div>
+
+      <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <label class="lbl" style="margin:0;">Margem de Negociação (%)</label>
+          <input type="text" id="t17_margemNegociacao" style="width:70px;">
+        </div>
+        <span class="btn-text" id="t17_btnRestaurarPadroes">Restaurar Padrões</span>
+      </div>
+
+      <div id="t17_blocos"></div>
+
+      <div class="no-print" style="display:flex;gap:16px;margin-top:20px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div class="sec-title">RESUMO POR BLOCO</div>
+          <div id="t17_resumo"></div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="sec-title">COMISSIONAMENTO</div>
+          <div class="no-print" style="margin-bottom:8px;">
+            <select id="t17_selVendedor" style="width:220px;"></select>
+            <span class="btn-text" id="t17_btnAddVendedor" style="margin-left:8px;">+ Vincular vendedor</span>
+          </div>
+          <table class="list" style="max-width:520px;">
+            <thead><tr><th>Vendedor</th><th style="width:90px;">Percentual</th><th style="width:130px;">Comissão (R$)</th><th style="width:40px;"></th></tr></thead>
+            <tbody id="t17_comissionamento"></tbody>
+          </table>
+
+          <div class="sec-title" style="margin-top:20px;">DRE DO PROJETO</div>
+          <table class="list" style="max-width:420px;">
+            <tbody id="t17_dre"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="no-print" style="display:flex;gap:16px;margin-top:20px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;background:var(--surface-2,#fff);border:1px solid var(--line);border-radius:6px;padding:12px;">
+          <div style="font-weight:bold;margin-bottom:8px;">TABELA DE ORÇAMENTO</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
+            <div>
+              <label class="lbl">Agrupar por</label>
+              <select id="t17_orcAgrupar">
+                <option value="bloco">Bloco apenas</option>
+                <option value="bloco_cc" selected>Bloco + Centro de Custo</option>
+              </select>
+            </div>
+            <div id="t17_orcWrapExibir">
+              <label class="lbl">Mostrar valores</label>
+              <select id="t17_orcExibir">
+                <option value="individual">Individual (com total do bloco)</option>
+                <option value="total_bloco">Apenas total do bloco</option>
+              </select>
+            </div>
+            <div id="t17_orcWrapOcultar" style="display:flex;align-items:center;gap:6px;height:32px;">
+              <input type="checkbox" id="t17_orcOcultarQtd">
+              <label for="t17_orcOcultarQtd" class="small">Ocultar Unidade e Quantidade</label>
+            </div>
+          </div>
+          <div id="t17_tabelaOrcamento"></div>
+        </div>
+        <div style="flex:1;min-width:0;background:var(--surface-2,#fff);border:1px solid var(--line);border-radius:6px;padding:12px;">
+          <div style="font-weight:bold;margin-bottom:8px;">CONDIÇÕES DE PAGAMENTO</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
+            <div>
+              <label class="lbl">Sinal (%)</label>
+              <input type="text" id="t17_cpSinalPct" style="width:70px;">
+            </div>
+            <div>
+              <label class="lbl">Data do Sinal</label>
+              <input type="date" id="t17_cpDataSinal">
+            </div>
+            <div>
+              <label class="lbl">Qtd. Parcelas</label>
+              <input type="text" id="t17_cpQtdParcelas" style="width:70px;">
+            </div>
+            <div>
+              <label class="lbl">Periodicidade (dias)</label>
+              <input type="text" id="t17_cpPeriodicidade" style="width:80px;">
+            </div>
+            <span class="btn-text" id="t17_cpBtnGerar">Atualizar</span>
+          </div>
+          <table class="list" style="max-width:520px;">
+            <thead><tr><th>Descrição</th><th style="width:130px;">Data</th><th style="width:130px;">Valor (R$)</th></tr></thead>
+            <tbody id="t17_condicaoPagamento"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== TELA 13 — PROPOSTA COMERCIAL ===================== -->
+  <div class="screen" id="tela19">
+    <div class="titlebar"><span>TELA 13 — PROPOSTA COMERCIAL</span><small id="t19_status"></small></div>
+    <div id="t19_semProjeto" class="body-pad"><p class="small">Selecione um projeto na Tela 1 primeiro.</p></div>
+    <div id="t19_conteudo" class="body-pad" style="display:none;">
+
+      <div class="sec-title">Projeto</div>
+      <div id="t19_projetoInfo" class="small" style="color:#374151;margin-bottom:10px;"></div>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Arquivos base <span class="sub">— padrão configurável, alterável quando quiser</span></summary>
+        <div class="grid g3">
+          <div><label class="lbl">Papel de carta (.dotx/.docx)</label>
+            <input type="file" id="t19_papelCarta" accept=".dotx,.docx">
+            <div class="small" id="t19_papelCartaAtual" style="color:#6b7280;"></div></div>
+          <div><label class="lbl">Logomarca</label>
+            <input type="file" id="t19_logo" accept="image/*">
+            <div class="small" id="t19_logoAtual" style="color:#6b7280;"></div></div>
+          <div><label class="lbl">Imagem do layout / planta <span class="sub">— por proposta</span></label>
+            <input type="file" id="t19_planta" accept="image/*">
+            <div class="small" id="t19_plantaAtual" style="color:#6b7280;"></div></div>
+        </div>
+      </details>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Dados da proposta <span class="sub">— viram padrão do seu usuário após o 1º preenchimento</span></summary>
+        <div class="grid g3">
+          <div style="grid-column:span 3;"><label class="lbl">Título de fornecimento</label><input type="text" id="t19_titulo"></div>
+          <div><label class="lbl">Empresa contratada</label><input type="text" id="t19_empresa" placeholder="nome da sua empresa"></div>
+          <div><label class="lbl">Tipo de painel <span class="sub">— automático, da Tela 7</span></label><input type="text" id="t19_tipoPainel" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div></div>
+          <div><label class="lbl">Validade (dias)</label><input type="text" id="t19_dias"></div>
+          <div><label class="lbl">Garantia (meses)</label><input type="text" id="t19_garantia"></div>
+          <div></div>
+          <div><label class="lbl">Embarque equipamentos (dias)</label><input type="text" id="t19_embEquip"></div>
+          <div><label class="lbl">Embarque isopainel (dias)</label><input type="text" id="t19_embIso"></div>
+          <div></div>
+          <div><label class="lbl">Vendedor</label><input type="text" id="t19_vendNome"></div>
+          <div><label class="lbl">Cargo</label><input type="text" id="t19_vendCargo"></div>
+          <div></div>
+          <div><label class="lbl">Telefone</label><input type="text" id="t19_vendTel"></div>
+          <div><label class="lbl">E-mail</label><input type="text" id="t19_vendEmail"></div>
+          <div></div>
+        </div>
+      </details>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Dados de Faturamento <span class="sub">— seus dados para receber o pagamento; viram padrão do usuário</span></summary>
+        <div class="grid g3">
+          <div style="grid-column:span 2;"><label class="lbl">Razão Social</label><input type="text" id="t19_fatRazao"></div>
+          <div><label class="lbl">CNPJ</label><input type="text" id="t19_fatCnpj"></div>
+          <div><label class="lbl">Inscrição Municipal</label><input type="text" id="t19_fatIscMun"></div>
+          <div><label class="lbl">Inscrição Estadual</label><input type="text" id="t19_fatIscEst"></div>
+          <div></div>
+          <div style="grid-column:span 2;"><label class="lbl">Endereço</label><input type="text" id="t19_fatEndereco"></div>
+          <div><label class="lbl">Cidade / UF</label><input type="text" id="t19_fatCidadeUf"></div>
+          <div><label class="lbl">Banco</label><input type="text" id="t19_fatBanco"></div>
+          <div><label class="lbl">Agência</label><input type="text" id="t19_fatAgencia"></div>
+          <div><label class="lbl">Conta Corrente</label><input type="text" id="t19_fatConta"></div>
+          <div><label class="lbl">PIX</label><input type="text" id="t19_fatPix"></div>
+        </div>
+      </details>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Tabelas técnicas <span class="sub">— entram como imagem, com legenda automática</span></summary>
+        <div id="t19_tabelas" style="display:flex;flex-wrap:wrap;gap:6px 20px;padding:4px 0;"></div>
+      </details>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Conteúdo da proposta (árvore de Ids) <span class="sub">— marcado conforme o projeto; marque/desmarque livremente</span></summary>
+        <div style="margin:4px 0 8px;">
+          <span class="btn-text" id="t19_idsProjeto">Só do projeto</span> ·
+          <span class="btn-text" id="t19_idsTexto">Só com texto cadastrado</span> ·
+          <span class="btn-text" id="t19_idsTodos">Marcar todos</span> ·
+          <span class="btn-text" id="t19_idsNenhum">Desmarcar todos</span>
+        </div>
+        <div id="t19_arvore" style="max-height:320px;overflow:auto;border:1px solid var(--line);padding:8px;font-size:12.5px;"></div>
+      </details>
+
+      <details class="cfg-accordion" open>
+        <summary class="sec-title">Tabela de exceções <span class="sub">— editável por proposta</span></summary>
+        <table class="list">
+          <thead><tr><th>Atividade</th><th style="width:160px;text-align:center;" id="t19_exEmpresaHdr">Empresa contratada</th><th style="width:90px;text-align:center;">Cliente</th></tr></thead>
+          <tbody id="t19_excecoes"></tbody>
+        </table>
+      </details>
+
+      <div style="text-align:right;margin:14px 0;">
+        <span class="btn-text" id="t19_btnSalvarDefaults">Salvar padrões</span>
+        <button class="btn-wide" id="t19_btnGerar">Gerar Proposta (Word)</button>
+      </div>
+      <div id="t19_msg" class="small" style="text-align:right;color:#6b7280;min-height:18px;"></div>
+    </div>
+  </div>
+
+</div>
+    </div>
+  </main>
+</div>
+<script src="/js/auth.js?v=20260902090000"></script>
+<script src="/js/api.js?v=20260902090000"></script>
+<script src="/js/keyboard_nav.js?v=20260902090000"></script>
+<script src="/js/main.js?v=20260902090000"></script>
+<script src="/js/componentes.js?v=20260902090000"></script>
+<script src="/js/matrizForcador.js?v=20260902090000"></script>
+<script src="/js/tela1.js?v=20260902090000"></script>
+<script src="/js/tela1_uc.js?v=20260902090000"></script>
+<script src="/js/tela2.js?v=20260902090000"></script>
+<script src="/js/tela3.js?v=20260902090000"></script>
+<script src="/js/tela4.js?v=20260902090000"></script>
+<script src="/js/tela5.js?v=20260902090000"></script>
+<script src="/js/tela6.js?v=20260902090000"></script>
+<script src="/js/tela7.js?v=20260902090000"></script>
+<script src="/js/tela8.js?v=20260902090000"></script>
+<script src="/js/tela9.js?v=20260902090000"></script>
+<script src="/js/tela10.js?v=20260902090000"></script>
+<script src="/js/tela17.js?v=20260902090000"></script>
+<script src="/js/tela13.js?v=20260902090000"></script>
+<script src="/js/tela11.js?v=20260902090000"></script>
+<script src="/js/telaLuminotecnico.js?v=20260902090000"></script>
+<script src="/js/tela16.js?v=20260902090000"></script>
+<script src="/js/tela12.js?v=20260902090000"></script>
+<script src="/js/tela14.js?v=20260902090000"></script>
+<script src="/js/tela15.js?v=20260902090000"></script>
+<script src="/js/tela13_proposta.js?v=20260902090000"></script>
+<script src="/js/sidebar.js?v=20260902090000"></script>
+</body>
+</html>
+

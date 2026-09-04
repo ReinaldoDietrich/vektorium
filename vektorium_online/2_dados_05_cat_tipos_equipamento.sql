@@ -1,0 +1,31 @@
+-- cat_tipos_equipamento — bloco 1 de 1 (29 registros no total)
+
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (1, 'Moedor de Carne / Máquina de Moagem', 3100.0, 1.0, 0.5);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (2, 'Serra Fita', 1650.0, 1.0, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (3, 'Fatiadora de Frios', 400.0, 1.0, 0.6);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (4, 'Amaciador de Bifes', 560.0, 1.0, 0.25);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (5, 'Embaladora/Seladora Manual', 1000.0, 0.85, 0.7);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (6, 'Seladora Automática (Termoencolhível)', 5000.0, 0.85, 0.6);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (7, 'Lavadora de Caixas/Louças', 4500.0, 0.6, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (8, 'Compactador de Papelão/Plástico', 5600.0, 1.0, 0.15);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (9, 'Inversor de Frequência (consumo típico 3kW considerado)', 3000.0, 0.04, 0.9);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (10, 'Esteira Transportadora/Sorger', 3500.0, 1.0, 0.75);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (11, 'Carregador de Bateria (Empilhadeiras)', 8000.0, 0.15, 0.65);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (12, 'Terminal de Computador/Coletor (Fixo)', 200.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (13, 'Empilhadeira Elétrica (operação)', 10000.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (14, 'Transpaleteira Elétrica', 2000.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (15, 'Balança Industrial', 60.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (16, 'Paletizadora (Filme)', 3750.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (17, 'Tanque Pasteurizador 500L (Lote, Elétrico/Camisa Dupla)', 3450.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (18, 'Tanque Pasteurizador 1.000L (Lote, Elétrico/Camisa Dupla)', 5150.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (19, 'Tanque Pasteurizador 4.000L/h (Contínuo, SKID Placas/Caldeira Ext.)', 14850.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (20, 'Tanque Pasteurizador 10.000L/h (Contínuo, SKID Placas/Caldeira Ext.)', 29750.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (21, 'Quebradora de Ovos ~3.000-6.000 ovos/h', 600.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (22, 'Quebradora de Ovos ~12.000-20.000 ovos/h', 1850.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (23, 'Quebradora de Ovos ~30.000-45.000 ovos/h', 4750.0, 1.0, 1.0);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (24, 'Bomba de Água/Processo 1 CV', 900.0, 0.2, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (25, 'Bomba de Água/Processo 3 CV', 2600.0, 0.15, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (26, 'Bomba de Água/Processo 5 CV', 4200.0, 0.13, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (27, 'Bomba de Água/Processo 10 CV', 8200.0, 0.11, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (28, 'Bomba de Água/Processo 20 CV', 16000.0, 0.09, 0.4);
+INSERT INTO "cat_tipos_equipamento" ("id", "nome", "potencia_tipica_w", "fator_calor_rejeitado", "fator_simultaneidade") VALUES (29, 'Bomba de Água/Processo 50 CV', 39300.0, 0.07, 0.4);

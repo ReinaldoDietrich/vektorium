@@ -1,0 +1,159 @@
+:root{
+  --ink:#1a1a1a; --muted:#6b7280; --line:#d1d5db; --line-light:#e5e7eb;
+  --dark:#111827; --blue:#1d4ed8; --blue-bg:#eff6ff; --green:#15803d; --green-bg:#f0fdf4;
+  --amber:#b45309;
+}
+*{box-sizing:border-box;}
+html{width:100%;}
+body{margin:0;width:100%;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:var(--ink);padding:24px 16px 80px;}
+.wrap{width:100%;max-width:98vw;margin:0 auto;}
+@media (max-width:900px){
+  .grid.g3,.grid.g4,.grid.g5{grid-template-columns:repeat(2,1fr);}
+  .layout2{grid-template-columns:1fr;}
+  .side{border-left:none;border-top:1px solid var(--line);}
+}
+@media (max-width:560px){
+  .grid.g2,.grid.g3,.grid.g4,.grid.g5{grid-template-columns:1fr;}
+  .add-row{grid-template-columns:1fr;}
+}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.tab-btn{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:9px 16px;border:1px solid var(--dark);background:#fff;color:var(--muted);cursor:pointer;}
+.tab-btn.active{background:var(--dark);color:#fff;}
+.subtab-btn{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:9px 16px;border:1px solid var(--dark);background:#fff;color:var(--muted);cursor:pointer;}
+.subtab-btn.active{background:var(--dark);color:#fff;}
+.screen{display:none;background:#fff;border:1px solid var(--line);}
+.screen.active{display:block;}
+.titlebar{background:var(--dark);color:#fff;padding:9px 16px;font-size:13px;font-weight:bold;letter-spacing:.03em;display:flex;justify-content:space-between;align-items:center;}
+.titlebar small{font-weight:normal;color:#9ca3af;font-size:10px;}
+.body-pad{padding:16px;}
+.sec-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:6px;margin:18px 0 10px;font-weight:bold;}
+.sec-title:first-child{margin-top:0;}
+.sec-title .sub{color:#b0b6c0;font-weight:normal;text-transform:none;letter-spacing:0;}
+.cfg-accordion{margin:18px 0 10px;}
+.cfg-accordion summary.sec-title{cursor:pointer;margin:0;list-style:revert;}
+.cfg-accordion summary.sec-title::-webkit-details-marker{color:var(--muted);}
+.cfg-accordion[open] summary.sec-title{margin-bottom:10px;}
+.grid{display:grid;gap:10px;}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g4{grid-template-columns:repeat(4,1fr);}
+.g5{grid-template-columns:repeat(5,1fr);}
+label.lbl{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;}
+input[type=text],input[type=number],input[type=date],input[type=file],select,textarea{
+  width:100%;border:1px solid var(--line);padding:6px 7px;font-size:13px;color:var(--ink);background:#fff;font-family:inherit;
+}
+textarea{resize:vertical;}
+/* nunca usar as setinhas de incremento em campo numérico — scroll do mouse muda o valor sem o usuário perceber */
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
+input:disabled,select:disabled{background:#f3f4f6;color:#6b7280;}
+input[type=checkbox]{width:14px;height:14px;vertical-align:middle;margin-right:6px;}
+.checkrow{font-size:12.5px;color:var(--ink);display:flex;align-items:center;padding:7px 0;}
+.small{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;}
+table.list{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.list th{background:#f3f4f6;text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow-wrap:break-word;}
+table.list td{padding:5px 8px;border-bottom:1px solid var(--line-light);vertical-align:middle;overflow-wrap:break-word;}
+table.list td input, table.list td select{padding:4px 6px;font-size:12.5px;}
+table.list tr:hover td{background:#f8fafc;}
+table.list tbody tr.clickable{cursor:pointer;}
+table.list tbody tr.clickable:hover td{background:#eff6ff;}
+.group-head{background:#f3f4f6;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#374151;padding:5px 8px;border-top:1px solid var(--line);}
+.add-row{display:grid;grid-template-columns:2fr 1.3fr 1.6fr 1.3fr 56px;gap:8px;align-items:end;background:#fafafa;border:1px solid var(--line-light);padding:10px;margin-bottom:6px;}
+.btn{background:var(--dark);color:#fff;border:none;font-size:16px;line-height:1;padding:7px 0;cursor:pointer;width:100%;}
+.btn:hover{background:#374151;}
+.btn:disabled{background:#9ca3af;cursor:not-allowed;}
+.btn-text{background:#fff;border:1px solid var(--line);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;cursor:pointer;}
+.btn-text:hover{border-color:var(--ink);color:var(--ink);}
+.btn-text.danger{color:#b91c1c;border-color:#b91c1c;}
+.btn-wide{background:var(--dark);color:#fff;border:none;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:9px 16px;cursor:pointer;}
+.btn-wide:hover{background:#374151;}
+.layout2{display:grid;grid-template-columns:1fr 230px;gap:0;}
+.side{border-left:1px solid var(--line);padding:14px;background:#fafbfc;}
+.side h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--dark);padding:7px 8px;margin:0 0 10px;}
+.side-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--line-light);color:var(--muted);}
+.cap-box{background:var(--dark);color:#fff;text-align:center;padding:10px;font-size:11px;font-weight:bold;text-transform:uppercase;margin:10px 0;}
+.alert-title{font-size:10.5px;text-transform:uppercase;color:var(--amber);font-weight:bold;margin:14px 0 6px;}
+.alert-item{font-size:11px;color:var(--amber);padding:3px 0;}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+.status-ok{background:#15803d;} .status-warn{background:#b45309;} .status-pending{background:#9ca3af;}
+.readonly-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;}
+.pending-tag{font-size:10px;color:var(--amber);text-transform:uppercase;}
+.side-cam{padding:7px 8px;border:1px solid var(--line-light);margin-bottom:4px;cursor:pointer;font-size:12px;}
+.side-cam:hover{border-color:var(--blue);background:#f8fafc;}
+.side-cam.current{border-color:var(--dark);background:#f3f4f6;}
+.techspec{font-size:10.5px;color:#6b7280;margin-right:14px;white-space:nowrap;}
+.lista-card{padding:10px 14px;border:1px solid var(--line-light);margin-bottom:6px;cursor:pointer;}
+.lista-card:hover{border-color:var(--blue);background:#f8fafc;}
+.lista-card .nome{font-weight:bold;font-size:13px;}
+.lista-card .meta{color:var(--muted);font-size:11px;margin-top:2px;}
+.upload-box{border:2px dashed var(--line);padding:24px;text-align:center;background:#fafafa;}
+.upload-box.dragover{border-color:var(--blue);background:var(--blue-bg);}
+.review-grid{overflow-x:auto;border:1px solid var(--line);margin-top:10px;}
+.review-grid table{border-collapse:collapse;width:100%;font-size:12px;}
+.review-grid th,.review-grid td{border:1px solid var(--line-light);padding:4px 6px;}
+.review-grid th{background:#fef3c7;font-size:10px;text-transform:uppercase;}
+.review-grid th.reconhecida{background:#dcfce7;}
+.review-grid input{padding:3px 4px;font-size:12px;border:1px solid transparent;background:transparent;width:100%;}
+.review-grid input:focus{border-color:var(--blue);background:#fff;}
+.img-preview{max-width:100%;border:1px solid var(--line);}
+.badge{display:inline-block;font-size:10px;text-transform:uppercase;padding:2px 6px;border-radius:2px;margin-left:6px;}
+.badge-teste{background:#fef3c7;color:#92400e;}
+.badge-pendente{background:#fee2e2;color:#991b1b;}
+
+/* Tabelas largas (nomenclaturas, catálogos): barra horizontal só quando estoura */
+.body-pad > table.list { display: block; overflow-x: auto; }
+
+/* Tela 12 — Comparativo de Revisões (aprovado 2026-08-10) */
+.t16-bloco{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:14px;overflow:hidden;}
+.t16-bloco-titulo{font-size:12px;font-weight:bold;padding:8px 12px;background:#f9fafb;border-bottom:1px solid var(--line);}
+.t16-sub{font-weight:normal;color:var(--muted);font-size:11px;}
+.t16-tabela{width:100%;font-size:12px;}
+.t16-tabela th{text-align:left;padding:6px 10px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);}
+.t16-tabela td{padding:5px 10px;border-bottom:1px solid var(--line-light);}
+.t16-tabela td.label{color:var(--muted);width:30%;}
+.t16-tabela td.val{font-variant-numeric:tabular-nums;}
+.t16-tabela td.val.diff{background:#fffbeb;color:var(--amber);font-weight:bold;}
+.t16-tabela .sistema-nome{font-weight:bold;padding-top:10px;}
+
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* Botões nunca aparecem num relatório PDF — regra global por classe (não depende de marcar cada
+     botão com no-print, que sempre acaba esquecendo algum). Vale pra todas as telas que imprimem. */
+  .tabs, #btnSair, .no-print, .btn, .btn-text, .btn-wide, .subtab-btn, button { display: none !important; }
+  .wrap { max-width: none !important; }
+  .screen.active { border: none; box-shadow: none; }
+  .t12-tabela table, .t12-tabela th, .t12-tabela td { border: 1px solid #999 !important; }
+  /* Tela 10 (#tela17) imprime só a Lista de Materiais e Equipamentos (simples, sem valores
+     financeiros) — nunca a tela financeira em si (Composição de Preço fica só na tela). */
+  body.t17-imprimindo-lista #tela17 > .body-pad > *:not(#t17_listaMateriaisPrint) { display: none !important; }
+  body.t17-imprimindo-lista #t17_listaMateriaisPrint { display: block !important; }
+}
+
+/* ===== Projeto fechado — modo só-visualização (Tela 1, aprovado 2026-08-12) =====
+   Quando o projeto ATIVO está fechado, o <body> recebe .projeto-bloqueado (ver aplicarModoProjetoFechado
+   em main.js) e as telas de dados DESSE projeto ficam congeladas: os campos e botões de edição não
+   recebem clique e ficam esmaecidos. NÃO congela: catálogos globais (Telas A–E: #tela6/#tela8/#tela15/
+   #tela13/#tela7), a lista/gestão de projetos da Tela 1 (#listaProjetos), as abas de navegação,
+   Exportar/Imprimir, Reabrir e Sair — o resto do sistema e os demais projetos continuam livres.
+   #formProjetoWrap = o cadastro do próprio projeto aberto (dados dele → congela). */
+body.projeto-bloqueado :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+  pointer-events:none !important;
+  opacity:.55;
+}
+/* Exceção: Exportar/Imprimir do projeto continuam livres mesmo com o projeto fechado (ids vindos do
+   inventário real dos gatilhos de exportação de cada tela). A âncora com o id da tela dá a esta regra
+   especificidade maior que a do congelamento acima, garantindo que ela prevaleça. */
+body.projeto-bloqueado :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
+
+body.modo-visualizacao :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+  pointer-events:none !important;
+  opacity:.55;
+}
+body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
