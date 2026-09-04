@@ -102,9 +102,6 @@ mockups/
 # Scripts operacionais/históricos (não empacotados, não runtime)
 # ============================================================
 Iniciar Carga Térmica.vbs
-converter_fotos_base64.py
-push_local_para_flyio.py
-sync_flyio_para_local.py
 rodar_servidor_teste_alpha.py
 
 # ============================================================
