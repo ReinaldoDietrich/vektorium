@@ -30,6 +30,7 @@ const _PREFIXOS_REMOTOS = [
   '/api/forcadores', '/api/condensadores', '/api/polinomios',
   '/api/calc', '/api/catalogo-comercial', '/api/valvulas-expansao',
   '/api/importacao',
+  '/api/admin',
   '/api/luminotecnico/lampadas',
   '/api/uc/catalogos-detalhe', '/api/uc/unidades', '/api/uc/eletricas',
   '/api/uc/template', '/api/uc/documento', '/api/uc/preview',
@@ -37,6 +38,7 @@ const _PREFIXOS_REMOTOS = [
 ];
 
 const _ESCRITA_SEM_FALLBACK = [
+  '/api/admin',
   '/api/uc/confirmar',
   '/api/forcadores/importar', '/api/forcadores/confirmar',
   '/api/condensadores/importar', '/api/condensadores/confirmar',
@@ -46,6 +48,7 @@ const _ESCRITA_SEM_FALLBACK = [
 ];
 
 const _LEITURA_SEM_FALLBACK = [
+  '/api/admin',
   '/api/forcadores', '/api/condensadores', '/api/polinomios',
   '/api/valvulas-expansao',
   '/api/catalogos/ids-comerciais', '/api/catalogos/fabricantes',

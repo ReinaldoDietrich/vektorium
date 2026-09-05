@@ -126,12 +126,19 @@ async function sairDoApp() {
   }
 }
 
+async function _carregarPerfilRemoto() {
+  if (typeof AUTH === 'undefined' || !AUTH.logado()) return;
+  try {
+    const dados = await api.get('/api/admin/meu-perfil');
+    state.isMaster = dados.usuario.papel === 'master';
+  } catch (_) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => showTab(Number(btn.dataset.tab))));
   document.getElementById('btnSair').addEventListener('click', sairDoApp);
-  // Nunca reabrir um projeto sozinho ao abrir o app — sempre começa sem projeto ativo,
-  // até o usuário escolher explicitamente um na Tela 1.
   if (window.initTela1) window.initTela1();
+  _carregarPerfilRemoto();
   const m = location.hash.match(/^#tela(\d)$/);
   if (m) showTab(Number(m[1]));
 });

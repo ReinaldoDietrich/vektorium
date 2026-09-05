@@ -62,6 +62,7 @@
       <div class="sidebar-cat" data-tab="15">Condensadores</div>
       <div class="sidebar-cat" data-tab="13">Cadastro Comercial</div>
       <div class="sidebar-cat" data-tab="7">Configurações</div>
+      <div class="sidebar-cat" data-tab="20">Administração</div>
       <div class="sidebar-cat" data-tab="14">Teste — Memorial (Ids Comerciais)</div>
     </div>
     <div class="sidebar-versao" id="sidebarVersao"></div>
@@ -98,6 +99,7 @@
         <button class="tab-btn" data-tab="13">Tela D — Cadastro Comercial</button>
         <button class="tab-btn" data-tab="7">Tela E — Configurações</button>
         <button class="tab-btn" data-tab="14">Teste — Memorial (Ids Comerciais)</button>
+        <button class="tab-btn" data-tab="20">Admin</button>
       </div>
 
   <div id="overlaySaida" style="display:none;position:fixed;inset:0;background:#111827;color:#fff;z-index:999;align-items:center;justify-content:center;text-align:center;font-size:14px;">
@@ -1582,6 +1584,69 @@ CP/SP — com / sem supervisão</pre>
     </div>
   </div>
 
+  <!-- Tela 20 — Administração -->
+  <div class="screen" id="tela20">
+    <div class="body-pad">
+    <h2>Administração</h2>
+    <div id="t20_corpo">
+
+      <fieldset><legend>Meu Perfil</legend>
+        <p><strong>Nome:</strong> <span id="t20_perfilNome">—</span></p>
+        <p><strong>Email:</strong> <span id="t20_perfilEmail">—</span></p>
+        <p><strong>Papel:</strong> <span id="t20_perfilPapel">—</span></p>
+        <p><strong>Assinatura:</strong> <span id="t20_perfilAssinatura">—</span></p>
+      </fieldset>
+
+      <div id="t20_painelMaster" style="display:none">
+
+        <fieldset><legend>Usuários</legend>
+          <div style="overflow-x:auto">
+          <table class="table-hover" style="width:100%">
+            <thead><tr>
+              <th>Email</th><th>Nome</th><th>Papel</th><th>Alterar papel</th>
+              <th>Status</th><th>Plano</th><th>Vence em</th><th>Assinatura</th>
+            </tr></thead>
+            <tbody id="t20_tbUsuarios"><tr><td colspan="8">—</td></tr></tbody>
+          </table>
+          </div>
+        </fieldset>
+
+        <fieldset><legend>Dispositivos</legend>
+          <div style="overflow-x:auto">
+          <table class="table-hover" style="width:100%">
+            <thead><tr>
+              <th>Email</th><th>Fingerprint</th><th>Último acesso</th><th>Ativo</th><th>Ação</th>
+            </tr></thead>
+            <tbody id="t20_tbDispositivos"><tr><td colspan="5">—</td></tr></tbody>
+          </table>
+          </div>
+        </fieldset>
+
+        <fieldset><legend>Permissões por papel</legend>
+          <div style="overflow-x:auto">
+          <table class="table-hover" style="width:100%">
+            <thead>
+              <tr>
+                <th rowspan="2">Módulo</th>
+                <th colspan="2" style="text-align:center">master</th>
+                <th colspan="2" style="text-align:center">comum</th>
+              </tr>
+              <tr><th style="text-align:center">Ver</th><th style="text-align:center">Editar</th><th style="text-align:center">Ver</th><th style="text-align:center">Editar</th></tr>
+            </thead>
+            <tbody id="t20_tbPermissoes"><tr><td colspan="5">—</td></tr></tbody>
+          </table>
+          </div>
+          <div style="margin-top:10px;text-align:right">
+            <span id="t20_permMsg" class="small" style="color:#6b7280;margin-right:12px"></span>
+            <button class="btn-wide" onclick="window._t20_salvarPermissoes()">Salvar permissões</button>
+          </div>
+        </fieldset>
+
+      </div>
+    </div>
+    </div>
+  </div>
+
 </div>
     </div>
   </main>
@@ -1612,6 +1677,7 @@ CP/SP — com / sem supervisão</pre>
 <script src="/js/tela14.js?v=20260902090000"></script>
 <script src="/js/tela15.js?v=20260902090000"></script>
 <script src="/js/tela13_proposta.js?v=20260902090000"></script>
+<script src="/js/tela20_admin.js?v=20260905143500"></script>
 <script src="/js/sidebar.js?v=20260902090000"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@ from .auth_supabase import exigir_usuario
 from .routers import (catalogos, condensadores_remotos, polinomios_compressor, calc_remoto,
                       forcadores, unidades_condensadoras, catalogo_comercial, valvulas_expansao,
                       paineis_portas, campos_sistema, composicao_preco, luminotecnico, importacao,
-                      catalogo_sync)
+                      catalogo_sync, admin)
 
 app = FastAPI(title="Vektorium — Catálogo & Cálculo")
 
@@ -42,6 +42,9 @@ app.include_router(composicao_preco.router, dependencies=_jwt)
 app.include_router(luminotecnico.router, dependencies=_jwt)
 app.include_router(importacao.router, dependencies=_jwt)
 app.include_router(catalogo_sync.router, dependencies=_jwt)
+
+# --- Administração (JWT embutido no próprio router) ---
+app.include_router(admin.router)
 
 # --- Cálculo puro (JWT embutido no próprio router) ---
 app.include_router(calc_remoto.router)

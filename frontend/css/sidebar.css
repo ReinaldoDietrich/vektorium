@@ -76,6 +76,8 @@ body{margin:0;background:var(--sb-bg);}
   flex-direction:column;text-align:center;padding:24px;}
 body.sem-projeto .welcome:not(.login-screen){display:flex;}
 body.sem-projeto .main-content .wrap{display:none;}
+body.sem-projeto .main-content:has(#tela20.active) .wrap{display:block;}
+body.sem-projeto .main-content:has(#tela20.active) .welcome{display:none;}
 .welcome-logo{width:420px;max-width:80%;margin-bottom:16px;object-fit:contain;}
 .welcome-logo.nologo{display:none;}
 .welcome-sub{font-size:20px;color:var(--sb-muted);letter-spacing:.1em;font-weight:500;margin:0 0 36px;}
