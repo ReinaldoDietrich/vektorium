@@ -15,7 +15,7 @@ com catálogo e cálculo hospedados em servidor remoto (Fly.io + Supabase).
 
 ## Documentação
 
-Plano de revisão técnica e roadmap: [docs/PLANO_REVISAO_v2_2026-09-04.md](docs/PLANO_REVISAO_v2_2026-09-04.md)
+Plano de revisão técnica e roadmap: [docs/PLANO_REVISAO_v3_2026-09-04.md](docs/PLANO_REVISAO_v3_2026-09-04.md)
 
 ## Regras invariantes
 
