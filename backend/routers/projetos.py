@@ -7,8 +7,36 @@ from .. import models as m
 from ..database import get_db, DB_PATH
 from ..utils import model_to_dict, list_to_dict, chave_ordem_camara
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api", tags=["projetos"])
+
+_CAMPOS_DADOS_GERAIS = {
+    "codigo_projeto", "data", "cliente", "contato", "telefone",
+    "razao_social_faturamento", "cnpj_faturamento", "cep_faturamento",
+    "endereco_faturamento", "endereco_obra", "cep_obra",
+}
+_CAMPOS_CLIMA = {
+    "cidade_instalacao", "estado_uf", "altitude_m",
+    "estacao_inmet_id", "estacao_climatologica_id", "criterio_climatico",
+    "temp_ambiente", "ur_externa",
+}
+_CAMPOS_ESTRUTURAL = {
+    "tipo_comando", "tensao_equipamentos", "tensao_comando",
+    "custo_energia", "pasta_salvamento", "condicao_salao",
+    "considerar_iluminacao_ambiente",
+}
+
+
+def _verificar_secoes_projeto(obj, payload: dict):
+    """Bloqueia se o payload tentar alterar campos de uma seção fechada."""
+    campos = set(payload.keys())
+    if campos & _CAMPOS_DADOS_GERAIS and obj.fechada_dados_gerais:
+        raise HTTPException(423, "Seção 'Dados Gerais' está fechada — clique em Editar antes de alterar.")
+    if campos & _CAMPOS_CLIMA and obj.fechada_clima:
+        raise HTTPException(423, "Seção 'Clima' está fechada — clique em Editar antes de alterar.")
+    if campos & _CAMPOS_ESTRUTURAL and obj.fechada_estrutural:
+        raise HTTPException(423, "Seção 'Estrutural' está fechada — clique em Editar antes de alterar.")
 
 
 def _contar_vinculos(db: Session, sistema_id: int) -> int:
@@ -73,6 +101,7 @@ def atualizar_projeto(projeto_id: int, payload: dict = Body(...), db: Session = 
     if not obj:
         raise HTTPException(404, "Projeto não encontrado")
     bp.verificar_projeto_da(obj)
+    _verificar_secoes_projeto(obj, payload)
     for k, v in payload.items():
         if hasattr(obj, k):
             setattr(obj, k, v)
@@ -115,6 +144,66 @@ def reabrir_projeto(projeto_id: int, db: Session = Depends(get_db)):
     obj.fechado = False
     db.commit()
     return {"fechado": False}
+
+
+@router.post("/projetos/{projeto_id}/editar-dados-gerais")
+def editar_dados_gerais(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_dados_gerais = False
+    db.commit()
+    return {"fechada_dados_gerais": False}
+
+
+@router.post("/projetos/{projeto_id}/salvar-dados-gerais")
+def salvar_dados_gerais(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_dados_gerais = True
+    db.commit()
+    return {"fechada_dados_gerais": True}
+
+
+@router.post("/projetos/{projeto_id}/editar-clima")
+def editar_clima(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_clima = False
+    db.commit()
+    return {"fechada_clima": False}
+
+
+@router.post("/projetos/{projeto_id}/salvar-clima")
+def salvar_clima(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_clima = True
+    db.commit()
+    return {"fechada_clima": True}
+
+
+@router.post("/projetos/{projeto_id}/editar-estrutural")
+def editar_estrutural(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_estrutural = False
+    db.commit()
+    return {"fechada_estrutural": False}
+
+
+@router.post("/projetos/{projeto_id}/salvar-estrutural")
+def salvar_estrutural(projeto_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404)
+    obj.fechada_estrutural = True
+    db.commit()
+    return {"fechada_estrutural": True}
 
 
 @router.post("/projetos/{projeto_id}/exportar-tudo")
@@ -389,6 +478,7 @@ def atualizar_sistema(sistema_id: int, payload: dict = Body(...), db: Session = 
     if not obj:
         raise HTTPException(404, "Sistema não encontrado")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     campos_criticos = {"gas_refrigerante", "tipo_expansao", "temp_evaporacao", "classificacao"}
     mudou_critico = any(k in campos_criticos and getattr(obj, k) != v for k, v in payload.items())
     vinc = _contar_vinculos(db, sistema_id)
@@ -413,6 +503,25 @@ def excluir_sistema(sistema_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise HTTPException(404, "Sistema não encontrado")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/sistemas/{sistema_id}/editar")
+def editar_sistema(sistema_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.SistemaRefrigeracao, sistema_id)
+    if not obj:
+        raise HTTPException(404)
+    bp.verificar_projeto_da(obj)
+    return model_to_dict(bf.editar_entidade(db, obj))
+
+
+@router.post("/sistemas/{sistema_id}/salvar")
+def salvar_sistema(sistema_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.SistemaRefrigeracao, sistema_id)
+    if not obj:
+        raise HTTPException(404)
+    bp.verificar_projeto_da(obj)
+    return model_to_dict(bf.salvar_entidade(db, obj, nome_model="SistemaRefrigeracao"))

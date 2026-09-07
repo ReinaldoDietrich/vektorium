@@ -703,3 +703,37 @@ def exportar_compilacao_excel(projeto_id: int, fator_potencia: float = 0.92, col
                                        _colunas_resumo_compressao_selecionadas(colunas_compressao), totais_gerais,
                                        eh_qd, disjuntor_geral_quadro_linhas, disjuntor_geral_compressao)
     return resposta_excel_projeto(conteudo, f"compilacao_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+
+
+@router.get("/compilacao/status-fechada")
+def status_fechada(projeto_id: int, db: Session = Depends(get_db)):
+    """Retorna entidades abertas (fechada=False) para o banner de aviso na Tela 5/12."""
+    projeto = db.get(m.Projeto, projeto_id)
+    if not projeto:
+        raise HTTPException(404)
+    abertas = []
+    secoes = [("Dados Gerais", projeto.fechada_dados_gerais),
+              ("Clima", projeto.fechada_clima),
+              ("Estrutural", projeto.fechada_estrutural)]
+    for nome, fechada in secoes:
+        if not fechada:
+            abertas.append({"tipo": "secao_projeto", "nome": nome})
+    modelos = [
+        (m.SistemaRefrigeracao, "Sistema"),
+        (m.CamaraCompleto, "Câmara Completa"),
+        (m.CamaraSimples, "Câmara Simples"),
+        (m.Expositor, "Expositor"),
+        (m.RackParalelo, "Rack Paralelo"),
+        (m.PainelTermico, "Painel Térmico"),
+        (m.PortaFrigorifica, "Porta Frigorífica"),
+    ]
+    for modelo, rotulo in modelos:
+        for ent in db.query(modelo).filter_by(projeto_id=projeto_id).all():
+            if not getattr(ent, "fechada", True):
+                nome = getattr(ent, "nome", None) or getattr(ent, "descricao", None) or str(ent.id)
+                abertas.append({"tipo": rotulo, "nome": nome, "id": ent.id})
+    uc_model = m.UnidadeCondensadoraSelecao
+    for uc in db.query(uc_model).join(m.SistemaRefrigeracao).filter(m.SistemaRefrigeracao.projeto_id == projeto_id).all():
+        if not getattr(uc, "fechada", True):
+            abertas.append({"tipo": "UC Seleção", "nome": str(uc.id), "id": uc.id})
+    return {"abertas": abertas, "total_abertas": len(abertas)}

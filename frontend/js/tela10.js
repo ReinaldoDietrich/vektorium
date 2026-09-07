@@ -146,7 +146,11 @@ function t10_linhaPainelHtml(p) {
     <td style="color:#6b7280;" data-out="qtd_placas">${p.qtd_placas ?? '—'}</td>
     <td style="color:#6b7280;" data-out="area_considerada_m2">${fmt2(p.area_considerada_m2)}</td>
     <td style="color:#6b7280;" data-out="saldo_m">${fmt2(p.saldo_m)}</td>
-    <td><span class="btn-text danger" data-excluir-painel="${p.id}">Excluir</span></td>`;
+    <td><span class="btn-text danger" data-excluir-painel="${p.id}">Excluir</span>
+      ${p.fechada
+        ? `<span class="btn-text c-btn-editar" data-editar-painel="${p.id}" style="margin-left:6px;">Editar</span>`
+        : `<span class="btn-text c-btn-fechar-form" data-fechar-painel="${p.id}" style="margin-left:6px;color:#16a34a;">Fechar</span>`}
+    </td>`;
 }
 
 async function t10_carregarPaineis() {
@@ -166,7 +170,7 @@ async function t10_carregarPaineis() {
     <th style="white-space:normal;">Larg. Placa (m)</th><th style="white-space:normal;">Área (m²)</th>
     <th style="white-space:normal;">Qtd. Placas</th><th style="white-space:normal;">Área Consid. (m²)</th>
     <th style="white-space:normal;">Saldo (m)</th><th></th></tr></thead>
-    <tbody>${paineis.map(p => `<tr draggable="true" data-painel-id="${p.id}">${t10_linhaPainelHtml(p)}</tr>`).join('')}</tbody></table>`;
+    <tbody>${paineis.map(p => `<tr draggable="true" data-painel-id="${p.id}" ${p.fechada ? 'class="entidade-fechada"' : ''}>${t10_linhaPainelHtml(p)}</tr>`).join('')}</tbody></table>`;
   t10_wirePaineis(el);
   t10_wireDragPaineis(el);
 }
@@ -240,6 +244,14 @@ function t10_wirePaineis(el) {
     await t10_carregarPaineis();
     await t10_carregarResumo();
   }));
+  el.querySelectorAll('[data-editar-painel]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/paineis-portas/paineis/${b.dataset.editarPainel}/editar`, {});
+    await t10_carregarPaineis();
+  }));
+  el.querySelectorAll('[data-fechar-painel]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/paineis-portas/paineis/${b.dataset.fecharPainel}/salvar`, {});
+    await t10_carregarPaineis();
+  }));
 }
 
 async function t10_atualizarCalculosPaineis() {
@@ -298,7 +310,11 @@ function t10_linhaPortaHtml(p) {
       `<option value="${o.valor}" ${o.valor === p.tensao ? 'selected' : ''}>${o.valor}</option>`).join('')}</select></td>
     <td><input type="text" data-campo="observacoes" data-id-campo="T721" value="${p.observacoes ?? ''}" style="width:100px;"></td>
     <td style="color:#6b7280;max-width:240px;white-space:normal;" data-out="descricao">${p.descricao || '—'}</td>
-    <td><span class="btn-text danger" data-excluir-porta="${p.id}">Excluir</span></td>`;
+    <td><span class="btn-text danger" data-excluir-porta="${p.id}">Excluir</span>
+      ${p.fechada
+        ? `<span class="btn-text c-btn-editar" data-editar-porta="${p.id}" style="margin-left:6px;">Editar</span>`
+        : `<span class="btn-text c-btn-fechar-form" data-fechar-porta="${p.id}" style="margin-left:6px;color:#16a34a;">Fechar</span>`}
+    </td>`;
 }
 
 async function t10_carregarPortas() {
@@ -316,7 +332,7 @@ async function t10_carregarPortas() {
     <th style="white-space:normal;">Fixação</th><th style="white-space:normal;">Esp. Fix. (mm)</th>
     <th style="white-space:normal;">Tensão</th><th style="white-space:normal;">Obs.</th>
     <th style="white-space:normal;">Descrição</th><th></th></tr></thead>
-    <tbody>${portas.map(p => `<tr data-porta-id="${p.id}">${t10_linhaPortaHtml(p)}</tr>`).join('')}</tbody></table>`;
+    <tbody>${portas.map(p => `<tr data-porta-id="${p.id}" ${p.fechada ? 'class="entidade-fechada"' : ''}>${t10_linhaPortaHtml(p)}</tr>`).join('')}</tbody></table>`;
   t10_wirePortas(el);
 }
 
@@ -358,6 +374,14 @@ function t10_wirePortas(el) {
     await api.del(`/api/paineis-portas/portas/${b.dataset.excluirPorta}`);
     await t10_carregarPortas();
     await t10_carregarResumo();
+  }));
+  el.querySelectorAll('[data-editar-porta]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/paineis-portas/portas/${b.dataset.editarPorta}/editar`, {});
+    await t10_carregarPortas();
+  }));
+  el.querySelectorAll('[data-fechar-porta]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/paineis-portas/portas/${b.dataset.fecharPorta}/salvar`, {});
+    await t10_carregarPortas();
   }));
 }
 

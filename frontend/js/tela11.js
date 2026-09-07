@@ -13,6 +13,7 @@ const T11_CAMPOS_NUM = ['quantidade_compressores', 'folga_tecnica_pct', 'quantid
 let t11_rackAtual = null;
 let t11_racks = [];              // todos os racks (opções) do sistema atual
 let t11_rackEditandoId = null;   // rack atualmente aberto no formulário
+let t11_fechada = false;
 
 function initTela11() {
   document.getElementById('t11_sistema_id').addEventListener('change', t11_trocarSistema);
@@ -34,6 +35,8 @@ function initTela11() {
   document.getElementById('t11_cond_notas').addEventListener('change', t11_salvarCondensador);
   document.getElementById('t11_cond_btnAdd').addEventListener('click', t11_addOpcaoCondensador);
   document.getElementById('t11_btnAddRack').addEventListener('click', t11_addRack);
+  document.getElementById('t11_btnEditar').addEventListener('click', t11_editarEntidade);
+  document.getElementById('t11_btnFecharEntidade').addEventListener('click', t11_fecharEntidade);
   document.addEventListener('projeto-changed', t11_onProjetoChanged);
 }
 
@@ -42,6 +45,7 @@ function initTela11() {
 // esperar o botão "Salvar Informações Rack" (mesmo padrão já usado no % Sistema do master).
 async function t11_atualizarImediato() {
   if (!t11_rackAtual) return;
+  if (t11_fechada) return;
   const filtroMotor = document.getElementById('t11_filtro_motor_compressor').value;
   const payload = {
     quantidade_compressores: parseNumBR(document.getElementById('t11_quantidade_compressores').value),
@@ -108,6 +112,7 @@ async function t11_recarregarRacks(manterEdicao = false) {
 
 async function t11_carregarRackNoForm(r) {
   t11_rackAtual = r;
+  t11_fechada = !!r.fechada;
   await t11_popularFabricantesLinhas(r.fabricante_compressor, r.linha_compressor);
   T11_CAMPOS_TEXTO.forEach(c => { document.getElementById('t11_' + c).value = r[c] ?? ''; });
   T11_CAMPOS_NUM.forEach(c => { document.getElementById('t11_' + c).value = r[c] ?? ''; });
@@ -118,6 +123,7 @@ async function t11_carregarRackNoForm(r) {
   t11_renderMateriais(r.materiais);
   await t11_carregarOpcoesCondensador();
   await t11_carregarCompressores();
+  t11_aplicarEstadoFechada(r);
 }
 
 // Lista de racks (opções), padrão simples do forçador: rádio = considerado (entra no cálculo);
@@ -129,9 +135,15 @@ function t11_renderRacks() {
     const resumo = (r.modelo_comercial && r.modelo_comercial !== '—') ? r.modelo_comercial
       : ([r.fabricante_compressor, r.linha_compressor].filter(Boolean).join(' / ') || `Rack ${i + 1}`);
     const editando = r.id === t11_rackEditandoId;   // barra azul à esquerda = rack aberto no formulário
+    let badge = '';
+    if (r.fechada) {
+      badge = r.calculo_desatualizado
+        ? '<span class="badge-fechada desatualizada">desatualizado</span>'
+        : '<span class="badge-fechada ok">fechada</span>';
+    }
     return `<div style="display:flex;align-items:center;gap:10px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:4px;${r.considerado ? 'background:#eff6ff;' : ''}${editando ? 'box-shadow:inset 3px 0 0 0 #2563eb;' : ''}">
       <input type="radio" name="t11_rack_considerado" ${r.considerado ? 'checked' : ''} data-considerar-rack="${r.id}" style="cursor:pointer;">
-      <span data-editar-rack="${r.id}" style="cursor:pointer;white-space:nowrap;font-weight:${r.considerado ? 'bold' : 'normal'};">${resumo}</span>
+      <span data-editar-rack="${r.id}" style="cursor:pointer;white-space:nowrap;font-weight:${r.considerado ? 'bold' : 'normal'};">${resumo}${badge}</span>
       ${t11_racks.length > 1 ? `<span class="btn-text danger" data-excluir-rack="${r.id}" style="margin-left:auto;">Excluir</span>` : ''}
     </div>`;
   }).join('');
@@ -186,6 +198,7 @@ async function t11_recarregarLinhasCabecalho(linhaAtual) {
 // até o usuário clicar Salvar — parecia que o filtro de envelope não respeitava a troca.
 async function t11_salvarCabecalhoCompressor() {
   if (!t11_rackAtual) return;
+  if (t11_fechada) return;
   const payload = {
     fabricante_compressor: document.getElementById('t11_fabricante_compressor').value || null,
     linha_compressor: document.getElementById('t11_linha_compressor').value || null,
@@ -456,6 +469,7 @@ function t11_cond_repopularLinhas(linhaAtual) {
 
 async function t11_salvarCondensador() {
   if (!t11_rackAtual) return;
+  if (t11_fechada) return;
   // Salvar selecao_condensador_ar e delta_condensacao no SISTEMA (campo master agora é a Tela 6)
   const sistemaId = document.getElementById('t11_sistema_id').value;
   const selCond = document.getElementById('t11_cond_tipoCondensador').value || null;
@@ -554,6 +568,47 @@ async function t11_carregarCondensador() {
 async function t11_salvarNomenclaturaCondensador(valores) {
   await api.put(`/api/rack-paralelo/${t11_rackAtual.id}`, { nomenclatura_condensador_selecionada: valores });
   await t11_carregarCondensador();
+}
+
+function t11_aplicarEstadoFechada(r) {
+  const conteudo = document.getElementById('t11_conteudo');
+  const btnSalvar = document.getElementById('t11_btnSalvar');
+  const btnFechar = document.getElementById('t11_btnFecharEntidade');
+  const btnEditar = document.getElementById('t11_btnEditar');
+  const barraFechada = document.getElementById('t11_barraFechada');
+  const barraDesatualizada = document.getElementById('t11_barraDesatualizada');
+  if (t11_fechada) {
+    conteudo.classList.add('entidade-fechada');
+    btnSalvar.style.display = 'none';
+    btnFechar.style.display = 'none';
+    btnEditar.style.display = 'inline-block';
+    barraFechada.style.display = 'flex';
+    barraDesatualizada.style.display = r && r.calculo_desatualizado ? 'flex' : 'none';
+  } else {
+    conteudo.classList.remove('entidade-fechada');
+    btnSalvar.style.display = '';
+    btnFechar.style.display = t11_rackEditandoId ? 'inline-block' : 'none';
+    btnEditar.style.display = 'none';
+    barraFechada.style.display = 'none';
+    barraDesatualizada.style.display = 'none';
+  }
+}
+
+async function t11_editarEntidade() {
+  if (!t11_rackEditandoId) return;
+  await api.post(`/api/rack-paralelo/${t11_rackEditandoId}/editar`, {});
+  t11_fechada = false;
+  t11_aplicarEstadoFechada(null);
+  await t11_recarregarRacks(true);
+}
+
+async function t11_fecharEntidade() {
+  if (!t11_rackEditandoId) return;
+  await t11_salvar();
+  const r = await api.post(`/api/rack-paralelo/${t11_rackEditandoId}/salvar`, {});
+  t11_fechada = true;
+  t11_aplicarEstadoFechada(r);
+  await t11_recarregarRacks(true);
 }
 
 window.initTela11 = initTela11;

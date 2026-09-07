@@ -4,6 +4,7 @@ from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/expositores", tags=["expositores"])
 
@@ -78,6 +79,7 @@ def atualizar(exp_id: int, payload: dict = Body(...), db: Session = Depends(get_
     if not obj:
         raise HTTPException(404, "Expositor não encontrado")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     for k, v in payload.items():
         if k in CAMPOS_BASICOS:
             setattr(obj, k, v)
@@ -92,14 +94,38 @@ def excluir(exp_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise HTTPException(404, "Expositor não encontrado")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     db.delete(obj)
     db.commit()
     return {"ok": True}
 
 
+@router.post("/{exp_id}/editar")
+def abrir_edicao(exp_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Expositor, exp_id)
+    if not obj:
+        raise HTTPException(404, "Expositor não encontrado")
+    bp.verificar_projeto_da(obj)
+    bf.editar_entidade(db, obj)
+    return _serializar(obj)
+
+
+@router.post("/{exp_id}/salvar")
+def fechar_entidade(exp_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.Expositor, exp_id)
+    if not obj:
+        raise HTTPException(404, "Expositor não encontrado")
+    bp.verificar_projeto_da(obj)
+    snapshot = {"carga_termica": _carga_termica(obj), "modulacao": _modulacao(obj)}
+    bf.salvar_entidade(db, obj, snapshot=snapshot, nome_model="Expositor")
+    return _serializar(obj)
+
+
 @router.post("/{exp_id}/modulos")
 def add_modulo(exp_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
-    bp.verificar_projeto_da(db.get(m.Expositor, exp_id))
+    exp = db.get(m.Expositor, exp_id)
+    bp.verificar_projeto_da(exp)
+    bf.verificar_entidade_aberta(exp)
     obj = m.ModuloExpositor(expositor_id=exp_id, comprimento_modulo=payload["comprimento_modulo"],
                              qtd=payload.get("qtd", 1))
     db.add(obj)
@@ -112,7 +138,9 @@ def add_modulo(exp_id: int, payload: dict = Body(...), db: Session = Depends(get
 def remove_modulo(exp_id: int, mod_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.ModuloExpositor, mod_id)
     if obj:
-        bp.verificar_projeto_da(db.get(m.Expositor, exp_id))
+        exp = db.get(m.Expositor, exp_id)
+        bp.verificar_projeto_da(exp)
+        bf.verificar_entidade_aberta(exp)
         db.delete(obj)
         db.commit()
     return {"ok": True}

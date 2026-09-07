@@ -159,6 +159,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         # item do Receita de Vendas / Custo do DRE e da base do comissionamento do vendedor —
         # ver _totais_liquidos/dre_projeto/comissionamento (corrigido 2026-08-05).
         "repasse": repasse,
+        "fechada": item.fechada,
     }
 
 
@@ -541,7 +542,8 @@ def comissionamento(db: Session, projeto_id: int, dados: dict | None = None,
         fatia = (pct / soma_percentuais) if soma_percentuais else 0.0
         itens.append({"id": v.id, "vendedor_id": v.vendedor_id,
                       "vendedor_nome": v.vendedor.nome if v.vendedor else None,
-                      "percentual": pct, "comissao_r": total_orcado * fatia})
+                      "percentual": pct, "comissao_r": total_orcado * fatia,
+                      "fechada": v.fechada})
     return {"itens": itens, "total_venda": total_orcado,
             "total_comissoes": sum(i["comissao_r"] for i in itens)}
 
@@ -696,6 +698,7 @@ def listar_agenda_pagamento(db: Session, projeto_id: int) -> dict:
             "quantidade_parcelas": config.quantidade_parcelas,
             "periodicidade_dias": config.periodicidade_dias,
         } if config else None,
+        "fechada": config.fechada if config else False,
         "parcelas": [{"id": p.id, "ordem": p.ordem, "descricao": p.descricao,
                        "data": p.data, "valor": p.valor} for p in parcelas],
         "total": sum(p.valor for p in parcelas),

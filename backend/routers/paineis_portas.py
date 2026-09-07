@@ -13,6 +13,7 @@ from ..utils import model_to_dict, list_to_dict, resposta_excel_projeto
 from ..calc_paineis_portas import calcular_paineis, calcular_portas, montar_resumo
 from ..exportacao.paineis_portas_export import gerar_excel_paineis_portas
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/paineis-portas", tags=["paineis-portas"])
 
@@ -77,6 +78,7 @@ def atualizar_painel(item_id: int, payload: dict = Body(...), db: Session = Depe
     if not obj:
         raise HTTPException(404, "Não encontrado")
     bp.verificar_projeto_aberto(db, obj.projeto_id)
+    bf.verificar_entidade_aberta(obj)
     dados = {k: v for k, v in payload.items() if k in CAMPOS_PAINEL}
     _validar_camara_do_projeto(db, obj.projeto_id, dados)
     for k, v in dados.items():
@@ -90,6 +92,7 @@ def excluir_painel(item_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.PainelTermico, item_id)
     if obj:
         bp.verificar_projeto_aberto(db, obj.projeto_id)
+        bf.verificar_entidade_aberta(obj)
         db.delete(obj)
         db.commit()
     return {"ok": True}
@@ -123,6 +126,7 @@ def atualizar_porta(item_id: int, payload: dict = Body(...), db: Session = Depen
     if not obj:
         raise HTTPException(404, "Não encontrado")
     bp.verificar_projeto_aberto(db, obj.projeto_id)
+    bf.verificar_entidade_aberta(obj)
     dados = {k: v for k, v in payload.items() if k in CAMPOS_PORTA}
     _validar_camara_do_projeto(db, obj.projeto_id, dados)
     for k, v in dados.items():
@@ -136,9 +140,54 @@ def excluir_porta(item_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.PortaFrigorifica, item_id)
     if obj:
         bp.verificar_projeto_aberto(db, obj.projeto_id)
+        bf.verificar_entidade_aberta(obj)
         db.delete(obj)
         db.commit()
     return {"ok": True}
+
+
+# ---------------- Editar / Salvar (fechada) ----------------
+
+@router.post("/paineis/{item_id}/editar")
+def editar_painel(item_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.PainelTermico, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    bf.editar_entidade(db, obj)
+    return model_to_dict(obj)
+
+
+@router.post("/paineis/{item_id}/salvar")
+def salvar_painel(item_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.PainelTermico, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    snapshot = {k: v for k, v in model_to_dict(obj).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, obj, snapshot=snapshot, nome_model="PainelTermico")
+    return model_to_dict(obj)
+
+
+@router.post("/portas/{item_id}/editar")
+def editar_porta(item_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.PortaFrigorifica, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    bf.editar_entidade(db, obj)
+    return model_to_dict(obj)
+
+
+@router.post("/portas/{item_id}/salvar")
+def salvar_porta(item_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.PortaFrigorifica, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    snapshot = {k: v for k, v in model_to_dict(obj).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, obj, snapshot=snapshot, nome_model="PortaFrigorifica")
+    return model_to_dict(obj)
 
 
 # ---------------- Resumo ----------------

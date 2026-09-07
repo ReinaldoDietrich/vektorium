@@ -1,6 +1,7 @@
 let t4_editandoId = null;
 let t4_catalogos = null;
 let t4_projetoAtual = null;
+let t4_fechada = false;
 
 const T4_CAMPOS = ['sistema_id', 'linha_succao', 'linha_eletrica', 'setor_id', 'modelo_expositor_id'];
 
@@ -13,6 +14,8 @@ function initTela4() {
   document.getElementById('c4_btnAddModulo').addEventListener('click', t4_addModulo);
   document.getElementById('c4_banco_id').addEventListener('change', t4_onBancoChange);
   document.getElementById('c4_modelo_expositor_id').addEventListener('change', t4_previewCarga);
+  document.getElementById('c4_btnEditar').addEventListener('click', t4_editarEntidade);
+  document.getElementById('c4_btnFechar').addEventListener('click', t4_fecharEntidade);
   document.addEventListener('projeto-changed', t4_onProjetoChanged);
 }
 
@@ -56,12 +59,14 @@ function t4_previewCarga() {
 
 function t4_novoExpositor() {
   t4_editandoId = null;
+  t4_fechada = false;
   T4_CAMPOS.forEach(c => { const el = document.getElementById('c4_' + c); if (el && el.tagName !== 'SELECT') el.value = ''; });
   document.getElementById('c4_modelo_expositor_id').innerHTML = '<option value="">—</option>';
   document.getElementById('c4_cargaExpositor').value = '—';
   document.getElementById('c4_modulacaoResultado').textContent = '—';
   document.getElementById('c4_modulosList').innerHTML = '';
   document.getElementById('c4_btnExcluir').style.display = 'none';
+  t4_aplicarEstadoFechada(null);
 }
 
 async function t4_salvarExpositor() {
@@ -88,6 +93,7 @@ async function t4_excluirExpositor() {
 async function t4_abrirExpositor(id) {
   const e = await api.get(`/api/expositores/${id}`);
   t4_editandoId = id;
+  t4_fechada = !!e.fechada;
   T4_CAMPOS.forEach(c => { document.getElementById('c4_' + c).value = e[c] ?? ''; });
   if (e.modelo_expositor_id) {
     const banco = t4_catalogos.bancos.find(b => b.modelos.some(m => m.id === e.modelo_expositor_id));
@@ -101,7 +107,50 @@ async function t4_abrirExpositor(id) {
   document.getElementById('c4_modulacaoResultado').textContent = e.modulacao;
   document.getElementById('c4_btnExcluir').style.display = 'inline-block';
   t4_renderModulos(e.modulos);
+  t4_aplicarEstadoFechada(e);
   t4_abrirForm();
+}
+
+function t4_aplicarEstadoFechada(e) {
+  const wrap = document.getElementById('c4_formWrap');
+  const btnSalvar = document.getElementById('c4_btnSalvar');
+  const btnFechar = document.getElementById('c4_btnFechar');
+  const btnEditar = document.getElementById('c4_btnEditar');
+  const barraFechada = document.getElementById('c4_barraFechada');
+  const barraDesatualizada = document.getElementById('c4_barraDesatualizada');
+  if (t4_fechada) {
+    wrap.classList.add('entidade-fechada');
+    btnSalvar.style.display = 'none';
+    btnFechar.style.display = 'none';
+    btnEditar.style.display = 'inline-block';
+    barraFechada.style.display = 'flex';
+    barraDesatualizada.style.display = e && e.calculo_desatualizado ? 'flex' : 'none';
+  } else {
+    wrap.classList.remove('entidade-fechada');
+    btnSalvar.style.display = '';
+    btnFechar.style.display = t4_editandoId ? 'inline-block' : 'none';
+    btnEditar.style.display = 'none';
+    barraFechada.style.display = 'none';
+    barraDesatualizada.style.display = 'none';
+  }
+}
+
+async function t4_editarEntidade() {
+  if (!t4_editandoId) return;
+  await api.post(`/api/expositores/${t4_editandoId}/editar`, {});
+  t4_fechada = false;
+  t4_aplicarEstadoFechada(null);
+  await t4_carregarLista();
+}
+
+async function t4_fecharEntidade() {
+  if (!t4_editandoId) return;
+  await t4_salvarExpositor();
+  const e = await api.post(`/api/expositores/${t4_editandoId}/salvar`, {});
+  t4_fechada = true;
+  t4_aplicarEstadoFechada(e);
+  await t4_carregarLista();
+  await t4_abrirExpositor(t4_editandoId);
 }
 
 function t4_renderModulos(modulos) {
@@ -128,11 +177,19 @@ async function t4_carregarLista() {
   if (!state.projetoId) { el.innerHTML = ''; return; }
   const todas = await api.get(`/api/expositores?projeto_id=${state.projetoId}`);
   if (todas.length === 0) { el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhum expositor cadastrado ainda.</div>'; return; }
-  el.innerHTML = todas.map(e => `
+  el.innerHTML = todas.map(e => {
+    let badge = '';
+    if (e.fechada) {
+      badge = e.calculo_desatualizado
+        ? '<span class="badge-fechada desatualizada">desatualizado</span>'
+        : '<span class="badge-fechada ok">fechada</span>';
+    }
+    return `
     <div class="lista-card" data-exp="${e.id}">
-      <div class="nome">${e.codigo} — ${e.modelo_nome || '(sem modelo)'} ${e.setor_nome ? '- ' + e.setor_nome : ''}</div>
+      <div class="nome">${e.codigo} — ${e.modelo_nome || '(sem modelo)'} ${e.setor_nome ? '- ' + e.setor_nome : ''}${badge}</div>
       <div class="meta">Carga: ${fmtKcal(e.carga_termica)} · ${e.modulacao}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   el.querySelectorAll('[data-exp]').forEach(card => card.addEventListener('click', () => t4_abrirExpositor(Number(card.dataset.exp))));
 }
 

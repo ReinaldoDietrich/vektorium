@@ -28,6 +28,7 @@ from ..exportacao.bd_export import exportar_unidades
 from .. import id_comercial as idc
 from .compilacao import _montar_itens_compilacao
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/uc", tags=["unidades-condensadoras"])
 
@@ -558,6 +559,7 @@ def upd_selecao(sel_id: int, payload: dict = Body(...), db: Session = Depends(ge
     if not sel:
         raise HTTPException(404, "Não encontrado")
     bp.verificar_projeto_da(db.get(m.SistemaRefrigeracao, sel.sistema_id))
+    bf.verificar_entidade_aberta(sel)
     if payload.get("considerado"):
         for outro in db.query(m.UnidadeSelecaoSistema).filter_by(sistema_id=sel.sistema_id).all():
             outro.considerado = False
@@ -576,9 +578,31 @@ def del_selecao(sel_id: int, db: Session = Depends(get_db)):
     if not sel:
         raise HTTPException(404, "Não encontrado")
     bp.verificar_projeto_da(db.get(m.SistemaRefrigeracao, sel.sistema_id))
+    bf.verificar_entidade_aberta(sel)
     db.delete(sel)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/selecao/{sel_id}/editar")
+def editar_selecao(sel_id: int, db: Session = Depends(get_db)):
+    sel = db.get(m.UnidadeSelecaoSistema, sel_id)
+    if not sel:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_da(db.get(m.SistemaRefrigeracao, sel.sistema_id))
+    bf.editar_entidade(db, sel)
+    return model_to_dict(sel)
+
+
+@router.post("/selecao/{sel_id}/salvar")
+def salvar_selecao(sel_id: int, db: Session = Depends(get_db)):
+    sel = db.get(m.UnidadeSelecaoSistema, sel_id)
+    if not sel:
+        raise HTTPException(404, "Não encontrado")
+    bp.verificar_projeto_da(db.get(m.SistemaRefrigeracao, sel.sistema_id))
+    snapshot = {k: v for k, v in model_to_dict(sel).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, sel, snapshot=snapshot, nome_model="UnidadeSelecaoSistema")
+    return model_to_dict(sel)
 
 
 # Opções em cascata pra popular os selects da tela de seleção (Tela 1): cada campo só mostra as

@@ -9,6 +9,7 @@ from ..database import get_db
 from ..utils import model_to_dict, list_to_dict
 from .. import composicao_preco as cp
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/composicao-preco", tags=["composicao-preco"])
 
@@ -57,6 +58,7 @@ def atualizar_item(item_id: int, payload: dict = Body(...), db: Session = Depend
     if not item:
         raise HTTPException(404)
     bp.verificar_projeto_da(item)
+    bf.verificar_entidade_aberta(item)
     dados = {k: v for k, v in payload.items() if k in CAMPOS_ITEM}
     # item "sistema" (auto-sincronizado da Tela 10) não pode ter descrição/quantidade editadas à
     # mão — só custo_unitario/fator/centro_custo, senão a próxima sincronização re-cria a linha.
@@ -75,9 +77,31 @@ def excluir_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(m.ComposicaoPrecoItem, item_id)
     if item:
         bp.verificar_projeto_da(item)
+        bf.verificar_entidade_aberta(item)
         db.delete(item)
         db.commit()
     return {"ok": True}
+
+
+@router.post("/item/{item_id}/editar")
+def editar_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(m.ComposicaoPrecoItem, item_id)
+    if not item:
+        raise HTTPException(404)
+    bp.verificar_projeto_da(item)
+    bf.editar_entidade(db, item)
+    return model_to_dict(item)
+
+
+@router.post("/item/{item_id}/salvar")
+def salvar_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(m.ComposicaoPrecoItem, item_id)
+    if not item:
+        raise HTTPException(404)
+    bp.verificar_projeto_da(item)
+    snapshot = {k: v for k, v in model_to_dict(item).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, item, snapshot=snapshot, nome_model="ComposicaoPrecoItem")
+    return model_to_dict(item)
 
 
 @router.post("/restaurar-padroes")
@@ -161,6 +185,7 @@ def atualizar_vendedor_projeto(vinc_id: int, payload: dict = Body(...), db: Sess
     if not vinc:
         raise HTTPException(404)
     bp.verificar_projeto_aberto(db, vinc.projeto_id)
+    bf.verificar_entidade_aberta(vinc)
     if "percentual" in payload:
         vinc.percentual = payload["percentual"]
     db.commit()
@@ -172,9 +197,31 @@ def excluir_vendedor_projeto(vinc_id: int, db: Session = Depends(get_db)):
     vinc = db.get(m.ComissaoVendedorProjeto, vinc_id)
     if vinc:
         bp.verificar_projeto_aberto(db, vinc.projeto_id)
+        bf.verificar_entidade_aberta(vinc)
         db.delete(vinc)
         db.commit()
     return {"ok": True}
+
+
+@router.post("/comissionamento/{vinc_id}/editar")
+def editar_comissao(vinc_id: int, db: Session = Depends(get_db)):
+    vinc = db.get(m.ComissaoVendedorProjeto, vinc_id)
+    if not vinc:
+        raise HTTPException(404)
+    bp.verificar_projeto_aberto(db, vinc.projeto_id)
+    bf.editar_entidade(db, vinc)
+    return model_to_dict(vinc)
+
+
+@router.post("/comissionamento/{vinc_id}/salvar")
+def salvar_comissao(vinc_id: int, db: Session = Depends(get_db)):
+    vinc = db.get(m.ComissaoVendedorProjeto, vinc_id)
+    if not vinc:
+        raise HTTPException(404)
+    bp.verificar_projeto_aberto(db, vinc.projeto_id)
+    snapshot = {k: v for k, v in model_to_dict(vinc).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, vinc, snapshot=snapshot, nome_model="ComissaoVendedorProjeto")
+    return model_to_dict(vinc)
 
 
 @router.get("/dre")
@@ -185,7 +232,8 @@ def dre(projeto_id: int, db: Session = Depends(get_db)):
 @router.get("/margem-negociacao")
 def obter_margem_negociacao(projeto_id: int, db: Session = Depends(get_db)):
     reg = db.get(m.MargemNegociacaoProjeto, projeto_id)
-    return {"projeto_id": projeto_id, "percentual": reg.percentual if reg else 0.05}
+    return {"projeto_id": projeto_id, "percentual": reg.percentual if reg else 0.05,
+            "fechada": reg.fechada if reg else False}
 
 
 @router.put("/margem-negociacao")
@@ -196,11 +244,58 @@ def salvar_margem_negociacao(projeto_id: int, payload: dict = Body(...), db: Ses
         raise HTTPException(400, "percentual obrigatório")
     reg = db.get(m.MargemNegociacaoProjeto, projeto_id)
     if reg:
+        bf.verificar_entidade_aberta(reg)
         reg.percentual = pct
     else:
         db.add(m.MargemNegociacaoProjeto(projeto_id=projeto_id, percentual=pct))
     db.commit()
     return {"projeto_id": projeto_id, "percentual": pct}
+
+
+@router.post("/margem-negociacao/editar")
+def editar_margem(projeto_id: int, db: Session = Depends(get_db)):
+    bp.verificar_projeto_aberto(db, projeto_id)
+    reg = db.get(m.MargemNegociacaoProjeto, projeto_id)
+    if not reg:
+        reg = m.MargemNegociacaoProjeto(projeto_id=projeto_id, percentual=0.05)
+        db.add(reg)
+        db.commit()
+    bf.editar_entidade(db, reg)
+    return {"projeto_id": projeto_id, "percentual": reg.percentual, "fechada": reg.fechada}
+
+
+@router.post("/margem-negociacao/salvar")
+def salvar_margem_entidade(projeto_id: int, db: Session = Depends(get_db)):
+    bp.verificar_projeto_aberto(db, projeto_id)
+    reg = db.get(m.MargemNegociacaoProjeto, projeto_id)
+    if not reg:
+        raise HTTPException(404)
+    snapshot = {"projeto_id": reg.projeto_id, "percentual": reg.percentual}
+    bf.salvar_entidade(db, reg, snapshot=snapshot, nome_model="MargemNegociacaoProjeto")
+    return {"projeto_id": projeto_id, "percentual": reg.percentual, "fechada": reg.fechada}
+
+
+# ---------------- Condição de Pagamento — Editar / Salvar (fechada) ----------------
+
+@router.post("/condicao-pagamento/editar")
+def editar_condicao_pagamento(projeto_id: int, db: Session = Depends(get_db)):
+    bp.verificar_projeto_aberto(db, projeto_id)
+    cond = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).first()
+    if not cond:
+        raise HTTPException(404, "Nenhuma condição de pagamento para este projeto")
+    bf.editar_entidade(db, cond)
+    return model_to_dict(cond)
+
+
+@router.post("/condicao-pagamento/salvar")
+def salvar_condicao_pagamento_entidade(projeto_id: int, db: Session = Depends(get_db)):
+    bp.verificar_projeto_aberto(db, projeto_id)
+    cond = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).first()
+    if not cond:
+        raise HTTPException(404, "Nenhuma condição de pagamento para este projeto")
+    snapshot = {k: v for k, v in model_to_dict(cond).items() if k not in ("id", "fechada", "calculo_snapshot_json")}
+    bf.salvar_entidade(db, cond, snapshot=snapshot, nome_model="CondicaoPagamentoProjeto")
+    return model_to_dict(cond)
 
 
 # ---------------- Mestre: Fatores de Venda (Tela D) ----------------
@@ -339,6 +434,9 @@ def gerar_agenda_pagamento(projeto_id: int, payload: dict = Body(...), db: Sessi
     if not db.get(m.Projeto, projeto_id):
         raise HTTPException(404, "Projeto não encontrado")
     bp.verificar_projeto_aberto(db, projeto_id)
+    cond_existente = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).first()
+    if cond_existente:
+        bf.verificar_entidade_aberta(cond_existente)
     percentual_sinal = payload.get("percentual_sinal")
     data_sinal = payload.get("data_sinal")
     quantidade_parcelas = payload.get("quantidade_parcelas")
@@ -352,6 +450,9 @@ def gerar_agenda_pagamento(projeto_id: int, payload: dict = Body(...), db: Sessi
 @router.delete("/condicao-pagamento")
 def excluir_condicao_pagamento(projeto_id: int, db: Session = Depends(get_db)):
     bp.verificar_projeto_aberto(db, projeto_id)
+    cond = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).first()
+    if cond:
+        bf.verificar_entidade_aberta(cond)
     db.query(m.CondicaoPagamentoParcela).filter_by(projeto_id=projeto_id).delete()
     db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).delete()
     db.commit()
@@ -364,6 +465,9 @@ def atualizar_parcela_pagamento(parcela_id: int, payload: dict = Body(...), db: 
     if not parcela:
         raise HTTPException(404)
     bp.verificar_projeto_aberto(db, parcela.projeto_id)
+    cond = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=parcela.projeto_id).first()
+    if cond:
+        bf.verificar_entidade_aberta(cond)
     if "data" in payload:
         parcela.data = payload["data"]
     if "valor" in payload:

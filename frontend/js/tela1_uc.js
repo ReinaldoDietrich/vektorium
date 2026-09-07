@@ -96,7 +96,14 @@ async function t1uc_render() {
     } else {
       for (const o of sel.selecoes) {
         const opcoesLinha = await t1uc_fetchOpcoes(o);
-        html += `<div style="border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px;">
+        let badge = '';
+        if (o.fechada) {
+          badge = o.calculo_desatualizado
+            ? '<span class="badge-fechada desatualizada" style="margin-left:6px;">desatualizado</span>'
+            : '<span class="badge-fechada ok" style="margin-left:6px;">fechada</span>';
+        }
+        html += `<div style="border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px;" ${o.fechada ? 'class="entidade-fechada"' : ''}>
+          ${o.fechada ? '<div class="c-barra-fechada" style="display:flex;">Seleção fechada — clique em <strong>Editar</strong> para reabrir.' + badge + '</div>' : ''}
           <div class="uc-cascata-fields" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
             ${t1uc_camposCascata('sel', o.id, o, opcoesLinha)}
             <div><label class="lbl">Folga %</label><input type="text" value="${o.folga_desejada ?? ''}" style="width:56px;" data-sel-folga="${o.id}"></div>
@@ -104,6 +111,9 @@ async function t1uc_render() {
             <div><label style="font-size:11px;color:${o.considerado ? '#15803d' : '#6b7280'};font-weight:${o.considerado ? 'bold' : 'normal'};">
               <input type="radio" name="uc-consid-${s.sistema_id}" ${o.considerado ? 'checked' : ''} data-uc-consid="${o.id}"> Considerar</label></div>
             <div><span class="btn-text danger" data-uc-excluir="${o.id}">Excluir</span></div>
+            ${o.fechada
+              ? '<div><button class="btn c-btn-editar" data-uc-editar="' + o.id + '">Editar</button></div>'
+              : '<div><button class="btn c-btn-fechar-form" data-uc-fechar="' + o.id + '" style="background:#16a34a;color:#fff;">Fechar</button></div>'}
           </div>
           <div class="small" style="color:#6b7280;margin-top:4px;">
             ${(o.quantidade_paralelo || 1) > 1 ? '<strong>' + o.quantidade_paralelo + '× em paralelo</strong> · carga/unid. ' + fmtNum(o.carga_por_unidade_kcal_h) + ' kcal/h · ' : ''}${o.modelo_resultante || '—'}
@@ -201,6 +211,14 @@ async function t1uc_render() {
   }));
   el.querySelectorAll('[data-uc-excluir]').forEach(b => b.addEventListener('click', async () => {
     await api.del(`/api/uc/selecao/${b.dataset.ucExcluir}`);
+    t1uc_render();
+  }));
+  el.querySelectorAll('[data-uc-editar]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/uc/selecao/${b.dataset.ucEditar}/editar`, {});
+    t1uc_render();
+  }));
+  el.querySelectorAll('[data-uc-fechar]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/uc/selecao/${b.dataset.ucFechar}/salvar`, {});
     t1uc_render();
   }));
   el.querySelectorAll('[data-uc-flut]').forEach(sel2 => sel2.addEventListener('change', async () => {

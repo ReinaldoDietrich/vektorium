@@ -12,6 +12,7 @@ from ..database import get_db
 from ..utils import model_to_dict, list_to_dict
 from ..calculos.comum import folga_percentual
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 from .. import calc_remoto_client as _remoto
 from ..calc_service import _token_usuario
 
@@ -304,6 +305,7 @@ def considerar_rack(rack_id: int, db: Session = Depends(get_db)):
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     bp.verificar_projeto_da(rack)
+    bf.verificar_pai_aberto(rack)
     for r in rack.sistema.racks:
         r.considerado = (r.id == rack_id)
     db.commit()
@@ -316,6 +318,7 @@ def excluir_rack(rack_id: int, db: Session = Depends(get_db)):
     if not rack:
         return {"ok": True}
     bp.verificar_projeto_da(rack)
+    bf.verificar_entidade_aberta(rack)
     sistema = rack.sistema
     if len(sistema.racks) <= 1:
         raise HTTPException(400, "O sistema precisa ter ao menos um rack.")
@@ -328,12 +331,34 @@ def excluir_rack(rack_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/{rack_id}/editar")
+def abrir_edicao(rack_id: int, db: Session = Depends(get_db)):
+    rack = db.get(m.RackParalelo, rack_id)
+    if not rack:
+        raise HTTPException(404, "Rack não encontrado")
+    bp.verificar_projeto_da(rack)
+    bf.editar_entidade(db, rack)
+    return _serializar(db, rack)
+
+
+@router.post("/{rack_id}/salvar")
+def fechar_entidade(rack_id: int, db: Session = Depends(get_db)):
+    rack = db.get(m.RackParalelo, rack_id)
+    if not rack:
+        raise HTTPException(404, "Rack não encontrado")
+    bp.verificar_projeto_da(rack)
+    snapshot = model_to_dict(rack)
+    bf.salvar_entidade(db, rack, snapshot=snapshot, nome_model="RackParalelo")
+    return _serializar(db, rack)
+
+
 @router.put("/{rack_id}")
 def atualizar(rack_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
     rack = db.get(m.RackParalelo, rack_id)
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     bp.verificar_projeto_da(rack)
+    bf.verificar_entidade_aberta(rack)
     for k, v in payload.items():
         if k in CAMPOS_RACK:
             setattr(rack, k, v)
@@ -359,6 +384,7 @@ def add_condensador(rack_id: int, db: Session = Depends(get_db)):
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     bp.verificar_projeto_da(rack)
+    bf.verificar_pai_aberto(rack)
     opt = m.RackCondensadorSelecao(rack_id=rack_id, considerado=False)
     db.add(opt)
     db.commit()
@@ -372,6 +398,7 @@ def atualizar_condensador(opt_id: int, payload: dict = Body(...), db: Session = 
     if not opt:
         raise HTTPException(404, "Opção de condensador não encontrada")
     bp.verificar_projeto_da(opt.rack)
+    bf.verificar_pai_aberto(opt.rack)
     for k, v in payload.items():
         if k == "nomenclatura_condensador_selecionada":
             opt.nomenclatura_condensador_selecionada = json.dumps(v or {})
@@ -389,6 +416,7 @@ def considerar_condensador(opt_id: int, db: Session = Depends(get_db)):
     if not opt:
         raise HTTPException(404, "Opção de condensador não encontrada")
     bp.verificar_projeto_da(opt.rack)
+    bf.verificar_pai_aberto(opt.rack)
     for c in opt.rack.condensadores:
         c.considerado = (c.id == opt_id)
     _sync_rack_do_considerado(opt.rack)
@@ -402,6 +430,7 @@ def remove_condensador(opt_id: int, db: Session = Depends(get_db)):
     if not opt:
         return {"ok": True}
     bp.verificar_projeto_da(opt.rack)
+    bf.verificar_pai_aberto(opt.rack)
     rack = opt.rack
     if len(rack.condensadores) <= 1:
         raise HTTPException(400, "O rack precisa ter ao menos uma opção de condensador.")
@@ -421,6 +450,7 @@ def atualizar_material(item_id: int, payload: dict = Body(...), db: Session = De
     if not item:
         raise HTTPException(404, "Item não encontrado")
     bp.verificar_projeto_da(item.rack)
+    bf.verificar_pai_aberto(item.rack)
     for campo in ("modelo", "quantidade"):
         if campo in payload:
             setattr(item, campo, payload[campo])
@@ -712,6 +742,7 @@ def atualizar_posicao(rack_id: int, posicao: int, payload: dict = Body(...), db:
     if not c:
         raise HTTPException(404, "Posição não encontrada")
     bp.verificar_projeto_da(c.rack)
+    bf.verificar_pai_aberto(c.rack)
     if posicao == 1 and "percentual_sistema" in payload:
         c.percentual_sistema = payload["percentual_sistema"]
     db.commit()

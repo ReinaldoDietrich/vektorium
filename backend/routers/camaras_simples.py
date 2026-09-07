@@ -7,6 +7,7 @@ from ..utils import model_to_dict, chave_ordem_camara
 from ..calc_service import calcular_camara_simples_seguro as calcular_camara_simples
 from .. import id_comercial as idc
 from . import _bloqueio_projeto as bp
+from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/camaras-simples", tags=["camaras-simples"])
 
@@ -71,6 +72,7 @@ def atualizar(camara_id: int, payload: dict = Body(...), db: Session = Depends(g
     if not obj:
         raise HTTPException(404, "Câmara não encontrada")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     for k, v in payload.items():
         if k in CAMPOS_BASICOS:
             setattr(obj, k, v)
@@ -90,9 +92,31 @@ def excluir(camara_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise HTTPException(404, "Câmara não encontrada")
     bp.verificar_projeto_da(obj)
+    bf.verificar_entidade_aberta(obj)
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{camara_id}/editar")
+def abrir_edicao(camara_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.CamaraSimples, camara_id)
+    if not obj:
+        raise HTTPException(404, "Câmara não encontrada")
+    bp.verificar_projeto_da(obj)
+    bf.editar_entidade(db, obj)
+    return {**model_to_dict(obj), "codigo": _codigo(obj), "calculo": calcular_camara_simples(db, obj)}
+
+
+@router.post("/{camara_id}/salvar")
+def fechar_entidade(camara_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.CamaraSimples, camara_id)
+    if not obj:
+        raise HTTPException(404, "Câmara não encontrada")
+    bp.verificar_projeto_da(obj)
+    calculo = calcular_camara_simples(db, obj)
+    bf.salvar_entidade(db, obj, snapshot=calculo, nome_model="CamaraSimples")
+    return {**model_to_dict(obj), "codigo": _codigo(obj), "calculo": calculo}
 
 
 @router.post("/{camara_id}/duplicar")
@@ -127,7 +151,9 @@ def _provisionar_valvula(db: Session, camara: m.CamaraSimples, forcador: m.Forca
 
 @router.post("/{camara_id}/forcadores")
 def add_forcador(camara_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
-    bp.verificar_projeto_da(db.get(m.CamaraSimples, camara_id))
+    camara = db.get(m.CamaraSimples, camara_id)
+    bp.verificar_projeto_da(camara)
+    bf.verificar_entidade_aberta(camara)
     existentes = db.query(m.ForcadorSelecaoSimples).filter_by(camara_id=camara_id).count()
     if existentes >= 5:
         raise HTTPException(400, "Máximo de 5 linhas de comparação")
@@ -149,7 +175,9 @@ def upd_forcador(camara_id: int, item_id: int, payload: dict = Body(...), db: Se
     obj = db.get(m.ForcadorSelecaoSimples, item_id)
     if not obj:
         raise HTTPException(404, "Não encontrado")
-    bp.verificar_projeto_da(db.get(m.CamaraSimples, camara_id))
+    camara = db.get(m.CamaraSimples, camara_id)
+    bp.verificar_projeto_da(camara)
+    bf.verificar_entidade_aberta(camara)
     if "folga_desejada" in payload:
         obj.folga_desejada = payload["folga_desejada"]
     if "quantidade" in payload:
@@ -169,7 +197,9 @@ def upd_forcador(camara_id: int, item_id: int, payload: dict = Body(...), db: Se
 def remove_forcador(camara_id: int, item_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.ForcadorSelecaoSimples, item_id)
     if obj:
-        bp.verificar_projeto_da(db.get(m.CamaraSimples, camara_id))
+        camara = db.get(m.CamaraSimples, camara_id)
+        bp.verificar_projeto_da(camara)
+        bf.verificar_entidade_aberta(camara)
         era_considerado = obj.considerado
         db.delete(obj)
         db.commit()
@@ -183,7 +213,9 @@ def remove_forcador(camara_id: int, item_id: int, db: Session = Depends(get_db))
 
 @router.post("/{camara_id}/forcadores/{forcador_id}/valvulas")
 def add_valvula(camara_id: int, forcador_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
-    bp.verificar_projeto_da(db.get(m.CamaraSimples, camara_id))
+    camara = db.get(m.CamaraSimples, camara_id)
+    bp.verificar_projeto_da(camara)
+    bf.verificar_entidade_aberta(camara)
     if db.query(m.ValvulaSelecaoSimples).filter_by(forcador_selecao_id=forcador_id).count() >= 5:
         raise HTTPException(400, "Máximo de 5 linhas de comparação")
     primeira = db.query(m.ValvulaSelecaoSimples).filter_by(forcador_selecao_id=forcador_id).count() == 0
@@ -206,7 +238,10 @@ def upd_valvula(item_id: int, payload: dict = Body(...), db: Session = Depends(g
     if not obj:
         raise HTTPException(404, "Não encontrado")
     forcador = db.get(m.ForcadorSelecaoSimples, obj.forcador_selecao_id)
-    bp.verificar_projeto_da(db.get(m.CamaraSimples, forcador.camara_id) if forcador else None)
+    camara = db.get(m.CamaraSimples, forcador.camara_id) if forcador else None
+    bp.verificar_projeto_da(camara)
+    if camara:
+        bf.verificar_entidade_aberta(camara)
     for campo in ("folga_desejada", "modelo_selecao", "carga_abertura_pct", "conexao_entrada", "conexao_saida",
                   "capacidade_unit_kcal_h", "orificio", "tensao", "tipo_motor", "controlador"):
         if campo in payload:
@@ -223,7 +258,10 @@ def remove_valvula(item_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.ValvulaSelecaoSimples, item_id)
     if obj:
         forcador = db.get(m.ForcadorSelecaoSimples, obj.forcador_selecao_id)
-        bp.verificar_projeto_da(db.get(m.CamaraSimples, forcador.camara_id) if forcador else None)
+        camara = db.get(m.CamaraSimples, forcador.camara_id) if forcador else None
+        bp.verificar_projeto_da(camara)
+        if camara:
+            bf.verificar_entidade_aberta(camara)
         era_considerado = obj.considerado
         forcador_id = obj.forcador_selecao_id
         db.delete(obj)

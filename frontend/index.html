@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Carga Térmica</title>
-<link rel="stylesheet" href="/css/style.css?v=20260902090000">
+<link rel="stylesheet" href="/css/style.css?v=20260907140000">
 <link rel="stylesheet" href="/css/sidebar.css?v=20260902090000">
 <style>body{visibility:hidden}</style>
 <script>setTimeout(function(){ document.body.style.visibility='visible'; }, 1500);</script>
@@ -299,6 +299,14 @@
     <div class="layout2">
     <div><div class="body-pad">
 
+      <div class="c-barra-fechada" id="c2_barraFechada">
+        <span>Câmara fechada — valores congelados.</span>
+        <button class="btn-wide c-btn-editar" id="c2_btnEditar">Editar</button>
+      </div>
+      <div class="c-barra-desatualizada" id="c2_barraDesatualizada">
+        Cálculo desatualizado — um dado do projeto ou sistema mudou. Salve novamente para atualizar.
+      </div>
+
       <div class="grid g4" style="margin-bottom:6px;">
         <div><label class="lbl">Nome da Câmara</label><input type="text" id="c2_nome" data-id-campo="T21"></div>
         <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c2_sistema_id" data-id-campo="T22"></select></div>
@@ -426,8 +434,9 @@
         <button class="btn-text" id="c2_btnExcluir" style="display:none;">Excluir Câmara</button>
         <button class="btn-text" id="c2_btnDuplicar" style="display:none;">Duplicar Câmara</button>
         <button class="btn-text" id="c2_btnNova">+ Nova Câmara</button>
-        <span class="btn-text" id="c2_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <span class="btn-text c-btn-fechar-form" id="c2_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
         <button class="btn-wide" id="c2_btnSalvar">Salvar Câmara</button>
+        <button class="btn-wide" id="c2_btnFechar" style="display:none;background:#16a34a;">Salvar e Fechar</button>
       </div>
 
     </div></div>
@@ -480,6 +489,15 @@
     <div id="c3_formWrap" style="display:none;">
     <div class="layout2">
     <div><div class="body-pad">
+
+      <div class="c-barra-fechada" id="c3_barraFechada">
+        <span>Câmara fechada — valores congelados.</span>
+        <button class="btn-wide c-btn-editar" id="c3_btnEditar">Editar</button>
+      </div>
+      <div class="c-barra-desatualizada" id="c3_barraDesatualizada">
+        Cálculo desatualizado — um dado do projeto ou sistema mudou. Salve novamente para atualizar.
+      </div>
+
       <div class="grid g4" style="margin-bottom:6px;">
         <div><label class="lbl">Nome da Câmara</label><input type="text" id="c3_nome" data-id-campo="T31"></div>
         <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c3_sistema_id" data-id-campo="T32"></select></div>
@@ -560,8 +578,9 @@
         <button class="btn-text" id="c3_btnExcluir" style="display:none;">Excluir Câmara</button>
         <button class="btn-text" id="c3_btnDuplicar" style="display:none;">Duplicar Câmara</button>
         <button class="btn-text" id="c3_btnNova">+ Nova Câmara</button>
-        <span class="btn-text" id="c3_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <span class="btn-text c-btn-fechar-form" id="c3_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
         <button class="btn-wide" id="c3_btnSalvar">Salvar Câmara</button>
+        <button class="btn-wide" id="c3_btnFechar" style="display:none;background:#16a34a;">Salvar e Fechar</button>
       </div>
     </div></div>
     <div class="side">
@@ -588,6 +607,8 @@
     <div id="t4_conteudo" style="display:none;">
     <div id="c4_formWrap" style="display:none;">
     <div class="body-pad" style="max-width:900px;">
+      <div id="c4_barraFechada" class="c-barra-fechada">Entidade fechada — dados congelados. Clique em <strong>Editar</strong> para reabrir.</div>
+      <div id="c4_barraDesatualizada" class="c-barra-desatualizada">Cálculo desatualizado — um dado-pai foi alterado após o fechamento.</div>
       <div class="grid g4" style="margin-bottom:6px;">
         <div><label class="lbl">Sistema (vínculo Tela 1)</label><select id="c4_sistema_id" data-id-campo="T41"></select></div>
         <div><label class="lbl">Linha de Sucção</label><input type="text" id="c4_linha_succao" data-id-campo="T42"></div>
@@ -620,6 +641,8 @@
         <button class="btn-text" id="c4_btnExcluir" style="display:none;">Excluir Expositor</button>
         <button class="btn-text" id="c4_btnNovo">+ Novo Expositor</button>
         <span class="btn-text" id="c4_btnFecharForm" style="margin-left:8px;">Fechar ✕</span>
+        <button class="btn-wide c-btn-editar" id="c4_btnEditar" style="display:none;">Editar</button>
+        <button class="btn-wide c-btn-fechar-form" id="c4_btnFechar" style="display:none;background:#16a34a;color:#fff;">Salvar e Fechar</button>
         <button class="btn-wide" id="c4_btnSalvar">Salvar Expositor</button>
       </div>
     </div>
@@ -1119,6 +1142,8 @@
 
       <div id="t11_semSistema" class="small" style="padding:16px;text-align:center;color:#9ca3af;display:none;">Nenhum sistema com Tipo de Compressão "Rack Paralelo" neste projeto (Tela 1 → Sistemas).</div>
       <div id="t11_conteudo" style="display:none;">
+        <div id="t11_barraFechada" class="c-barra-fechada">Rack fechado — dados congelados. Clique em <strong>Editar</strong> para reabrir.</div>
+        <div id="t11_barraDesatualizada" class="c-barra-desatualizada">Cálculo desatualizado — um dado-pai foi alterado após o fechamento.</div>
         <div class="sec-title">Sistema</div>
         <div class="grid g3">
           <div><label class="lbl">Sistema (Rack Paralelo)</label><select id="t11_sistema_id" data-id-campo="T61"></select></div>
@@ -1152,7 +1177,11 @@ CP/SP — com / sem supervisão</pre>
           <div><label class="lbl">Linha Compressor</label><select id="t11_linha_compressor" data-id-campo="T63"><option value="">—</option></select></div>
           <div></div>
         </div>
-        <p style="text-align:right;margin-top:8px;"><button class="btn-wide" id="t11_btnSalvar">Salvar Informações Rack</button></p>
+        <p style="text-align:right;margin-top:8px;">
+          <button class="btn-wide c-btn-editar" id="t11_btnEditar" style="display:none;">Editar</button>
+          <button class="btn-wide c-btn-fechar-form" id="t11_btnFecharEntidade" style="display:none;background:#16a34a;color:#fff;">Salvar e Fechar</button>
+          <button class="btn-wide" id="t11_btnSalvar">Salvar Informações Rack</button>
+        </p>
 
         <div class="sec-title" style="margin-top:20px;">Seleção de Compressores <span class="sub">— cálculo em tempo real pelo polinômio EN12900 (padrão Bitzer)</span></div>
         <div class="grid g3" style="margin-top:6px;">
@@ -1657,23 +1686,23 @@ CP/SP — com / sem supervisão</pre>
 <script src="/js/main.js?v=20260902090000"></script>
 <script src="/js/componentes.js?v=20260902090000"></script>
 <script src="/js/matrizForcador.js?v=20260902090000"></script>
-<script src="/js/tela1.js?v=20260902090000"></script>
-<script src="/js/tela1_uc.js?v=20260902090000"></script>
-<script src="/js/tela2.js?v=20260902090000"></script>
-<script src="/js/tela3.js?v=20260902090000"></script>
-<script src="/js/tela4.js?v=20260902090000"></script>
-<script src="/js/tela5.js?v=20260902090000"></script>
+<script src="/js/tela1.js?v=20260907160000"></script>
+<script src="/js/tela1_uc.js?v=20260907140000"></script>
+<script src="/js/tela2.js?v=20260907140000"></script>
+<script src="/js/tela3.js?v=20260907140000"></script>
+<script src="/js/tela4.js?v=20260907140000"></script>
+<script src="/js/tela5.js?v=20260907160000"></script>
 <script src="/js/tela6.js?v=20260902090000"></script>
 <script src="/js/tela7.js?v=20260902090000"></script>
 <script src="/js/tela8.js?v=20260902090000"></script>
 <script src="/js/tela9.js?v=20260902090000"></script>
-<script src="/js/tela10.js?v=20260902090000"></script>
-<script src="/js/tela17.js?v=20260902090000"></script>
+<script src="/js/tela10.js?v=20260907140000"></script>
+<script src="/js/tela17.js?v=20260907160000"></script>
 <script src="/js/tela13.js?v=20260902090000"></script>
-<script src="/js/tela11.js?v=20260902090000"></script>
+<script src="/js/tela11.js?v=20260907140000"></script>
 <script src="/js/telaLuminotecnico.js?v=20260902090000"></script>
 <script src="/js/tela16.js?v=20260902090000"></script>
-<script src="/js/tela12.js?v=20260902090000"></script>
+<script src="/js/tela12.js?v=20260907160000"></script>
 <script src="/js/tela14.js?v=20260902090000"></script>
 <script src="/js/tela15.js?v=20260902090000"></script>
 <script src="/js/tela13_proposta.js?v=20260902090000"></script>

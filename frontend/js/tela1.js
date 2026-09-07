@@ -512,6 +512,7 @@ async function t1_abrirProjeto(id, projetosCache) {
   t1_retrairTudo();
   await definirProjetoAtivo(id);
   t1_renderSistemas();
+  t1_aplicarEstadoSecoes(p);
   t1_carregarFiltroFabGlobal();
   t1_carregarProjetos();
   t1_renderAcoesProjetoAtivo();
@@ -735,19 +736,31 @@ function t1_renderSistemas() {
     const condensacaoResumo = t1_nomePorCodigo(s.selecao_condensador_ar) || '—';
     const tCond = t1_tempCondensacao(s);
     const tLiq = t1_tempLiquido(s);
-    html += `<tr>
-      <td style="font-weight:bold;">${s.nome}${revisarTag}</td><td>${s.classificacao || '—'}</td><td>${s.gas_refrigerante || '—'}</td>
+    const f = s.fechada;
+    const fechadaTag = f ? ' <span style="background:#10b981;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;">FECHADA</span>' : '';
+    html += `<tr style="${f ? 'background:var(--surface-1,#f9fafb);' : ''}">
+      <td style="font-weight:bold;">${s.nome}${fechadaTag}${revisarTag}</td><td>${s.classificacao || '—'}</td><td>${s.gas_refrigerante || '—'}</td>
       <td>${expansaoResumo}</td><td>${s.temp_evaporacao ?? '—'}°C</td>
       <td>${compressaoResumo}</td><td>${condensacaoResumo}</td>
       <td>${tCond != null ? tCond.toFixed(1) + '°C' : '—'}</td><td>${tLiq != null ? tLiq.toFixed(1) + '°C' : '—'}</td>
       <td>${s.vinculos} lançamento(s)</td>
-      <td><span class="btn-text" data-editar="${s.id}" style="margin-right:4px;">Editar</span><span class="btn-text danger" data-excluir="${s.id}">Excluir</span></td>
+      <td>${f
+        ? `<span class="btn-text" data-abrir-sistema="${s.id}" style="margin-right:4px;">Editar</span>`
+        : `<span class="btn-text" data-editar="${s.id}" style="margin-right:4px;">Editar</span><span class="btn-text" data-fechar-sistema="${s.id}" style="margin-right:4px;">Salvar</span><span class="btn-text danger" data-excluir="${s.id}">Excluir</span>`}</td>
     </tr>`;
   });
   html += '</tbody></table></div>';
   el.innerHTML = html;
   el.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => t1_editarSistema(Number(b.dataset.editar))));
   el.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => t1_excluirSistema(Number(b.dataset.excluir))));
+  el.querySelectorAll('[data-abrir-sistema]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/sistemas/${b.dataset.abrirSistema}/editar`, {});
+    await t1_recarregarSistemas();
+  }));
+  el.querySelectorAll('[data-fechar-sistema]').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/api/sistemas/${b.dataset.fecharSistema}/salvar`, {});
+    await t1_recarregarSistemas();
+  }));
   if (window.t1uc_render) window.t1uc_render();
 }
 
@@ -857,6 +870,64 @@ async function t1_excluirSistema(id) {
   if (t1_editandoSistemaId === id) t1_limparFormSistema();
   await carregarSistemasDoProjeto();
   t1_renderSistemas();
+}
+
+async function t1_recarregarSistemas() {
+  await carregarSistemasDoProjeto();
+  t1_renderSistemas();
+}
+
+const T1_CAMPOS_DADOS_GERAIS = ['p_codigo_projeto', 'p_data', 'p_cliente', 'p_contato', 'p_telefone',
+  'p_razao_social_faturamento', 'p_cnpj_faturamento', 'p_cep_faturamento',
+  'p_endereco_faturamento', 'p_endereco_obra', 'p_cep_obra'];
+const T1_CAMPOS_CLIMA = ['p_cidade_instalacao', 'p_estado_uf', 'p_altitude_m',
+  'p_estacao_busca', 'p_temp_ambiente', 'p_ur_externa'];
+const T1_CAMPOS_ESTRUTURAL = ['p_tipo_comando', 'p_tensao_equipamentos', 'p_tensao_comando',
+  'p_custo_energia', 'p_pasta_salvamento', 'p_condicao_salao', 'p_considerar_iluminacao_ambiente'];
+
+function t1_aplicarEstadoSecoes(p) {
+  const secoes = [
+    { campos: T1_CAMPOS_DADOS_GERAIS, fechada: p.fechada_dados_gerais, chave: 'dados-gerais', label: 'Dados Gerais' },
+    { campos: T1_CAMPOS_CLIMA, fechada: p.fechada_clima, chave: 'clima', label: 'Clima' },
+    { campos: T1_CAMPOS_ESTRUTURAL, fechada: p.fechada_estrutural, chave: 'estrutural', label: 'Estrutural' },
+  ];
+  secoes.forEach(sec => {
+    sec.campos.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = !!sec.fechada;
+    });
+    let bar = document.getElementById(`t1_bar_${sec.chave}`);
+    if (bar) bar.remove();
+    const accDados = document.getElementById('accDadosCliente');
+    const accProjeto = document.getElementById('accDadosProjeto');
+    const parent = sec.chave === 'estrutural' ? accProjeto : accDados;
+    bar = document.createElement('div');
+    bar.id = `t1_bar_${sec.chave}`;
+    bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 8px;margin:4px 0;background:var(--surface-1,#f4f4f4);border-radius:4px;font-size:11px;';
+    if (sec.fechada) {
+      bar.innerHTML = `<span style="color:#10b981;font-weight:bold;">● ${sec.label} FECHADA</span>
+        <span class="btn-text" data-editar-secao="${sec.chave}">Editar</span>`;
+    } else {
+      bar.innerHTML = `<span style="color:#6b7280;">${sec.label} aberta</span>
+        <span class="btn-text" data-salvar-secao="${sec.chave}">Salvar</span>`;
+    }
+    parent.querySelector('.grid')?.before(bar);
+    bar.querySelectorAll('[data-editar-secao]').forEach(b => b.addEventListener('click', async () => {
+      await api.post(`/api/projetos/${t1_editandoProjetoId}/editar-${sec.chave}`, {});
+      const pr = await api.get(`/api/projetos/${t1_editandoProjetoId}`);
+      t1_aplicarEstadoSecoes(pr);
+    }));
+    bar.querySelectorAll('[data-salvar-secao]').forEach(b => b.addEventListener('click', async () => {
+      await api.post(`/api/projetos/${t1_editandoProjetoId}/salvar-${sec.chave}`, {});
+      const pr = await api.get(`/api/projetos/${t1_editandoProjetoId}`);
+      t1_aplicarEstadoSecoes(pr);
+    }));
+  });
+  const btnSalvar = document.getElementById('btnSalvarProjeto');
+  if (btnSalvar) {
+    const todasFechadas = secoes.every(s => s.fechada);
+    btnSalvar.disabled = todasFechadas;
+  }
 }
 
 window.initTela1 = initTela1;

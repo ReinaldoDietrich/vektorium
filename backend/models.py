@@ -84,6 +84,9 @@ class Projeto(Base):
     # Projeto "Fechado" — trava reversível de edição (aprovado 2026-08-12). Checado no meio-termo
     # do fluxo de escrita (ver backend/routers/_bloqueio_projeto.py); nunca no meio de leitura.
     fechado = Column(Boolean, default=False)
+    fechada_dados_gerais = Column(Boolean, default=False)
+    fechada_clima = Column(Boolean, default=False)
+    fechada_estrutural = Column(Boolean, default=False)
 
     sistemas = relationship("SistemaRefrigeracao", back_populates="projeto", cascade="all, delete-orphan")
     estacao_climatologica = relationship("CondicaoClimatica")
@@ -100,6 +103,7 @@ class SistemaRefrigeracao(Base):
     fabricante_valvula = Column(String)  # Danfoss/Carel/FullGauge/Belimo — campo próprio, não reaproveita automacao_linhas_fabricante
     temp_evaporacao = Column(Float)
     precisa_revisar = Column(Boolean, default=False)
+    fechada = Column(Boolean, default=False)
 
     # ---- Compressão ----
     tipo_compressao = Column(String)  # "Unidade Condensadora Comercial" | "Rack Paralelo"
@@ -760,6 +764,7 @@ class CamaraCompleto(Base):
     # verdade (usuário editando algo que alimenta o cálculo) exige catálogo/assinatura ativos.
     calculo_snapshot_json = Column(Text)
     calculo_desatualizado = Column(Boolean, default=True)
+    fechada = Column(Boolean, default=False)
 
     sistema = relationship("SistemaRefrigeracao", back_populates="camaras_completo")
     produto = relationship("Produto")
@@ -905,6 +910,7 @@ class CamaraSimples(Base):
     # Snapshot do último cálculo — ver comentário completo em CamaraCompleto.
     calculo_snapshot_json = Column(Text)
     calculo_desatualizado = Column(Boolean, default=True)
+    fechada = Column(Boolean, default=False)
 
     sistema = relationship("SistemaRefrigeracao", back_populates="camaras_simples")
     tabela02 = relationship("TabelaTipo02")
@@ -965,6 +971,8 @@ class Expositor(Base):
     linha_eletrica = Column(String)
     setor_id = Column(Integer, ForeignKey("cat_setores_expositor.id"), nullable=True)
     modelo_expositor_id = Column(Integer, ForeignKey("cat_modelos_expositor.id"), nullable=True)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     sistema = relationship("SistemaRefrigeracao", back_populates="expositores")
     setor = relationship("SetorExpositor")
@@ -1185,6 +1193,8 @@ class UnidadeSelecaoSistema(Base):
     # (ver models.CampoCatalogo). Substitui as 5 colunas fixas acima pra permitir catálogos com
     # estrutura de código diferente da Elgin.
     campos_selecionados = Column(Text)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
 
 # ===================== TELA E — PAINÉIS TÉRMICOS E PORTAS =====================
@@ -1291,6 +1301,8 @@ class PainelTermico(Base):
     ordem = Column(Integer, default=0)   # ordem de lançamento — base pra numerar o Id. P01/T01
     ambiente_nao_climatizado_nome = Column(String, nullable=True)   # alternativa a câmara_completo/simples —
     # ambiente sem climatização (sem Id. Planta); cada nome distinto vira um "bloco" próprio nos resumos.
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     projeto = relationship("Projeto")
     camara_completo = relationship("CamaraCompleto")
@@ -1317,6 +1329,8 @@ class PortaFrigorifica(Base):
     ordem = Column(Integer, default=0)   # ordem de lançamento — base pro sequencial do Id.
     ambiente_nao_climatizado_nome = Column(String, nullable=True)   # alternativa a câmara_completo/simples —
     # ambiente sem climatização (sem Id. Planta); cada nome distinto vira um "bloco" próprio nos resumos.
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     projeto = relationship("Projeto")
     camara_completo = relationship("CamaraCompleto")
@@ -1450,6 +1464,8 @@ class RackParalelo(Base):
     nomenclatura_condensador_selecionada = Column(Text)  # JSON {nome_campo: valor_escolhido} — mesmo
     # padrão do Forçador (nomenclatura_selecionada), pros Campos em modo Manual do código comercial.
     notas_condensador = Column(Text)  # campo livre "Notas" da Seleção de Condensador Remoto (Tela 6)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     sistema = relationship("SistemaRefrigeracao", back_populates="racks")
     materiais = relationship("MaterialRack", back_populates="rack", cascade="all, delete-orphan", order_by="MaterialRack.ordem")
@@ -1753,6 +1769,8 @@ class ComposicaoPrecoItem(Base):
     # e calculado normalmente no bloco, só sai do Resumo por Bloco/Tabela de Orçamento/DRE/
     # Comissionamento quando desmarcado — reversível, nunca apaga o item.
     incluir_orcamento = Column(Boolean, default=True, nullable=False)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     projeto = relationship("Projeto")
     centro_custo = relationship("CentroCusto")
@@ -1770,6 +1788,8 @@ class CondicaoPagamentoProjeto(Base):
     data_sinal = Column(String)
     quantidade_parcelas = Column(Integer, default=0)
     periodicidade_dias = Column(Integer, default=30)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
 
 class CondicaoPagamentoParcela(Base):
@@ -1793,6 +1813,8 @@ class ComissaoVendedorProjeto(Base):
     projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
     vendedor_id = Column(Integer, ForeignKey("vendedor.id"), nullable=False)
     percentual = Column(Float, default=0)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
     projeto = relationship("Projeto")
     vendedor = relationship("Vendedor")
@@ -1804,6 +1826,8 @@ class MargemNegociacaoProjeto(Base):
     __tablename__ = "margem_negociacao_projeto"
     projeto_id = Column(Integer, ForeignKey("projetos.id"), primary_key=True)
     percentual = Column(Float, default=0.05)
+    fechada = Column(Boolean, default=False)
+    calculo_snapshot_json = Column(Text)
 
 
 # ===================== ESTUDO LUMINOTÉCNICO (Tela 11) — aprovado 2026-08-08 =====================

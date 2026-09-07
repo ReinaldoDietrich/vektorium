@@ -157,3 +157,54 @@ body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18
   pointer-events:auto !important;
   opacity:1 !important;
 }
+
+/* ===== Entidade fechada — bloqueio individual por câmara/expositor/rack etc. (FASE 2) =====
+   Quando o formulário de uma entidade calculável recebe .entidade-fechada, seus campos e botões
+   de edição ficam congelados (igual ao projeto-bloqueado, mas só no form). Os botões Editar e
+   Fechar continuam livres para permitir reabrir a edição. */
+.entidade-fechada :is(input,select,textarea,button,.btn-text,.btn,.add-row button){
+  pointer-events:none !important;
+  opacity:.55;
+}
+.entidade-fechada :is(.c-btn-editar,.c-btn-fechar-form){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
+.entidade-fechada .c-barra-fechada {
+  display:flex !important;
+}
+.c-barra-fechada {
+  display:none;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  margin-bottom:8px;
+  background:#fef9c3;
+  border:1px solid #facc15;
+  border-radius:6px;
+  font-size:13px;
+  color:#854d0e;
+}
+.c-barra-fechada .btn-wide { font-size:12px; padding:4px 14px; }
+.c-barra-desatualizada {
+  display:none;
+  align-items:center;
+  gap:10px;
+  padding:6px 12px;
+  margin-bottom:6px;
+  background:#fef2f2;
+  border:1px solid #fca5a5;
+  border-radius:6px;
+  font-size:12px;
+  color:#991b1b;
+}
+.lista-card .badge-fechada {
+  display:inline-block;
+  font-size:10px;
+  padding:1px 6px;
+  border-radius:3px;
+  margin-left:6px;
+  vertical-align:middle;
+}
+.lista-card .badge-fechada.ok { background:#dcfce7; color:#166534; }
+.lista-card .badge-fechada.desatualizada { background:#fef2f2; color:#991b1b; }

@@ -1,5 +1,7 @@
 let t2_editandoId = null;
 let t2_catalogos = null;
+let t2_fechada = false;
+let t2_debounceTimer = null;
 
 const T2_CAMPOS = ['nome', 'sistema_id', 'linha_succao', 'linha_eletrica', 'temp_interna', 'largura', 'comprimento',
   'pedireito', 'utilizar_valv_reg_pressao', 'dt_evaporacao_desejado',
@@ -67,6 +69,8 @@ function initTela2() {
   document.getElementById('c2_btnNovaTopo').addEventListener('click', () => { t2_novaCamara(); t2_abrirForm(); });
   document.getElementById('c2_btnFecharForm').addEventListener('click', t2_fecharForm);
   document.getElementById('c2_btnSalvar').addEventListener('click', t2_salvarCamara);
+  document.getElementById('c2_btnFechar').addEventListener('click', t2_fecharEntidade);
+  document.getElementById('c2_btnEditar').addEventListener('click', t2_editarEntidade);
   document.getElementById('c2_btnExcluir').addEventListener('click', t2_excluirCamara);
   document.getElementById('c2_btnDuplicar').addEventListener('click', t2_duplicarCamara);
   document.getElementById('c2_btnAddEquip').addEventListener('click', t2_addEquipamento);
@@ -174,6 +178,8 @@ function t2_atualizarCodigo() {
 
 function t2_novaCamara() {
   t2_editandoId = null;
+  t2_fechada = false;
+  t2_aplicarEstadoFechada(null);
   T2_CAMPOS.forEach(c => { const el = document.getElementById('c2_' + c); if (el) el.value = ''; });
   t2_popularModeloLuminaria();
   ['c2_evFab', 'c2_evLinha'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -218,11 +224,11 @@ function t2_coletarPayload() {
   return p;
 }
 
-// Salva automaticamente ao mudar um campo — silencioso se ainda não há Sistema selecionado
-// (não faz sentido criar câmara sem sistema). Não dispara enquanto o usuário digita, só no blur.
 function t2_autoSalvar() {
   if (!document.getElementById('c2_sistema_id').value) return;
-  t2_salvarCamara();
+  if (t2_fechada) return;
+  clearTimeout(t2_debounceTimer);
+  t2_debounceTimer = setTimeout(() => t2_salvarCamara(), 300);
 }
 
 async function t2_salvarCamara() {
@@ -244,6 +250,43 @@ async function t2_salvarCamara() {
   // seguida sem perder o contexto — fechar/zerar aqui era o que causava a sensação de "salvar
   // fecha a janela" quando o usuário tentava incluir algo na seção 7 logo depois de salvar.
   await t2_abrirCamara(editando || resultado.id);
+}
+
+function t2_aplicarEstadoFechada(c) {
+  const wrap = document.getElementById('c2_formWrap');
+  const btnSalvar = document.getElementById('c2_btnSalvar');
+  const btnFechar = document.getElementById('c2_btnFechar');
+  const barraFechada = document.getElementById('c2_barraFechada');
+  const barraDesatualizada = document.getElementById('c2_barraDesatualizada');
+  if (t2_fechada) {
+    wrap.classList.add('entidade-fechada');
+    btnSalvar.style.display = 'none';
+    btnFechar.style.display = 'none';
+    barraDesatualizada.style.display = c && c.calculo_desatualizado ? 'flex' : 'none';
+  } else {
+    wrap.classList.remove('entidade-fechada');
+    btnSalvar.style.display = '';
+    btnFechar.style.display = t2_editandoId ? 'inline-block' : 'none';
+    barraDesatualizada.style.display = 'none';
+  }
+}
+
+async function t2_editarEntidade() {
+  if (!t2_editandoId) return;
+  const c = await api.post(`/api/camaras-completo/${t2_editandoId}/editar`, {});
+  t2_fechada = false;
+  t2_aplicarEstadoFechada(c);
+  await t2_carregarLista();
+}
+
+async function t2_fecharEntidade() {
+  if (!t2_editandoId) return;
+  await t2_salvarCamara();
+  const c = await api.post(`/api/camaras-completo/${t2_editandoId}/salvar`, {});
+  t2_fechada = true;
+  t2_aplicarEstadoFechada(c);
+  await t2_carregarLista();
+  await t2_abrirCamara(t2_editandoId);
 }
 
 async function t2_excluirCamara() {
@@ -290,6 +333,8 @@ async function t2_abrirCamara(id) {
   t2_renderPortas(c.portas);
   await carregarOpcoesValvulas(c.sistema_id);
   t2_renderCalculo(c.calculo);
+  t2_fechada = !!c.fechada;
+  t2_aplicarEstadoFechada(c);
   t2_abrirForm();
 }
 
@@ -496,11 +541,17 @@ async function t2_carregarLista() {
   if (!state.projetoId) { el.innerHTML = ''; return; }
   const todas = await api.get(`/api/camaras-completo?projeto_id=${state.projetoId}`);
   if (todas.length === 0) { el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhuma câmara cadastrada ainda.</div>'; return; }
-  el.innerHTML = todas.map(c => `
-    <div class="lista-card" data-camara="${c.id}">
-      <div class="nome">${c.codigo} — ${c.nome}</div>
+  el.innerHTML = todas.map(c => {
+    const badge = c.fechada
+      ? (c.calculo_desatualizado
+        ? '<span class="badge-fechada desatualizada">desatualizado</span>'
+        : '<span class="badge-fechada ok">fechada</span>')
+      : '';
+    return `<div class="lista-card" data-camara="${c.id}">
+      <div class="nome">${c.codigo} — ${c.nome}${badge}</div>
       <div class="meta">Carga: ${fmtKcal(c.calculo.capacidade_requerida)} · ${c.largura}x${c.comprimento}x${c.pedireito}m${_resumoForcadorCamara(c.calculo)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   el.querySelectorAll('[data-camara]').forEach(card => card.addEventListener('click', () => t2_abrirCamara(Number(card.dataset.camara))));
 }
 

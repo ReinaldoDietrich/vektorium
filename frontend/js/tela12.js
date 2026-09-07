@@ -87,7 +87,23 @@ function t12_onProjetoChanged() {
 
 async function t12_carregar() {
   if (!state.projetoId) return;
-  const dados = await api.get(`/api/compilacao-geral?projeto_id=${state.projetoId}`);
+  const [dados, sf] = await Promise.all([
+    api.get(`/api/compilacao-geral?projeto_id=${state.projetoId}`),
+    api.get(`/api/compilacao/status-fechada?projeto_id=${state.projetoId}`).catch(() => ({ abertas: [], total_abertas: 0 })),
+  ]);
+  let bannerEl = document.getElementById('t12_bannerAbertas');
+  if (!bannerEl) {
+    bannerEl = document.createElement('div');
+    bannerEl.id = 't12_bannerAbertas';
+    document.getElementById('t12_tabela')?.parentElement?.prepend(bannerEl);
+  }
+  if (sf.total_abertas > 0) {
+    const lista = sf.abertas.map(a => `${a.tipo}: ${a.nome}`).join(', ');
+    bannerEl.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400e;';
+    bannerEl.innerHTML = `<strong>⚠ ${sf.total_abertas} entidade(s) aberta(s):</strong> ${lista}. Feche todas antes de compilar o projeto final.`;
+  } else {
+    bannerEl.style.display = 'none';
+  }
   document.getElementById('t12_tabela').innerHTML = t12_render(dados);
 }
 
