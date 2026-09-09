@@ -389,7 +389,7 @@ def _portas_por_padrao(portas):
             grupos[chave] = {"id_porta": padrao, "descricao": p["descricao"], "unidade": "un",
                              "quantidade": 0, "tensao": tensao, "observacoes": obs}
             ordem.append(chave)
-        grupos[chave]["quantidade"] += 1
+        grupos[chave]["quantidade"] += (p.get("quantidade") or 1)
     return [grupos[k] for k in ordem]
 
 

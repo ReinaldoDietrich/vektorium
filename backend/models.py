@@ -1326,6 +1326,7 @@ class PortaFrigorifica(Base):
     espessura_fixacao_mm = Column(Float)
     tensao = Column(String)           # só p/ porta com resistência
     observacoes = Column(Text)
+    quantidade = Column(Integer, default=1)
     ordem = Column(Integer, default=0)   # ordem de lançamento — base pro sequencial do Id.
     ambiente_nao_climatizado_nome = Column(String, nullable=True)   # alternativa a câmara_completo/simples —
     # ambiente sem climatização (sem Id. Planta); cada nome distinto vira um "bloco" próprio nos resumos.

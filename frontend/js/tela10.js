@@ -146,11 +146,7 @@ function t10_linhaPainelHtml(p) {
     <td style="color:#6b7280;" data-out="qtd_placas">${p.qtd_placas ?? '—'}</td>
     <td style="color:#6b7280;" data-out="area_considerada_m2">${fmt2(p.area_considerada_m2)}</td>
     <td style="color:#6b7280;" data-out="saldo_m">${fmt2(p.saldo_m)}</td>
-    <td><span class="btn-text danger" data-excluir-painel="${p.id}">Excluir</span>
-      ${p.fechada
-        ? `<span class="btn-text c-btn-editar" data-editar-painel="${p.id}" style="margin-left:6px;">Editar</span>`
-        : `<span class="btn-text c-btn-fechar-form" data-fechar-painel="${p.id}" style="margin-left:6px;color:#16a34a;">Fechar</span>`}
-    </td>`;
+    <td><span class="btn-text danger" data-excluir-painel="${p.id}">Excluir</span></td>`;
 }
 
 async function t10_carregarPaineis() {
@@ -244,14 +240,6 @@ function t10_wirePaineis(el) {
     await t10_carregarPaineis();
     await t10_carregarResumo();
   }));
-  el.querySelectorAll('[data-editar-painel]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/paineis-portas/paineis/${b.dataset.editarPainel}/editar`, {});
-    await t10_carregarPaineis();
-  }));
-  el.querySelectorAll('[data-fechar-painel]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/paineis-portas/paineis/${b.dataset.fecharPainel}/salvar`, {});
-    await t10_carregarPaineis();
-  }));
 }
 
 async function t10_atualizarCalculosPaineis() {
@@ -279,7 +267,7 @@ async function t10_addPainel() {
 
 // ---------------- Portas ----------------
 
-const T10_CAMPOS_PORTA_NUM = ['vao_largura_mm', 'vao_altura_mm', 'espessura_fixacao_mm'];
+const T10_CAMPOS_PORTA_NUM = ['vao_largura_mm', 'vao_altura_mm', 'espessura_fixacao_mm', 'quantidade'];
 const T10_CAMPOS_QUE_MUDAM_OPCOES_PORTA = ['funcao', 'modelo'];
 
 function t10_selectModeloSentidoHtml(p) {
@@ -308,13 +296,10 @@ function t10_linhaPortaHtml(p) {
     <td><input type="text" data-campo="espessura_fixacao_mm" data-id-campo="T719" value="${p.espessura_fixacao_mm ?? ''}" style="width:60px;"></td>
     <td><select data-campo="tensao" data-id-campo="T720"><option value="">—</option>${t10_lookupPor('Tensão Porta').map(o =>
       `<option value="${o.valor}" ${o.valor === p.tensao ? 'selected' : ''}>${o.valor}</option>`).join('')}</select></td>
+    <td><input type="number" data-campo="quantidade" value="${p.quantidade ?? 1}" min="1" max="99" style="width:50px;"></td>
     <td><input type="text" data-campo="observacoes" data-id-campo="T721" value="${p.observacoes ?? ''}" style="width:100px;"></td>
     <td style="color:#6b7280;max-width:240px;white-space:normal;" data-out="descricao">${p.descricao || '—'}</td>
-    <td><span class="btn-text danger" data-excluir-porta="${p.id}">Excluir</span>
-      ${p.fechada
-        ? `<span class="btn-text c-btn-editar" data-editar-porta="${p.id}" style="margin-left:6px;">Editar</span>`
-        : `<span class="btn-text c-btn-fechar-form" data-fechar-porta="${p.id}" style="margin-left:6px;color:#16a34a;">Fechar</span>`}
-    </td>`;
+    <td><span class="btn-text danger" data-excluir-porta="${p.id}">Excluir</span></td>`;
 }
 
 async function t10_carregarPortas() {
@@ -330,7 +315,7 @@ async function t10_carregarPortas() {
     <th style="white-space:normal;">Modelo</th><th style="white-space:normal;">Sentido</th>
     <th style="white-space:normal;">Vão Larg. (mm)</th><th style="white-space:normal;">Vão Alt. (mm)</th>
     <th style="white-space:normal;">Fixação</th><th style="white-space:normal;">Esp. Fix. (mm)</th>
-    <th style="white-space:normal;">Tensão</th><th style="white-space:normal;">Obs.</th>
+    <th style="white-space:normal;">Tensão</th><th style="white-space:normal;">Qtd.</th><th style="white-space:normal;">Obs.</th>
     <th style="white-space:normal;">Descrição</th><th></th></tr></thead>
     <tbody>${portas.map(p => `<tr data-porta-id="${p.id}" ${p.fechada ? 'class="entidade-fechada"' : ''}>${t10_linhaPortaHtml(p)}</tr>`).join('')}</tbody></table>`;
   t10_wirePortas(el);
@@ -374,14 +359,6 @@ function t10_wirePortas(el) {
     await api.del(`/api/paineis-portas/portas/${b.dataset.excluirPorta}`);
     await t10_carregarPortas();
     await t10_carregarResumo();
-  }));
-  el.querySelectorAll('[data-editar-porta]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/paineis-portas/portas/${b.dataset.editarPorta}/editar`, {});
-    await t10_carregarPortas();
-  }));
-  el.querySelectorAll('[data-fechar-porta]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/paineis-portas/portas/${b.dataset.fecharPorta}/salvar`, {});
-    await t10_carregarPortas();
   }));
 }
 
@@ -430,12 +407,7 @@ async function t10_atualizarCalculosPortas() {
 }
 
 async function t10_addPorta() {
-  const qtdInput = document.getElementById('t10_qtdPortas');
-  const qtd = Math.max(1, Math.min(50, parseInt(qtdInput?.value) || 1));
-  for (let i = 0; i < qtd; i++) {
-    await api.post(`/api/paineis-portas/portas?projeto_id=${state.projetoId}`, { funcao: 'Resfriados', modelo: 'Correr' });
-  }
-  if (qtdInput) qtdInput.value = '1';
+  await api.post(`/api/paineis-portas/portas?projeto_id=${state.projetoId}`, { funcao: 'Resfriados', modelo: 'Correr' });
   await t10_carregarPortas();
   await t10_carregarResumo();
 }

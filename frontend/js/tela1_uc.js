@@ -113,7 +113,7 @@ async function t1uc_render() {
             <div><span class="btn-text danger" data-uc-excluir="${o.id}">Excluir</span></div>
             ${o.fechada
               ? '<div><button class="btn c-btn-editar" data-uc-editar="' + o.id + '">Editar</button></div>'
-              : '<div><button class="btn c-btn-fechar-form" data-uc-fechar="' + o.id + '" style="background:#16a34a;color:#fff;">Fechar</button></div>'}
+              : ''}
           </div>
           <div class="small" style="color:#6b7280;margin-top:4px;">
             ${(o.quantidade_paralelo || 1) > 1 ? '<strong>' + o.quantidade_paralelo + '× em paralelo</strong> · carga/unid. ' + fmtNum(o.carga_por_unidade_kcal_h) + ' kcal/h · ' : ''}${o.modelo_resultante || '—'}
@@ -215,10 +215,6 @@ async function t1uc_render() {
   }));
   el.querySelectorAll('[data-uc-editar]').forEach(b => b.addEventListener('click', async () => {
     await api.post(`/api/uc/selecao/${b.dataset.ucEditar}/editar`, {});
-    t1uc_render();
-  }));
-  el.querySelectorAll('[data-uc-fechar]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/uc/selecao/${b.dataset.ucFechar}/salvar`, {});
     t1uc_render();
   }));
   el.querySelectorAll('[data-uc-flut]').forEach(sel2 => sel2.addEventListener('change', async () => {

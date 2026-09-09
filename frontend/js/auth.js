@@ -5,8 +5,6 @@
 const SUPABASE_URL = 'https://luzvgsgxutggnbyrhswg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_BreZGIXnU6_rdBi8n3bF5w_N3HZ56-S';
 const AUTH_STORAGE_KEY = 'vektorium_auth_session';
-console.log('%c[Vektorium] auth.js versão 2026-08-24-19h30 carregada', 'background:#1668c7;color:#fff;padding:3px 8px;border-radius:4px;font-weight:bold;');
-
 const AUTH = {
   _sessao: null,
 
@@ -99,12 +97,10 @@ const AUTH = {
       const rConv = await fetch('/api/catalogo-sync/converter-fotos', { method: 'POST' });
       const conv = await rConv.json();
       if (conv.convertidos > 0) {
-        console.log('[auth] Fotos convertidas para base64:', conv.convertidos);
         await fetch('/api/catalogo-sync/push-para-remoto', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
         });
-        console.log('[auth] Catálogos enviados para o servidor remoto');
       }
     } catch (e) {
       console.warn('[auth] Sync de fotos falhou (não-bloqueante):', e);

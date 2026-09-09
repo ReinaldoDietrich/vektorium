@@ -66,26 +66,6 @@ async function t17_carregar() {
   const margem = await api.get(`/api/composicao-preco/margem-negociacao?projeto_id=${state.projetoId}`);
   const margemInput = document.getElementById('t17_margemNegociacao');
   margemInput.value = (margem.percentual * 100).toFixed(1);
-  margemInput.disabled = !!margem.fechada;
-  const margemWrap = margemInput.parentElement;
-  margemWrap.querySelectorAll('[data-margem-acao]').forEach(el => el.remove());
-  if (margem.fechada) {
-    const btn = document.createElement('span');
-    btn.className = 'btn-text'; btn.textContent = '✎ Editar'; btn.dataset.margemAcao = '1';
-    btn.addEventListener('click', async () => {
-      await api.post(`/api/composicao-preco/margem-negociacao/editar?projeto_id=${state.projetoId}`, {});
-      t17_carregar();
-    });
-    margemWrap.appendChild(btn);
-  } else {
-    const btn = document.createElement('span');
-    btn.className = 'btn-text'; btn.textContent = '💾 Salvar'; btn.dataset.margemAcao = '1';
-    btn.addEventListener('click', async () => {
-      await api.post(`/api/composicao-preco/margem-negociacao/salvar?projeto_id=${state.projetoId}`, {});
-      t17_carregar();
-    });
-    margemWrap.appendChild(btn);
-  }
 
   t17_renderDadosProjeto(projeto);
   t17_popularFiltroCC();
@@ -397,10 +377,6 @@ function t17_renderBlocos(composicao) {
       inp.addEventListener('change', () => t17_salvarItem(tr.dataset.itemId, inp)));
     const btnDel = tr.querySelector('[data-del-item]');
     if (btnDel) btnDel.addEventListener('click', () => t17_excluirItem(tr.dataset.itemId));
-    const btnEditar = tr.querySelector('[data-editar-item]');
-    if (btnEditar) btnEditar.addEventListener('click', () => t17_editarItem(tr.dataset.itemId));
-    const btnSalvar = tr.querySelector('[data-salvar-item]');
-    if (btnSalvar) btnSalvar.addEventListener('click', () => t17_fecharItem(tr.dataset.itemId));
   });
   t17_renderBlocosFiltrado();
 }
@@ -454,16 +430,14 @@ function t17_linhaItem(it, bloco) {
   // por Bloco/Tabela de Orçamento/DRE/Comissionamento, mas o item continua aqui, calculado
   // normalmente — só esmaecido visualmente pra indicar que está fora do orçamento.
   const incluido = it.incluir_orcamento !== false;
-  const fechada = it.fechada;
-  const dis = fechada ? ' disabled' : '';
-  return `<tr data-item-id="${it.id}" style="${incluido ? '' : 'opacity:0.5;'}${fechada ? 'background:var(--surface-1,#f9fafb);' : ''}">
-    <td style="text-align:center;"><input type="checkbox" data-campo="incluir_orcamento" ${incluido ? 'checked' : ''}${dis}></td>
-    <td>${readOnly ? it.descricao : `<input data-campo="descricao" value="${it.descricao.replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;"${dis}>`}</td>
-    <td><input data-campo="fabricante" value="${(it.fabricante || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;" ${it.origem === 'sistema' || fechada ? 'disabled' : ''}></td>
-    <td><select data-campo="centro_custo_id" style="width:100%;box-sizing:border-box;"${dis}>${bloco === T17_BLOCO_COMISSOES ? t17_htmlOpcoesCCAgrupar(it.centro_custo_id) : t17_htmlOpcoesCC(it.centro_custo_id, bloco)}</select></td>
-    <td><select data-campo="fator_id" style="width:100%;box-sizing:border-box;"${dis}>${t17_htmlOpcoesFatores(it.fator_id)}</select></td>
-    <td>${qtdReadOnly ? it.quantidade : `<input data-campo="quantidade" value="${it.quantidade}" style="width:100%;box-sizing:border-box;"${dis}>`}</td>
-    <td>${custoTravado ? t17_brl(it.custo_unitario) : `<input data-campo="custo_unitario" value="${custoUnitFmt}" style="width:100%;box-sizing:border-box;"${dis}>`}</td>
+  return `<tr data-item-id="${it.id}" style="${incluido ? '' : 'opacity:0.5;'}">
+    <td style="text-align:center;"><input type="checkbox" data-campo="incluir_orcamento" ${incluido ? 'checked' : ''}></td>
+    <td>${readOnly ? it.descricao : `<input data-campo="descricao" value="${it.descricao.replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;">`}</td>
+    <td><input data-campo="fabricante" value="${(it.fabricante || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;" ${it.origem === 'sistema' ? 'disabled' : ''}></td>
+    <td><select data-campo="centro_custo_id" style="width:100%;box-sizing:border-box;">${bloco === T17_BLOCO_COMISSOES ? t17_htmlOpcoesCCAgrupar(it.centro_custo_id) : t17_htmlOpcoesCC(it.centro_custo_id, bloco)}</select></td>
+    <td><select data-campo="fator_id" style="width:100%;box-sizing:border-box;">${t17_htmlOpcoesFatores(it.fator_id)}</select></td>
+    <td>${qtdReadOnly ? it.quantidade : `<input data-campo="quantidade" value="${it.quantidade}" style="width:100%;box-sizing:border-box;">`}</td>
+    <td>${custoTravado ? t17_brl(it.custo_unitario) : `<input data-campo="custo_unitario" value="${custoUnitFmt}" style="width:100%;box-sizing:border-box;">`}</td>
     <td data-calc="custo_total" style="text-align:right;">${t17_brl(it.custo_total)}</td>
     <td data-calc="margem_contribuicao" style="text-align:right;">${t17_brl(it.margem_contribuicao)}</td>
     <td data-calc="impostos" style="text-align:right;">${t17_brl(it.impostos)}</td>
@@ -471,11 +445,7 @@ function t17_linhaItem(it, bloco) {
     <td data-calc="valor_unit_venda" style="text-align:right;">${t17_brl(it.valor_unit_venda)}</td>
     <td data-calc="valor_total_venda" style="text-align:right;">${t17_brl(it.valor_total_venda)}</td>
     <td data-calc="valor_venda_negociacao" style="text-align:right;font-weight:bold;">${t17_brl(it.valor_venda_negociacao)}</td>
-    <td>${fechada
-      ? '<span class="btn-text" data-editar-item title="Editar">✎</span>'
-      : (it.origem !== 'sistema'
-        ? '<span class="btn-text" data-salvar-item title="Salvar">💾</span> <span class="btn-text danger" data-del-item>x</span>'
-        : '<span class="btn-text" data-salvar-item title="Salvar">💾</span>')}</td>
+    <td>${it.origem !== 'sistema' ? '<span class="btn-text danger" data-del-item>x</span>' : ''}</td>
   </tr>`;
 }
 
@@ -560,16 +530,6 @@ async function t17_excluirItem(itemId) {
   t17_carregar();
 }
 
-async function t17_editarItem(itemId) {
-  await api.post(`/api/composicao-preco/item/${itemId}/editar`, {});
-  t17_carregar();
-}
-
-async function t17_fecharItem(itemId) {
-  await api.post(`/api/composicao-preco/item/${itemId}/salvar`, {});
-  t17_carregar();
-}
-
 async function t17_importarArquivo(inp, bloco) {
   const file = inp.files[0];
   if (!file) return;
@@ -615,14 +575,11 @@ function t17_renderComissionamento(com) {
 
   const tbody = document.getElementById('t17_comissionamento');
   tbody.innerHTML = com.itens.map(i => {
-    const f = i.fechada;
-    return `<tr data-vinc-id="${i.id}" style="${f ? 'background:var(--surface-1,#f9fafb);' : ''}">
+    return `<tr data-vinc-id="${i.id}">
       <td>${i.vendedor_nome}</td>
-      <td><input data-campo="percentual" value="${(i.percentual * 100).toFixed(1)}" style="width:60px;"${f ? ' disabled' : ''}> %</td>
+      <td><input data-campo="percentual" value="${(i.percentual * 100).toFixed(1)}" style="width:60px;"> %</td>
       <td style="text-align:right;">${t17_brl(i.comissao_r)}</td>
-      <td>${f
-        ? '<span class="btn-text" data-editar-vinc title="Editar">✎</span>'
-        : '<span class="btn-text" data-salvar-vinc title="Salvar">💾</span> <span class="btn-text danger" data-del-vinc>x</span>'}</td>
+      <td><span class="btn-text danger" data-del-vinc>x</span></td>
     </tr>`;
   }).join('');
   tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (e) => {
@@ -639,16 +596,6 @@ function t17_renderComissionamento(com) {
     const tudo = await t17_carregarTudo();
     t17_renderComissionamento(tudo.comissionamento);
     t17_renderDre(tudo.dre);
-  }));
-  tbody.querySelectorAll('[data-editar-vinc]').forEach(b => b.addEventListener('click', async (e) => {
-    const tr = e.target.closest('tr');
-    await api.post(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}/editar`, {});
-    t17_carregar();
-  }));
-  tbody.querySelectorAll('[data-salvar-vinc]').forEach(b => b.addEventListener('click', async (e) => {
-    const tr = e.target.closest('tr');
-    await api.post(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}/salvar`, {});
-    t17_carregar();
   }));
 }
 
@@ -837,39 +784,16 @@ async function t17_carregarCondicaoPagamento() {
     document.getElementById('t17_cpQtdParcelas').value = agenda.config.quantidade_parcelas;
     document.getElementById('t17_cpPeriodicidade').value = agenda.config.periodicidade_dias;
   }
-  const f = agenda.fechada;
-  document.getElementById('t17_cpBtnGerar').disabled = f;
-  const cpWrap = document.getElementById('t17_cpBtnGerar').parentElement;
-  cpWrap.querySelectorAll('[data-cp-acao]').forEach(el => el.remove());
-  if (f) {
-    const btn = document.createElement('span');
-    btn.className = 'btn-text'; btn.textContent = '✎ Editar Condição'; btn.dataset.cpAcao = '1';
-    btn.addEventListener('click', async () => {
-      await api.post(`/api/composicao-preco/condicao-pagamento/editar?projeto_id=${state.projetoId}`, {});
-      t17_carregarCondicaoPagamento();
-    });
-    cpWrap.appendChild(btn);
-  } else if (agenda.parcelas.length) {
-    const btn = document.createElement('span');
-    btn.className = 'btn-text'; btn.textContent = '💾 Salvar Condição'; btn.dataset.cpAcao = '1';
-    btn.addEventListener('click', async () => {
-      await api.post(`/api/composicao-preco/condicao-pagamento/salvar?projeto_id=${state.projetoId}`, {});
-      t17_carregarCondicaoPagamento();
-    });
-    cpWrap.appendChild(btn);
-  }
   t17_renderCondicaoPagamento(agenda);
 }
 
 function t17_renderCondicaoPagamento(agenda) {
-  const f = agenda.fechada;
-  const dis = f ? ' disabled' : '';
   const tbody = document.getElementById('t17_condicaoPagamento');
   tbody.innerHTML = agenda.parcelas.map(p => `
-    <tr data-parcela-id="${p.id}" style="${f ? 'background:var(--surface-1,#f9fafb);' : ''}">
+    <tr data-parcela-id="${p.id}">
       <td>${p.descricao}</td>
-      <td><input type="date" data-campo="data" value="${p.data}" style="width:100%;box-sizing:border-box;"${dis}></td>
-      <td><input data-campo="valor" value="${Number(p.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}" style="width:100%;box-sizing:border-box;"${dis}></td>
+      <td><input type="date" data-campo="data" value="${p.data}" style="width:100%;box-sizing:border-box;"></td>
+      <td><input data-campo="valor" value="${Number(p.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}" style="width:100%;box-sizing:border-box;"></td>
     </tr>`).join('') +
     (agenda.parcelas.length ? `<tr style="font-weight:bold;"><td>Total</td><td></td><td>${t17_brl(agenda.total)}</td></tr>` : '');
   tbody.querySelectorAll('[data-campo]').forEach(inp =>

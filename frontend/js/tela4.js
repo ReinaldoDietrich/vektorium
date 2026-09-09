@@ -15,7 +15,6 @@ function initTela4() {
   document.getElementById('c4_banco_id').addEventListener('change', t4_onBancoChange);
   document.getElementById('c4_modelo_expositor_id').addEventListener('change', t4_previewCarga);
   document.getElementById('c4_btnEditar').addEventListener('click', t4_editarEntidade);
-  document.getElementById('c4_btnFechar').addEventListener('click', t4_fecharEntidade);
   document.addEventListener('projeto-changed', t4_onProjetoChanged);
 }
 
@@ -114,21 +113,18 @@ async function t4_abrirExpositor(id) {
 function t4_aplicarEstadoFechada(e) {
   const wrap = document.getElementById('c4_formWrap');
   const btnSalvar = document.getElementById('c4_btnSalvar');
-  const btnFechar = document.getElementById('c4_btnFechar');
   const btnEditar = document.getElementById('c4_btnEditar');
   const barraFechada = document.getElementById('c4_barraFechada');
   const barraDesatualizada = document.getElementById('c4_barraDesatualizada');
   if (t4_fechada) {
     wrap.classList.add('entidade-fechada');
     btnSalvar.style.display = 'none';
-    btnFechar.style.display = 'none';
     btnEditar.style.display = 'inline-block';
     barraFechada.style.display = 'flex';
     barraDesatualizada.style.display = e && e.calculo_desatualizado ? 'flex' : 'none';
   } else {
     wrap.classList.remove('entidade-fechada');
     btnSalvar.style.display = '';
-    btnFechar.style.display = t4_editandoId ? 'inline-block' : 'none';
     btnEditar.style.display = 'none';
     barraFechada.style.display = 'none';
     barraDesatualizada.style.display = 'none';
@@ -141,16 +137,6 @@ async function t4_editarEntidade() {
   t4_fechada = false;
   t4_aplicarEstadoFechada(null);
   await t4_carregarLista();
-}
-
-async function t4_fecharEntidade() {
-  if (!t4_editandoId) return;
-  await t4_salvarExpositor();
-  const e = await api.post(`/api/expositores/${t4_editandoId}/salvar`, {});
-  t4_fechada = true;
-  t4_aplicarEstadoFechada(e);
-  await t4_carregarLista();
-  await t4_abrirExpositor(t4_editandoId);
 }
 
 function t4_renderModulos(modulos) {

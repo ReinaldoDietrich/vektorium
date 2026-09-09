@@ -69,7 +69,6 @@ function initTela2() {
   document.getElementById('c2_btnNovaTopo').addEventListener('click', () => { t2_novaCamara(); t2_abrirForm(); });
   document.getElementById('c2_btnFecharForm').addEventListener('click', t2_fecharForm);
   document.getElementById('c2_btnSalvar').addEventListener('click', t2_salvarCamara);
-  document.getElementById('c2_btnFechar').addEventListener('click', t2_fecharEntidade);
   document.getElementById('c2_btnEditar').addEventListener('click', t2_editarEntidade);
   document.getElementById('c2_btnExcluir').addEventListener('click', t2_excluirCamara);
   document.getElementById('c2_btnDuplicar').addEventListener('click', t2_duplicarCamara);
@@ -255,18 +254,14 @@ async function t2_salvarCamara() {
 function t2_aplicarEstadoFechada(c) {
   const wrap = document.getElementById('c2_formWrap');
   const btnSalvar = document.getElementById('c2_btnSalvar');
-  const btnFechar = document.getElementById('c2_btnFechar');
-  const barraFechada = document.getElementById('c2_barraFechada');
   const barraDesatualizada = document.getElementById('c2_barraDesatualizada');
   if (t2_fechada) {
     wrap.classList.add('entidade-fechada');
     btnSalvar.style.display = 'none';
-    btnFechar.style.display = 'none';
     barraDesatualizada.style.display = c && c.calculo_desatualizado ? 'flex' : 'none';
   } else {
     wrap.classList.remove('entidade-fechada');
     btnSalvar.style.display = '';
-    btnFechar.style.display = t2_editandoId ? 'inline-block' : 'none';
     barraDesatualizada.style.display = 'none';
   }
 }
@@ -277,16 +272,6 @@ async function t2_editarEntidade() {
   t2_fechada = false;
   t2_aplicarEstadoFechada(c);
   await t2_carregarLista();
-}
-
-async function t2_fecharEntidade() {
-  if (!t2_editandoId) return;
-  await t2_salvarCamara();
-  const c = await api.post(`/api/camaras-completo/${t2_editandoId}/salvar`, {});
-  t2_fechada = true;
-  t2_aplicarEstadoFechada(c);
-  await t2_carregarLista();
-  await t2_abrirCamara(t2_editandoId);
 }
 
 async function t2_excluirCamara() {

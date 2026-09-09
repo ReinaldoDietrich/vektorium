@@ -6,14 +6,16 @@ import sys, os
 from pathlib import Path
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
+load_dotenv(BASE_DIR / ".env")
 
 from backend import models as m
 from backend.database import Base
 
-POSTGRES_URL = "postgresql://postgres:Vektorium35372755@db.luzvgsgxutggnbyrhswg.supabase.co:5432/postgres"
+POSTGRES_URL = os.environ["POSTGRES_URL"]
 
 _APPDATA = os.environ.get("VEKTORIUM_APPDATA")
 if _APPDATA:

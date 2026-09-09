@@ -36,7 +36,6 @@ function initTela11() {
   document.getElementById('t11_cond_btnAdd').addEventListener('click', t11_addOpcaoCondensador);
   document.getElementById('t11_btnAddRack').addEventListener('click', t11_addRack);
   document.getElementById('t11_btnEditar').addEventListener('click', t11_editarEntidade);
-  document.getElementById('t11_btnFecharEntidade').addEventListener('click', t11_fecharEntidade);
   document.addEventListener('projeto-changed', t11_onProjetoChanged);
 }
 
@@ -573,21 +572,18 @@ async function t11_salvarNomenclaturaCondensador(valores) {
 function t11_aplicarEstadoFechada(r) {
   const conteudo = document.getElementById('t11_conteudo');
   const btnSalvar = document.getElementById('t11_btnSalvar');
-  const btnFechar = document.getElementById('t11_btnFecharEntidade');
   const btnEditar = document.getElementById('t11_btnEditar');
   const barraFechada = document.getElementById('t11_barraFechada');
   const barraDesatualizada = document.getElementById('t11_barraDesatualizada');
   if (t11_fechada) {
     conteudo.classList.add('entidade-fechada');
     btnSalvar.style.display = 'none';
-    btnFechar.style.display = 'none';
     btnEditar.style.display = 'inline-block';
     barraFechada.style.display = 'flex';
     barraDesatualizada.style.display = r && r.calculo_desatualizado ? 'flex' : 'none';
   } else {
     conteudo.classList.remove('entidade-fechada');
     btnSalvar.style.display = '';
-    btnFechar.style.display = t11_rackEditandoId ? 'inline-block' : 'none';
     btnEditar.style.display = 'none';
     barraFechada.style.display = 'none';
     barraDesatualizada.style.display = 'none';
@@ -599,15 +595,6 @@ async function t11_editarEntidade() {
   await api.post(`/api/rack-paralelo/${t11_rackEditandoId}/editar`, {});
   t11_fechada = false;
   t11_aplicarEstadoFechada(null);
-  await t11_recarregarRacks(true);
-}
-
-async function t11_fecharEntidade() {
-  if (!t11_rackEditandoId) return;
-  await t11_salvar();
-  const r = await api.post(`/api/rack-paralelo/${t11_rackEditandoId}/salvar`, {});
-  t11_fechada = true;
-  t11_aplicarEstadoFechada(r);
   await t11_recarregarRacks(true);
 }
 

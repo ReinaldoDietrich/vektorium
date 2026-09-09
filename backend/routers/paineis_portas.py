@@ -21,7 +21,7 @@ CAMPOS_PAINEL = {"camara_completo_id", "camara_simples_id", "ambiente_nao_climat
                   "espessura", "dimensao_1", "dimensao_2", "ordem"}
 CAMPOS_PORTA = {"camara_completo_id", "camara_simples_id", "ambiente_nao_climatizado_nome", "funcao", "modelo",
                 "sentido", "vao_largura_mm", "vao_altura_mm", "fixacao", "espessura_fixacao_mm", "tensao",
-                "observacoes", "ordem"}
+                "observacoes", "ordem", "quantidade"}
 
 
 def _validar_camara_do_projeto(db: Session, projeto_id: int, dados: dict):

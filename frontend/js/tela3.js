@@ -60,7 +60,6 @@ function initTela3() {
   document.getElementById('c3_btnNovaTopo').addEventListener('click', () => { t3_novaCamara(); t3_abrirForm(); });
   document.getElementById('c3_btnFecharForm').addEventListener('click', t3_fecharForm);
   document.getElementById('c3_btnSalvar').addEventListener('click', t3_salvarCamara);
-  document.getElementById('c3_btnFechar').addEventListener('click', t3_fecharEntidade);
   document.getElementById('c3_btnEditar').addEventListener('click', t3_editarEntidade);
   document.getElementById('c3_btnExcluir').addEventListener('click', t3_excluirCamara);
   document.getElementById('c3_btnDuplicar').addEventListener('click', t3_duplicarCamara);
@@ -214,18 +213,14 @@ async function t3_salvarCamara() {
 function t3_aplicarEstadoFechada(c) {
   const wrap = document.getElementById('c3_formWrap');
   const btnSalvar = document.getElementById('c3_btnSalvar');
-  const btnFechar = document.getElementById('c3_btnFechar');
-  const barraFechada = document.getElementById('c3_barraFechada');
   const barraDesatualizada = document.getElementById('c3_barraDesatualizada');
   if (t3_fechada) {
     wrap.classList.add('entidade-fechada');
     btnSalvar.style.display = 'none';
-    btnFechar.style.display = 'none';
     barraDesatualizada.style.display = c && c.calculo_desatualizado ? 'flex' : 'none';
   } else {
     wrap.classList.remove('entidade-fechada');
     btnSalvar.style.display = '';
-    btnFechar.style.display = t3_editandoId ? 'inline-block' : 'none';
     barraDesatualizada.style.display = 'none';
   }
 }
@@ -236,16 +231,6 @@ async function t3_editarEntidade() {
   t3_fechada = false;
   t3_aplicarEstadoFechada(c);
   await t3_carregarLista();
-}
-
-async function t3_fecharEntidade() {
-  if (!t3_editandoId) return;
-  await t3_salvarCamara();
-  const c = await api.post(`/api/camaras-simples/${t3_editandoId}/salvar`, {});
-  t3_fechada = true;
-  t3_aplicarEstadoFechada(c);
-  await t3_carregarLista();
-  await t3_abrirCamara(t3_editandoId);
 }
 
 async function t3_excluirCamara() {
