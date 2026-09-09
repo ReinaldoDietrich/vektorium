@@ -17,9 +17,13 @@ def _uid(payload: dict) -> str:
 
 def _exigir_master(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_db)) -> dict:
     uid = _uid(payload)
-    row = db.execute(text("SELECT papel FROM usuarios WHERE id = :uid"), {"uid": uid}).fetchone()
-    if not row or row[0] != "master":
-        raise HTTPException(403, "Acesso restrito a master")
+    row = db.execute(text(
+        "SELECT p.is_admin FROM usuarios u "
+        "JOIN papeis p ON p.nome = u.papel "
+        "WHERE u.id = :uid"
+    ), {"uid": uid}).fetchone()
+    if not row or not row[0]:
+        raise HTTPException(403, "Acesso restrito a administradores")
     return payload
 
 
@@ -73,8 +77,9 @@ def listar_usuarios(payload: dict = Depends(_exigir_master), db: Session = Depen
 def alterar_papel(uid: str, payload_body: dict = Body(...),
                   payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
     novo_papel = payload_body.get("papel", "").strip()
-    if novo_papel not in ("master", "comum"):
-        raise HTTPException(400, "Papel deve ser 'master' ou 'comum'")
+    existe = db.execute(text("SELECT 1 FROM papeis WHERE nome = :nome"), {"nome": novo_papel}).fetchone()
+    if not existe:
+        raise HTTPException(400, f"Papel '{novo_papel}' nao existe")
     result = db.execute(text("UPDATE usuarios SET papel = :papel WHERE id = :uid"),
                         {"papel": novo_papel, "uid": uid})
     db.commit()
@@ -199,6 +204,86 @@ def atualizar_permissoes(payload_body: dict = Body(...),
             "ver": bool(item.get("ver", False)), "editar": bool(item.get("editar", False))})
     db.commit()
     return listar_permissoes(payload=payload, db=db)
+
+
+# ---------------------------------------------------------------------------
+# PAPEIS — CRUD de tipos de usuario (master only)
+# ---------------------------------------------------------------------------
+
+@router.get("/papeis")
+def listar_papeis(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+    rows = db.execute(text(
+        "SELECT id, nome, descricao, is_admin, criado_em FROM papeis ORDER BY id"
+    )).fetchall()
+    return [{"id": r[0], "nome": r[1], "descricao": r[2] or "",
+             "is_admin": r[3], "criado_em": str(r[4]) if r[4] else None} for r in rows]
+
+
+@router.post("/papeis")
+def criar_papel(payload_body: dict = Body(...),
+                payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+    nome = payload_body.get("nome", "").strip().lower()
+    descricao = payload_body.get("descricao", "").strip()
+    is_admin = bool(payload_body.get("is_admin", False))
+    if not nome:
+        raise HTTPException(400, "Nome do papel e obrigatorio")
+    existe = db.execute(text("SELECT 1 FROM papeis WHERE nome = :nome"), {"nome": nome}).fetchone()
+    if existe:
+        raise HTTPException(409, f"Papel '{nome}' ja existe")
+    db.execute(text(
+        "INSERT INTO papeis (nome, descricao, is_admin) VALUES (:nome, :descricao, :is_admin)"
+    ), {"nome": nome, "descricao": descricao, "is_admin": is_admin})
+    db.commit()
+    row = db.execute(text("SELECT id, nome, descricao, is_admin, criado_em FROM papeis WHERE nome = :nome"),
+                     {"nome": nome}).fetchone()
+    return {"id": row[0], "nome": row[1], "descricao": row[2] or "",
+            "is_admin": row[3], "criado_em": str(row[4]) if row[4] else None}
+
+
+@router.put("/papeis/{papel_id}")
+def editar_papel(papel_id: int, payload_body: dict = Body(...),
+                 payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+    nome = payload_body.get("nome", "").strip().lower()
+    descricao = payload_body.get("descricao", "").strip()
+    is_admin = bool(payload_body.get("is_admin", False))
+    if not nome:
+        raise HTTPException(400, "Nome do papel e obrigatorio")
+    atual = db.execute(text("SELECT nome FROM papeis WHERE id = :id"), {"id": papel_id}).fetchone()
+    if not atual:
+        raise HTTPException(404, "Papel nao encontrado")
+    conflito = db.execute(text("SELECT 1 FROM papeis WHERE nome = :nome AND id != :id"),
+                          {"nome": nome, "id": papel_id}).fetchone()
+    if conflito:
+        raise HTTPException(409, f"Papel '{nome}' ja existe")
+    nome_antigo = atual[0]
+    db.execute(text(
+        "UPDATE papeis SET nome = :nome, descricao = :descricao, is_admin = :is_admin WHERE id = :id"
+    ), {"nome": nome, "descricao": descricao, "is_admin": is_admin, "id": papel_id})
+    if nome != nome_antigo:
+        db.execute(text("UPDATE usuarios SET papel = :novo WHERE papel = :antigo"),
+                   {"novo": nome, "antigo": nome_antigo})
+        db.execute(text("UPDATE permissoes_por_papel SET papel = :novo WHERE papel = :antigo"),
+                   {"novo": nome, "antigo": nome_antigo})
+    db.commit()
+    return {"ok": True, "id": papel_id, "nome": nome}
+
+
+@router.delete("/papeis/{papel_id}")
+def excluir_papel(papel_id: int, payload: dict = Depends(_exigir_master),
+                  db: Session = Depends(get_db)):
+    row = db.execute(text("SELECT nome FROM papeis WHERE id = :id"), {"id": papel_id}).fetchone()
+    if not row:
+        raise HTTPException(404, "Papel nao encontrado")
+    nome = row[0]
+    if nome == "master":
+        raise HTTPException(400, "O papel 'master' nao pode ser excluido")
+    em_uso = db.execute(text("SELECT COUNT(*) FROM usuarios WHERE papel = :nome"), {"nome": nome}).fetchone()
+    if em_uso and em_uso[0] > 0:
+        raise HTTPException(409, f"Papel '{nome}' possui {em_uso[0]} usuario(s) atribuido(s). Reatribua-os primeiro.")
+    db.execute(text("DELETE FROM permissoes_por_papel WHERE papel = :nome"), {"nome": nome})
+    db.execute(text("DELETE FROM papeis WHERE id = :id"), {"id": papel_id})
+    db.commit()
+    return {"ok": True, "excluido": nome}
 
 
 # ---------------------------------------------------------------------------

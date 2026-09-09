@@ -1624,11 +1624,29 @@ CP/SP — com / sem supervisão</pre>
 
       <div id="t20_painelMaster" style="display:none">
 
+        <fieldset><legend>Tipos de Usuário</legend>
+          <div style="overflow-x:auto">
+          <table class="table-hover" style="width:100%">
+            <thead><tr>
+              <th>Nome</th><th>Descrição</th><th>Admin?</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="t20_tbPapeis"><tr><td colspan="4">—</td></tr></tbody>
+          </table>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="t20_novoPapelNome" placeholder="Nome do tipo" style="width:140px">
+            <input type="text" id="t20_novoPapelDesc" placeholder="Descrição" style="width:200px">
+            <label style="font-size:13px"><input type="checkbox" id="t20_novoPapelAdmin"> Admin</label>
+            <button class="btn-wide" onclick="window._t20_criarPapel()">Adicionar tipo</button>
+            <span id="t20_papelMsg" class="small" style="color:#6b7280"></span>
+          </div>
+        </fieldset>
+
         <fieldset><legend>Usuários</legend>
           <div style="overflow-x:auto">
           <table class="table-hover" style="width:100%">
             <thead><tr>
-              <th>Email</th><th>Nome</th><th>Papel</th><th>Alterar papel</th>
+              <th>Email</th><th>Nome</th><th>Tipo</th><th>Alterar tipo</th>
               <th>Status</th><th>Plano</th><th>Vence em</th><th>Assinatura</th>
             </tr></thead>
             <tbody id="t20_tbUsuarios"><tr><td colspan="8">—</td></tr></tbody>
@@ -1647,17 +1665,10 @@ CP/SP — com / sem supervisão</pre>
           </div>
         </fieldset>
 
-        <fieldset><legend>Permissões por papel</legend>
+        <fieldset><legend>Permissões por tipo de usuário</legend>
           <div style="overflow-x:auto">
           <table class="table-hover" style="width:100%">
-            <thead>
-              <tr>
-                <th rowspan="2">Módulo</th>
-                <th colspan="2" style="text-align:center">master</th>
-                <th colspan="2" style="text-align:center">comum</th>
-              </tr>
-              <tr><th style="text-align:center">Ver</th><th style="text-align:center">Editar</th><th style="text-align:center">Ver</th><th style="text-align:center">Editar</th></tr>
-            </thead>
+            <thead id="t20_permHead"></thead>
             <tbody id="t20_tbPermissoes"><tr><td colspan="5">—</td></tr></tbody>
           </table>
           </div>
@@ -1676,7 +1687,7 @@ CP/SP — com / sem supervisão</pre>
     </div>
   </main>
 </div>
-<script src="/js/auth.js?v=20260902090000"></script>
+<script src="/js/auth.js?v=20260909150000"></script>
 <script src="/js/api.js?v=20260902090000"></script>
 <script src="/js/keyboard_nav.js?v=20260902090000"></script>
 <script src="/js/main.js?v=20260902090000"></script>
@@ -1702,7 +1713,7 @@ CP/SP — com / sem supervisão</pre>
 <script src="/js/tela14.js?v=20260902090000"></script>
 <script src="/js/tela15.js?v=20260902090000"></script>
 <script src="/js/tela13_proposta.js?v=20260902090000"></script>
-<script src="/js/tela20_admin.js?v=20260905143500"></script>
+<script src="/js/tela20_admin.js?v=20260909150000"></script>
 <script src="/js/sidebar.js?v=20260902090000"></script>
 </body>
 </html>
