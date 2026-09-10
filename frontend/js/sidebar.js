@@ -424,6 +424,7 @@ function initLoginUI() {
     if (AUTH.logado()) {
       if (!confirm(`Sair da conta ${AUTH.email() || ''}?`)) return;
       await AUTH.logout();
+      if (typeof pararVerificacaoLicenca === 'function') pararVerificacaoLicenca();
       _mostrarTelaLogin();
       return;
     }

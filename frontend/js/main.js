@@ -122,12 +122,19 @@ let _licencaTimer = null;
 async function verificarLicenca() {
   if (!AUTH.logado()) { _aplicarLicenca(true); return; }
   try {
+    await AUTH.garantirToken();
+    if (!AUTH.token()) { _aplicarLicenca(true); return; }
     const r = await fetch('/api/licenca/status', { headers: { 'Authorization': 'Bearer ' + AUTH.token() } });
     if (r.ok) {
       const d = await r.json();
       _aplicarLicenca(!!d.ativa);
     }
   } catch (e) { /* sem rede — mantém último estado */ }
+}
+
+function pararVerificacaoLicenca() {
+  if (_licencaTimer) { clearInterval(_licencaTimer); _licencaTimer = null; }
+  _aplicarLicenca(true);
 }
 
 function _aplicarLicenca(ativa) {
@@ -145,6 +152,7 @@ function iniciarVerificacaoPeriodicaLicenca() {
 
 window.verificarLicenca = verificarLicenca;
 window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
+window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
 async function sairDoApp() {
   if (typeof AUTH !== 'undefined' && AUTH.token()) {
