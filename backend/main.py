@@ -57,7 +57,8 @@ _ROTAS_ESCRITA = ("/api/projetos", "/api/camaras-completo", "/api/camaras-simple
                   "/api/expositores", "/api/sistema", "/api/rack-paralelo",
                   "/api/paineis-portas", "/api/composicao-preco",
                   "/api/uc", "/api/luminotecnico", "/api/proposta",
-                  "/api/consumo", "/api/tela10", "/api/comparativo-revisoes")
+                  "/api/consumo", "/api/tela10", "/api/comparativo-revisoes",
+                  "/api/compilacao")
 
 
 class SemCacheMiddleware(BaseHTTPMiddleware):
