@@ -1039,6 +1039,8 @@ def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> di
             db.commit()
             return calc
         return _snapshot_ou_erro(camara, status)
+    except ValueError:
+        raise
     except Exception:
         return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
 
@@ -1053,6 +1055,8 @@ def calcular_camara_simples_seguro(db: Session, camara: m.CamaraSimples) -> dict
             db.commit()
             return calc
         return _snapshot_ou_erro(camara, status)
+    except ValueError:
+        raise
     except Exception:
         return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
 

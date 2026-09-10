@@ -53,9 +53,11 @@ def _verificar_licenca_remota(token: str | None) -> dict:
     return _licenca_cache or {"ativa": True}
 
 
-_ROTAS_ESCRITA = ("/api/projetos", "/api/camaras", "/api/expositores", "/api/sistemas",
-                  "/api/rack", "/api/paineis", "/api/portas", "/api/composicao",
-                  "/api/uc", "/api/luminotecnico", "/api/proposta", "/api/compilacao")
+_ROTAS_ESCRITA = ("/api/projetos", "/api/camaras-completo", "/api/camaras-simples",
+                  "/api/expositores", "/api/sistema", "/api/rack-paralelo",
+                  "/api/paineis-portas", "/api/composicao-preco",
+                  "/api/uc", "/api/luminotecnico", "/api/proposta",
+                  "/api/consumo", "/api/tela10", "/api/comparativo-revisoes")
 
 
 class SemCacheMiddleware(BaseHTTPMiddleware):

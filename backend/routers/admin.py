@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..auth_supabase import exigir_usuario
+from ..auth_supabase import exigir_usuario, exigir_jwt
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -32,7 +32,7 @@ def _exigir_master(payload: dict = Depends(exigir_usuario), db: Session = Depend
 # ---------------------------------------------------------------------------
 
 @router.get("/licenca/status")
-def licenca_status(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_db)):
+def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(get_db)):
     uid = _uid(payload)
     row = db.execute(text(
         "SELECT status, plano, vence_em FROM assinaturas WHERE usuario_id = :uid LIMIT 1"
