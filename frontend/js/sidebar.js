@@ -321,6 +321,7 @@ function initSidebar() {
   });
 
   initLoginUI();
+  if (AUTH.logado() && typeof iniciarVerificacaoPeriodicaLicenca === 'function') iniciarVerificacaoPeriodicaLicenca();
 
   const elVersao = document.getElementById('sidebarVersao');
   if (elVersao) {
@@ -443,8 +444,9 @@ function initLoginUI() {
     erroEl.style.display = 'none';
     try {
       await AUTH.login(email, senha);
-      if (minhaTentativa !== _tentativaAtual) return;   // uma tentativa mais nova já assumiu
+      if (minhaTentativa !== _tentativaAtual) return;
       _esconderTelaLogin();
+      if (typeof iniciarVerificacaoPeriodicaLicenca === 'function') iniciarVerificacaoPeriodicaLicenca();
     } catch (e) {
       if (minhaTentativa !== _tentativaAtual) return;
       erroEl.textContent = e.message || 'Falha no login.';

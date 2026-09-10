@@ -1026,44 +1026,44 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
 
 
 # ---- Snapshot do cálculo (visualização offline / sem assinatura ativa) ----
-# O cálculo de hoje depende do catálogo (forçador, UC, válvulas etc.), hoje sempre local. Quando o
-# catálogo passar a viver remoto (Fase 3 — Fly.io/Supabase, soft-lock por assinatura), essas duas
-# funções continuam calculando ao vivo sempre que o catálogo estiver acessível — e gravam o
-# resultado na própria câmara. Se o catálogo não puder ser consultado (sem internet ou assinatura
-# vencida), devolvem o ÚLTIMO snapshot válido em vez de quebrar, marcado como desatualizado. Um
-# recálculo de verdade (usuário editando algo que alimenta o cálculo) sempre tenta ao vivo primeiro.
+# Cálculo é EXCLUSIVAMENTE remoto (Fly.io). Se o servidor retornar OK, grava snapshot. Se não
+# conseguir (sem rede ou erro), devolve o último snapshot marcado como desatualizado. Se não
+# houver licença (401/403), devolve snapshot marcado com _sem_licenca. Sem snapshot anterior, erro.
 def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> dict:
     try:
         dados = _serializar_camara_completo(camara)
-        # Fase 3.5: tenta calcular no servidor remoto (Fly.io) antes do local.
-        calc = _remoto.camara_completo(dados, _token_usuario.get())
-        if calc is None:
-            calc = calcular_camara_completo_de_dados(db, dados)
-        camara.calculo_snapshot_json = json.dumps(calc)
-        camara.calculo_desatualizado = False
-        db.commit()
-        return calc
-    except Exception:
-        if camara.calculo_snapshot_json:
-            calc = json.loads(camara.calculo_snapshot_json)
-            calc["_snapshot_desatualizado"] = True
+        status, calc = _remoto.camara_completo(dados, _token_usuario.get())
+        if status == _remoto.Status.OK and calc:
+            camara.calculo_snapshot_json = json.dumps(calc)
+            camara.calculo_desatualizado = False
+            db.commit()
             return calc
-        raise
+        return _snapshot_ou_erro(camara, status)
+    except Exception:
+        return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
 
 
 def calcular_camara_simples_seguro(db: Session, camara: m.CamaraSimples) -> dict:
     try:
         dados = _serializar_camara_simples(camara)
-        calc = _remoto.camara_simples(dados, _token_usuario.get())
-        if calc is None:
-            calc = calcular_camara_simples_de_dados(db, dados)
-        camara.calculo_snapshot_json = json.dumps(calc)
-        camara.calculo_desatualizado = False
-        db.commit()
-        return calc
-    except Exception:
-        if camara.calculo_snapshot_json:
-            calc = json.loads(camara.calculo_snapshot_json)
-            calc["_snapshot_desatualizado"] = True
+        status, calc = _remoto.camara_simples(dados, _token_usuario.get())
+        if status == _remoto.Status.OK and calc:
+            camara.calculo_snapshot_json = json.dumps(calc)
+            camara.calculo_desatualizado = False
+            db.commit()
             return calc
-        raise
+        return _snapshot_ou_erro(camara, status)
+    except Exception:
+        return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
+
+
+def _snapshot_ou_erro(entidade, status: str) -> dict:
+    if entidade.calculo_snapshot_json:
+        calc = json.loads(entidade.calculo_snapshot_json)
+        calc["_snapshot_desatualizado"] = True
+        if status == _remoto.Status.SEM_LICENCA:
+            calc["_sem_licenca"] = True
+        return calc
+    if status == _remoto.Status.SEM_LICENCA:
+        raise ValueError("Assinatura inativa — cálculo não disponível.")
+    raise ValueError("Sem conexão com o servidor de cálculo e sem snapshot anterior.")

@@ -28,6 +28,24 @@ def _exigir_master(payload: dict = Depends(exigir_usuario), db: Session = Depend
 
 
 # ---------------------------------------------------------------------------
+# LICENCA — qualquer usuario autenticado consulta o status da propria assinatura
+# ---------------------------------------------------------------------------
+
+@router.get("/licenca/status")
+def licenca_status(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_db)):
+    uid = _uid(payload)
+    row = db.execute(text(
+        "SELECT status, plano, vence_em FROM assinaturas WHERE usuario_id = :uid LIMIT 1"
+    ), {"uid": uid}).fetchone()
+    if not row:
+        return {"ativa": False, "plano": None, "vence_em": None, "motivo": "sem_assinatura"}
+    ativa = row[0] in ("active",)
+    return {"ativa": ativa, "plano": row[1],
+            "vence_em": str(row[2]) if row[2] else None,
+            "motivo": None if ativa else row[0]}
+
+
+# ---------------------------------------------------------------------------
 # MEU PERFIL — qualquer usuario autenticado
 # ---------------------------------------------------------------------------
 

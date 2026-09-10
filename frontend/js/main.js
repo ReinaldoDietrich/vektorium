@@ -114,6 +114,38 @@ function aplicarModoProjetoFechado(fechado) {
   document.body.classList.toggle('projeto-bloqueado', !!fechado);
 }
 
+// Verificação de licença ativa — consulta /api/licenca/status (backend local, que cacheia do Fly.io).
+// Se licença inativa, congela a UI com a classe .licenca-inativa (mesma mecânica do projeto-bloqueado).
+let _licencaAtiva = true;
+let _licencaTimer = null;
+
+async function verificarLicenca() {
+  if (!AUTH.logado()) { _aplicarLicenca(true); return; }
+  try {
+    const r = await fetch('/api/licenca/status', { headers: { 'Authorization': 'Bearer ' + AUTH.token() } });
+    if (r.ok) {
+      const d = await r.json();
+      _aplicarLicenca(!!d.ativa);
+    }
+  } catch (e) { /* sem rede — mantém último estado */ }
+}
+
+function _aplicarLicenca(ativa) {
+  _licencaAtiva = ativa;
+  document.body.classList.toggle('licenca-inativa', !ativa);
+  const aviso = document.getElementById('avisoLicencaInativa');
+  if (aviso) aviso.style.display = ativa ? 'none' : 'flex';
+}
+
+function iniciarVerificacaoPeriodicaLicenca() {
+  if (_licencaTimer) clearInterval(_licencaTimer);
+  verificarLicenca();
+  _licencaTimer = setInterval(verificarLicenca, 30 * 60 * 1000);
+}
+
+window.verificarLicenca = verificarLicenca;
+window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
+
 async function sairDoApp() {
   if (typeof AUTH !== 'undefined' && AUTH.token()) {
     await AUTH.logout();

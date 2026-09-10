@@ -158,6 +158,26 @@ body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18
   opacity:1 !important;
 }
 
+/* ===== Licença inativa — mesma mecânica do projeto-bloqueado (FASE 3) ===== */
+body.licenca-inativa :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+  pointer-events:none !important;
+  opacity:.55;
+}
+body.licenca-inativa :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
+#avisoLicencaInativa {
+  display:none;
+  position:fixed; top:0; left:0; right:0;
+  z-index:9999;
+  background:#d32f2f; color:#fff;
+  padding:8px 16px;
+  text-align:center;
+  font-weight:600; font-size:14px;
+  align-items:center; justify-content:center; gap:8px;
+}
+
 /* ===== Entidade fechada — bloqueio individual por câmara/expositor/rack etc. (FASE 2) =====
    Quando o formulário de uma entidade calculável recebe .entidade-fechada, seus campos e botões
    de edição ficam congelados (igual ao projeto-bloqueado, mas só no form). Os botões Editar e

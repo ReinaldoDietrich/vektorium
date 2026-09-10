@@ -21,6 +21,8 @@ COPY backend/calc_polinomio_compressor.py backend/calc_polinomio_compressor.py
 COPY backend/calc_paineis_portas.py backend/calc_paineis_portas.py
 COPY backend/calc_remoto_client.py backend/calc_remoto_client.py
 COPY backend/composicao_preco.py backend/composicao_preco.py
+COPY backend/_invalidacao.py backend/_invalidacao.py
+COPY backend/invalidacao_mapa.py backend/invalidacao_mapa.py
 COPY backend/calculos backend/calculos
 COPY backend/exportacao backend/exportacao
 COPY backend/importacao backend/importacao

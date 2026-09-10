@@ -530,10 +530,12 @@ def obter_selecao(sistema_id: int, db: Session = Depends(get_db), itens_precompu
     infinita quando quem chama é a própria _montar_itens_compilacao, ex.: o resumo de potência
     de compressão)."""
     dados = _serializar_selecao_uc(db, sistema_id, itens_precomputados)
-    calc = _remoto.uc_selecao(dados, _token_usuario.get())
-    if calc is None:
-        calc = _calcular_selecao_uc_de_dados(db, dados)
-    return calc
+    status, calc = _remoto.uc_selecao(dados, _token_usuario.get())
+    if status == _remoto.Status.OK and calc:
+        return calc
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
+    raise HTTPException(503, "Servidor de cálculo indisponível.")
 
 
 @router.post("/sistemas/{sistema_id}/selecao")

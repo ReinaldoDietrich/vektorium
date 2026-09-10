@@ -727,10 +727,12 @@ def listar_compressores(rack_id: int, db: Session = Depends(get_db)):
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     dados = _serializar_listar_compressores(db, rack)
-    calc = _remoto.rack_compressores(dados, _token_usuario.get())
-    if calc is None:
-        calc = _calcular_compressores_de_dados(db, dados)
-    return calc
+    status, calc = _remoto.rack_compressores(dados, _token_usuario.get())
+    if status == _remoto.Status.OK and calc:
+        return calc
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
+    raise HTTPException(503, "Servidor de cálculo indisponível.")
 
 
 @router.put("/{rack_id}/compressores/{posicao}")

@@ -1,20 +1,21 @@
-"""Validação de JWT do Supabase — usado só pelo app de catálogo/cálculo (main_calc.py), hospedado
-no Fly.io. O app local (projetos, no computador do usuário) nunca usa isso, não precisa de login
-pra ler/editar dado que já é seu. Sem assinatura ativa = sem token válido = sem cálculo/catálogo
-(soft-lock estrutural, decisão já travada no ADR)."""
+"""Validação de JWT do Supabase + verificação de assinatura ativa — usado só pelo app de
+catálogo/cálculo (main_calc.py), hospedado no Fly.io. O app local (projetos, no computador do
+usuário) nunca usa isso."""
 import os
 import jwt
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from .database import get_db
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 _JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else None
 _jwks_client = jwt.PyJWKClient(_JWKS_URL) if _JWKS_URL else None
 
 
-def exigir_usuario(authorization: str = Header(None)) -> dict:
-    """Dependency FastAPI — usar via `Depends(exigir_usuario)` nos endpoints ou routers que
-    precisam de assinatura ativa. Valida o header 'Authorization: Bearer <token>' contra o JWKS
-    do Supabase. Sem token válido — 401. Retorna o payload decodificado (sub = user id, email)."""
+def exigir_usuario(authorization: str = Header(None), db: Session = Depends(get_db)) -> dict:
+    """Valida JWT + verifica assinatura ativa na tabela `assinaturas` do Postgres.
+    Sem token → 401. Token válido mas assinatura inativa → 403. Retorna payload do JWT."""
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Token de autenticação ausente")
     token = authorization[7:]
@@ -25,4 +26,19 @@ def exigir_usuario(authorization: str = Header(None)) -> dict:
         payload = jwt.decode(token, signing_key.key, algorithms=["ES256", "RS256"], audience="authenticated")
     except Exception as e:
         raise HTTPException(401, f"Token inválido: {e}")
+
+    uid = payload.get("sub")
+    if not uid:
+        raise HTTPException(401, "Token sem identificador de usuário")
+
+    row = db.execute(
+        text("SELECT status FROM assinaturas WHERE usuario_id = :uid LIMIT 1"),
+        {"uid": uid},
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(403, "Assinatura não encontrada — contate o administrador.")
+    if row[0] not in ("active", "vitalicio"):
+        raise HTTPException(403, f"Assinatura inativa (status: {row[0]}).")
+
     return payload

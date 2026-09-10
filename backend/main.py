@@ -1,15 +1,19 @@
 import os
+import time
+import logging
 import threading
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from .database import engine
 from . import seed
 from .calc_service import definir_token_usuario
 from .admin import registrar
 from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync
+
+_log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,10 +22,43 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 
 app = FastAPI(title="Carga Térmica")
 
+# ---- Cache de licença (consulta o Fly.io uma vez e cacheia por 1h) ----
+_licenca_cache: dict | None = None
+_licenca_ts: float = 0
+_LICENCA_TTL = 3600
+
+
+def _verificar_licenca_remota(token: str | None) -> dict:
+    """Consulta /api/admin/licenca/status no Fly.io. Retorna dict com 'ativa' bool."""
+    global _licenca_cache, _licenca_ts
+    agora = time.time()
+    if _licenca_cache and (agora - _licenca_ts) < _LICENCA_TTL:
+        return _licenca_cache
+    if not token:
+        return _licenca_cache or {"ativa": True}
+    import httpx
+    api_url = (os.environ.get("VEKTORIUM_API_URL") or "").rstrip("/")
+    if not api_url:
+        return _licenca_cache or {"ativa": True}
+    try:
+        r = httpx.get(f"{api_url}/api/admin/licenca/status",
+                      headers={"Authorization": f"Bearer {token}"},
+                      timeout=httpx.Timeout(5.0, connect=2.0))
+        if r.status_code == 200:
+            _licenca_cache = r.json()
+            _licenca_ts = agora
+            return _licenca_cache
+    except Exception as e:
+        _log.debug("Verificação de licença falhou: %s", e)
+    return _licenca_cache or {"ativa": True}
+
+
+_ROTAS_ESCRITA = ("/api/projetos", "/api/camaras", "/api/expositores", "/api/sistemas",
+                  "/api/rack", "/api/paineis", "/api/portas", "/api/composicao",
+                  "/api/uc", "/api/luminotecnico", "/api/proposta", "/api/compilacao")
+
 
 class SemCacheMiddleware(BaseHTTPMiddleware):
-    """Impede o navegador de guardar em cache o HTML/CSS/JS do app — evita a tela ficar
-    desatualizada depois de qualquer alteração no código (problema recorrente do projeto)."""
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         if request.url.path == "/" or request.url.path.startswith(("/css", "/js")):
@@ -30,8 +67,6 @@ class SemCacheMiddleware(BaseHTTPMiddleware):
 
 
 class TokenMiddleware(BaseHTTPMiddleware):
-    """Fase 3.5 — propaga o JWT do header Authorization para a ContextVar usada pelo
-    calc_service, sem exigir login (o app local funciona sem token, só usa quando tem)."""
     async def dispatch(self, request, call_next):
         auth = request.headers.get("authorization") or ""
         token = auth[7:] if auth.lower().startswith("bearer ") else None
@@ -39,8 +74,23 @@ class TokenMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class LicencaMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.method in ("POST", "PUT", "DELETE"):
+            path = request.url.path
+            if any(path.startswith(p) for p in _ROTAS_ESCRITA):
+                auth = request.headers.get("authorization") or ""
+                token = auth[7:] if auth.lower().startswith("bearer ") else None
+                lic = _verificar_licenca_remota(token)
+                if not lic.get("ativa", True):
+                    return JSONResponse(status_code=403,
+                                        content={"detail": "Assinatura inativa — operação bloqueada."})
+        return await call_next(request)
+
+
 app.add_middleware(SemCacheMiddleware)
 app.add_middleware(TokenMiddleware)
+app.add_middleware(LicencaMiddleware)
 
 seed.run()
 registrar(app, engine)
@@ -91,6 +141,13 @@ def index():
 @app.get("/api/versao")
 def versao():
     return {"versao": os.environ.get("VEKTORIUM_VERSION", "dev")}
+
+
+@app.get("/api/licenca/status")
+def licenca_status():
+    from .calc_service import _token_usuario
+    token = _token_usuario.get()
+    return _verificar_licenca_remota(token)
 
 
 @app.post("/api/sair")
