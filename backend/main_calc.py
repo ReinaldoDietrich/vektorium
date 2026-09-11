@@ -55,27 +55,31 @@ app.include_router(calc_remoto.router)
 
 @app.on_event("startup")
 def _criar_tabelas_novas():
+    import logging as _log
     from .database import SessionLocal
     from . import models as _m
-    Base.metadata.create_all(bind=engine, tables=[_m.CatalogoVersao.__table__])
-    db = SessionLocal()
     try:
-        if db.query(_m.CatalogoVersao).count() == 0:
-            for t in [
-                "cat_fabricantes", "id_comercial", "forcador_linhas", "forcador_modelos",
-                "forcador_capacidades", "forcador_eletricos", "forcador_fisicos",
-                "forcador_dimensionais", "forcador_fatores_gas", "forcador_importacoes",
-                "uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades",
-                "condensador_linhas", "condensador_modelos", "condensador_fatores",
-                "condensador_importacoes", "polinomio_compressor",
-                "valor_nominal_compressor", "faixa_operacao_compressor",
-                "catalogo_comercial", "cat_modelos_valvula", "campo_catalogo",
-                "campo_catalogo_opcao", "lookup_lampada",
-            ]:
-                db.add(_m.CatalogoVersao(tabela=t, versao=1))
-            db.commit()
-    finally:
-        db.close()
+        Base.metadata.create_all(bind=engine, tables=[_m.CatalogoVersao.__table__])
+        db = SessionLocal()
+        try:
+            if db.query(_m.CatalogoVersao).count() == 0:
+                for t in [
+                    "cat_fabricantes", "id_comercial", "forcador_linhas", "forcador_modelos",
+                    "forcador_capacidades", "forcador_eletricos", "forcador_fisicos",
+                    "forcador_dimensionais", "forcador_fatores_gas", "forcador_importacoes",
+                    "uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades",
+                    "condensador_linhas", "condensador_modelos", "condensador_fatores",
+                    "condensador_importacoes", "polinomio_compressor",
+                    "valor_nominal_compressor", "faixa_operacao_compressor",
+                    "catalogo_comercial", "cat_modelos_valvula", "campo_catalogo",
+                    "campo_catalogo_opcao", "lookup_lampada",
+                ]:
+                    db.add(_m.CatalogoVersao(tabela=t, versao=1))
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        _log.getLogger(__name__).warning("Startup: catalogo_versoes adiado (%s)", e)
 
 
 @app.get("/")
