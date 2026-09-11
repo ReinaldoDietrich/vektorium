@@ -447,6 +447,7 @@ def sync_boot(request: FastAPIRequest, db: Session = Depends(get_db)):
     if not grupos_stale:
         return {"ok": True, "atualizados": []}
 
+    grupos_ok = set()
     for grupo in grupos_stale:
         try:
             req = Request(f"{remote_url}/api/catalogo-sync/exportar?tipo={grupo}",
@@ -456,11 +457,18 @@ def sync_boot(request: FastAPIRequest, db: Session = Depends(get_db)):
             fn = _RECEBEDORES.get(grupo)
             if fn:
                 fn(db, dados)
+                grupos_ok.add(grupo)
                 log.info("Sync boot: grupo '%s' atualizado", grupo)
         except Exception as e:
             log.warning("Sync boot: falha no grupo '%s': %s", grupo, e)
 
+    tabelas_falha = set()
+    for grupo in (grupos_stale - grupos_ok):
+        tabelas_falha.update(_GRUPOS_TABELAS.get(grupo, []))
+
     for tabela, info in versoes_remotas.items():
+        if tabela in tabelas_falha:
+            continue
         v_remota = info.get("versao", 0) if isinstance(info, dict) else 0
         atualizado = info.get("atualizado_em") if isinstance(info, dict) else None
         v = db.query(m.CatalogoVersao).filter_by(tabela=tabela).first()
