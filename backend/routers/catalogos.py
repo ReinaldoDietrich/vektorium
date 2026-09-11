@@ -1,5 +1,6 @@
 """CRUD genérico para os catálogos simples (tabelas de apoio). Catálogos com estrutura mais
 rica (forçadores, expositores aninhados) têm router próprio."""
+from datetime import datetime
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 from .. import models as m
@@ -320,3 +321,22 @@ def excluir_modelo_expositor(item_id: int, db: Session = Depends(get_db)):
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
+
+# ---- Versões de catálogo (F4.1) ----
+
+@router.get("/versoes")
+def listar_versoes(db: Session = Depends(get_db)):
+    return {v.tabela: {"versao": v.versao, "atualizado_em": v.atualizado_em}
+            for v in db.query(m.CatalogoVersao).all()}
+
+
+def bumpar_versao_catalogo(db: Session, tabela: str):
+    """Incrementa a versão de uma tabela de catálogo após modificação."""
+    v = db.query(m.CatalogoVersao).filter_by(tabela=tabela).first()
+    agora = datetime.now().isoformat()
+    if v:
+        v.versao += 1
+        v.atualizado_em = agora
+    else:
+        db.add(m.CatalogoVersao(tabela=tabela, versao=1, atualizado_em=agora))

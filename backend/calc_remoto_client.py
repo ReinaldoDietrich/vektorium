@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Fase 3 — cliente HTTP para a API remota de cálculo (Fly.io). Cada função recebe o dict já
+"""Cliente HTTP para a API remota de cálculo (Fly.io). Cada função recebe o dict já
 serializado (dados de projeto) e o JWT do usuário, manda pro servidor remoto e devolve o resultado
-com status tipado: OK, SEM_REDE, SEM_LICENCA, ERRO_SERVIDOR."""
+com status tipado: OK, SEM_REDE, SEM_LICENCA, ERRO_SERVIDOR.
+
+Usa httpx.Client persistente com connection pooling e HTTP/2 (F4.5)."""
 import os
 import logging
 import httpx
@@ -10,6 +12,19 @@ log = logging.getLogger(__name__)
 
 _API_URL = (os.environ.get("VEKTORIUM_API_URL") or "").rstrip("/")
 _TIMEOUT = httpx.Timeout(20.0, connect=3.0, read=20.0)
+_client: httpx.Client | None = None
+
+
+def _get_client() -> httpx.Client | None:
+    global _client
+    if not _API_URL:
+        return None
+    if _client is None:
+        try:
+            _client = httpx.Client(timeout=_TIMEOUT, http2=True)
+        except Exception:
+            _client = httpx.Client(timeout=_TIMEOUT)
+    return _client
 
 
 class Status:
@@ -20,14 +35,15 @@ class Status:
 
 
 def _post(endpoint: str, dados: dict, token: str | None) -> tuple[str, dict | None]:
-    if not _API_URL:
+    client = _get_client()
+    if not client:
         return Status.SEM_REDE, None
     if not token:
         return Status.SEM_LICENCA, None
     url = f"{_API_URL}{endpoint}"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     try:
-        r = httpx.post(url, json=dados, headers=headers, timeout=_TIMEOUT)
+        r = client.post(url, json=dados, headers=headers)
         if r.status_code == 200:
             return Status.OK, r.json()
         if r.status_code in (401, 403):
@@ -57,3 +73,8 @@ def uc_selecao(dados: dict, token: str | None) -> tuple[str, dict | None]:
 
 def rack_compressores(dados: dict, token: str | None) -> tuple[str, dict | None]:
     return _post("/api/calc/rack-compressores", dados, token)
+
+
+def lote(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    """Cálculo em lote: recebe dict com listas de câmaras, devolve lista de resultados."""
+    return _post("/api/calc/lote", dados, token)

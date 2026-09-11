@@ -7,4 +7,4 @@ cryptography==49.0.0
 openpyxl
 python-docx
 python-multipart
-httpx
+httpx[http2]

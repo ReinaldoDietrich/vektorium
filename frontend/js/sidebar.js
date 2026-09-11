@@ -285,6 +285,17 @@ function initSidebar() {
   loadProjetosArvore();
   atualizarModoBoasVindas();
 
+  // Sync catálogos com Fly.io na inicialização (F4.3)
+  const tkBoot = (typeof AUTH !== 'undefined') ? AUTH.token() : null;
+  if (tkBoot) {
+    fetch('/api/catalogo-sync/sync-boot', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + tkBoot }
+    }).then(r => r.json()).then(d => {
+      if (d.atualizados && d.atualizados.length)
+        console.log('[sync-boot] Catálogos atualizados:', d.atualizados);
+    }).catch(() => {});
+  }
+
   const st = document.getElementById('projetoStatus');
   if (st) new MutationObserver(atualizarModoBoasVindas).observe(st, { childList: true, characterData: true, subtree: true });
   const form = document.getElementById('formProjetoWrap');

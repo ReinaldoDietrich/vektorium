@@ -400,6 +400,80 @@ def converter_fotos(db: Session = Depends(get_db)):
     return {"ok": True, "convertidos": convertidos, "erros": erros}
 
 
+# ── SYNC ON BOOT (F4.3) ─────────────────────────────────────────────────────
+
+_GRUPOS_TABELAS = {
+    "forcadores": ["cat_fabricantes", "forcador_linhas", "forcador_modelos",
+                    "forcador_capacidades", "forcador_eletricos", "forcador_fisicos",
+                    "forcador_dimensionais", "forcador_fatores_gas"],
+    "uc": ["uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades"],
+    "condensadores": ["condensador_linhas", "condensador_modelos",
+                      "condensador_fatores"],
+    "comercial": ["catalogo_comercial"],
+}
+
+
+@router.post("/sync-boot")
+def sync_boot(request: FastAPIRequest, db: Session = Depends(get_db)):
+    """Sincroniza catálogos na inicialização: compara versões locais vs remotas,
+    baixa grupos desatualizados do Fly.io."""
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not token:
+        return {"ok": False, "motivo": "sem_token"}
+
+    remote_url = os.environ.get("VEKTORIUM_API_URL", "https://vektorium-calc.fly.dev")
+
+    try:
+        req = Request(f"{remote_url}/api/catalogos/versoes",
+                      headers={"Authorization": f"Bearer {token}"})
+        resp = urlopen(req, timeout=10)
+        versoes_remotas = json.loads(resp.read())
+    except Exception as e:
+        log.warning("Sync boot: não consultou versões remotas: %s", e)
+        return {"ok": False, "motivo": "sem_rede", "erro": str(e)}
+
+    versoes_locais = {v.tabela: v.versao for v in db.query(m.CatalogoVersao).all()}
+
+    grupos_stale = set()
+    for grupo, tabelas in _GRUPOS_TABELAS.items():
+        for t in tabelas:
+            remota = versoes_remotas.get(t, {})
+            v_remota = remota.get("versao", 0) if isinstance(remota, dict) else 0
+            if v_remota > versoes_locais.get(t, 0):
+                grupos_stale.add(grupo)
+                break
+
+    if not grupos_stale:
+        return {"ok": True, "atualizados": []}
+
+    for grupo in grupos_stale:
+        try:
+            req = Request(f"{remote_url}/api/catalogo-sync/exportar?tipo={grupo}",
+                          headers={"Authorization": f"Bearer {token}"})
+            resp = urlopen(req, timeout=60)
+            dados = json.loads(resp.read())
+            fn = _RECEBEDORES.get(grupo)
+            if fn:
+                fn(db, dados)
+                log.info("Sync boot: grupo '%s' atualizado", grupo)
+        except Exception as e:
+            log.warning("Sync boot: falha no grupo '%s': %s", grupo, e)
+
+    for tabela, info in versoes_remotas.items():
+        v_remota = info.get("versao", 0) if isinstance(info, dict) else 0
+        atualizado = info.get("atualizado_em") if isinstance(info, dict) else None
+        v = db.query(m.CatalogoVersao).filter_by(tabela=tabela).first()
+        if v:
+            v.versao = v_remota
+            v.atualizado_em = atualizado
+        else:
+            db.add(m.CatalogoVersao(tabela=tabela, versao=v_remota, atualizado_em=atualizado))
+    db.commit()
+
+    return {"ok": True, "atualizados": list(grupos_stale)}
+
+
 @router.post("/push-para-remoto")
 def push_para_remoto(request: FastAPIRequest, db: Session = Depends(get_db)):
     auth_header = request.headers.get("authorization", "")

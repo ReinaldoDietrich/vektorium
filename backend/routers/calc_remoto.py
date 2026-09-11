@@ -31,3 +31,21 @@ def uc_selecao(dados: dict = Body(...), db: Session = Depends(get_db)):
 @router.post("/rack-compressores")
 def rack_compressores(dados: dict = Body(...), db: Session = Depends(get_db)):
     return _calcular_compressores_de_dados(db, dados)
+
+
+@router.post("/lote")
+def lote(dados: dict = Body(...), db: Session = Depends(get_db)):
+    """Cálculo em lote: recebe lista de câmaras, processa cada uma e devolve lista de resultados."""
+    camaras = dados.get("camaras", [])
+    resultados = []
+    for cam in camaras:
+        tipo = cam.get("tipo", "completo")
+        try:
+            if tipo == "simples":
+                resultado = calcular_camara_simples_de_dados(db, cam)
+            else:
+                resultado = calcular_camara_completo_de_dados(db, cam)
+            resultados.append({"ok": True, **resultado})
+        except Exception as e:
+            resultados.append({"ok": False, "erro": str(e)})
+    return {"resultados": resultados}

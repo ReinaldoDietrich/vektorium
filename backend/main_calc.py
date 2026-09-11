@@ -9,6 +9,8 @@ rotas mas nunca são chamados pelo frontend (que roteia projeto pro backend loca
 falham com 500 (sem tabelas de projeto no Postgres) — inofensivo."""
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
+from .database import engine, Base
 from .auth_supabase import exigir_usuario
 from .routers import (catalogos, condensadores_remotos, polinomios_compressor, calc_remoto,
                       forcadores, unidades_condensadoras, catalogo_comercial, valvulas_expansao,
@@ -17,6 +19,7 @@ from .routers import (catalogos, condensadores_remotos, polinomios_compressor, c
 
 app = FastAPI(title="Vektorium — Catálogo & Cálculo")
 
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,6 +51,31 @@ app.include_router(admin.router)
 
 # --- Cálculo puro (JWT embutido no próprio router) ---
 app.include_router(calc_remoto.router)
+
+
+@app.on_event("startup")
+def _criar_tabelas_novas():
+    from .database import SessionLocal
+    from . import models as _m
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        if db.query(_m.CatalogoVersao).count() == 0:
+            for t in [
+                "cat_fabricantes", "id_comercial", "forcador_linhas", "forcador_modelos",
+                "forcador_capacidades", "forcador_eletricos", "forcador_fisicos",
+                "forcador_dimensionais", "forcador_fatores_gas", "forcador_importacoes",
+                "uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades",
+                "condensador_linhas", "condensador_modelos", "condensador_fatores",
+                "condensador_importacoes", "polinomio_compressor",
+                "valor_nominal_compressor", "faixa_operacao_compressor",
+                "catalogo_comercial", "cat_modelos_valvula", "campo_catalogo",
+                "campo_catalogo_opcao", "lookup_lampada",
+            ]:
+                db.add(_m.CatalogoVersao(tabela=t, versao=1))
+            db.commit()
+    finally:
+        db.close()
 
 
 @app.get("/")

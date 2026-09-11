@@ -232,6 +232,21 @@ def run():
         # BancoExpositor/ModeloExpositor (exemplo/teste) removido do seed em 2026-07-03 — usuário
         # cadastra os bancos/modelos reais manualmente na tela Configuração.
 
+        if db.query(m.CatalogoVersao).count() == 0:
+            _TABELAS_CATALOGO = [
+                "cat_fabricantes", "id_comercial", "forcador_linhas", "forcador_modelos",
+                "forcador_capacidades", "forcador_eletricos", "forcador_fisicos",
+                "forcador_dimensionais", "forcador_fatores_gas", "forcador_importacoes",
+                "uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades",
+                "condensador_linhas", "condensador_modelos", "condensador_fatores",
+                "condensador_importacoes", "polinomio_compressor",
+                "valor_nominal_compressor", "faixa_operacao_compressor",
+                "catalogo_comercial", "cat_modelos_valvula", "campo_catalogo",
+                "campo_catalogo_opcao", "lookup_lampada",
+            ]
+            for tabela in _TABELAS_CATALOGO:
+                db.add(m.CatalogoVersao(tabela=tabela, versao=1))
+
         db.commit()
     finally:
         db.close()

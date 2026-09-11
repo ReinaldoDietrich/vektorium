@@ -1860,3 +1860,10 @@ class LookupLampada(Base):
     tensao = Column(String)
     id_comercial = Column(String)
     ordem = Column(Integer, default=0)
+
+
+class CatalogoVersao(Base):
+    __tablename__ = "catalogo_versoes"
+    tabela = Column(String, primary_key=True)
+    versao = Column(Integer, nullable=False, default=1)
+    atualizado_em = Column(String)
