@@ -57,7 +57,7 @@ app.include_router(calc_remoto.router)
 def _criar_tabelas_novas():
     from .database import SessionLocal
     from . import models as _m
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, tables=[_m.CatalogoVersao.__table__])
     db = SessionLocal()
     try:
         if db.query(_m.CatalogoVersao).count() == 0:
