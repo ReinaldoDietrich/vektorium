@@ -9,8 +9,11 @@ from sqlalchemy.orm import Session
 from . import models as m
 from . import campo_catalogo as cc
 from . import id_comercial as idc
-from .calc_polinomio_compressor import calcular_compressor
 from .calculos.comum import W_PARA_KCAL_H
+try:
+    from .calc_polinomio_compressor import calcular_compressor
+except ImportError:
+    calcular_compressor = None  # type: ignore
 
 
 def _normalizar_sistema(valor):

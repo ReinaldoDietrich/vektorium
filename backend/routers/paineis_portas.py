@@ -10,12 +10,77 @@ from sqlalchemy.orm import Session
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, list_to_dict, resposta_excel_projeto
-from ..calc_paineis_portas import calcular_paineis, calcular_portas, montar_resumo
 from ..exportacao.paineis_portas_export import gerar_excel_paineis_portas
+from .. import calc_remoto_client as _remoto
+from ..calc_service import _token_usuario
 from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
 
 router = APIRouter(prefix="/api/paineis-portas", tags=["paineis-portas"])
+
+
+def _cam_info(item):
+    cam = item.camara_completo or item.camara_simples
+    if not cam:
+        return None
+    sistema = getattr(cam, "sistema", None)
+    prefixo = (sistema.nome[:3].upper() if sistema and sistema.nome else "???")
+    return {
+        "id": cam.id, "codigo": f"{prefixo}{cam.linha_succao or '?'}{cam.linha_eletrica or '?'}",
+        "nome": cam.nome,
+        "tipo": "completo" if isinstance(cam, m.CamaraCompleto) else "simples",
+        "largura": getattr(cam, "largura", None),
+        "comprimento": getattr(cam, "comprimento", None),
+        "pedireito": cam.pedireito,
+        "area": getattr(cam, "area", None),
+        "temp_interna": cam.temp_interna,
+    }
+
+
+def _serializar(db, projeto, incluir_paineis=True, incluir_portas=True, modo=None):
+    dados = {"config": {
+        "largura_placa_painel_m": projeto.largura_placa_painel_m,
+        "piso_placa_largura_m": projeto.piso_placa_largura_m,
+        "piso_placa_comprimento_m": projeto.piso_placa_comprimento_m,
+        "largura_min_aproveitamento_placa_m": projeto.largura_min_aproveitamento_placa_m,
+    }}
+    if incluir_paineis:
+        paineis = (db.query(m.PainelTermico).filter_by(projeto_id=projeto.id)
+                   .order_by(m.PainelTermico.ordem, m.PainelTermico.id).all())
+        dados["paineis"] = [{**model_to_dict(p), "_camara_info": _cam_info(p)} for p in paineis]
+    if incluir_portas:
+        portas = (db.query(m.PortaFrigorifica).filter_by(projeto_id=projeto.id)
+                  .order_by(m.PortaFrigorifica.ordem, m.PortaFrigorifica.id).all())
+        dados["portas"] = [{**model_to_dict(p), "_camara_info": _cam_info(p)} for p in portas]
+    if modo:
+        dados["modo"] = modo
+    return dados
+
+
+def _resultado_ou_erro(status, resultado):
+    if status == _remoto.Status.OK and resultado is not None:
+        return resultado
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
+    raise HTTPException(503, "Servidor de cálculo indisponível.")
+
+
+def calcular_paineis(db, projeto):
+    dados = _serializar(db, projeto, incluir_portas=False)
+    status, res = _remoto.paineis(dados, _token_usuario.get())
+    return _resultado_ou_erro(status, res)
+
+
+def calcular_portas(db, projeto):
+    dados = _serializar(db, projeto, incluir_paineis=False)
+    status, res = _remoto.portas(dados, _token_usuario.get())
+    return _resultado_ou_erro(status, res)
+
+
+def montar_resumo(db, projeto, modo="total"):
+    dados = _serializar(db, projeto, modo=modo)
+    status, res = _remoto.paineis_resumo(dados, _token_usuario.get())
+    return _resultado_ou_erro(status, res)
 
 CAMPOS_PAINEL = {"camara_completo_id", "camara_simples_id", "ambiente_nao_climatizado_nome", "tipo",
                   "espessura", "dimensao_1", "dimensao_2", "ordem"}

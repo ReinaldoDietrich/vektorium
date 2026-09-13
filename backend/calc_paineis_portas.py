@@ -480,3 +480,269 @@ def _descricao_porta(p: m.PortaFrigorifica, descricao_inicial: str) -> str:
     alt = int(p.vao_altura_mm) if p.vao_altura_mm else "?"
     fix = int(p.espessura_fixacao_mm) if p.espessura_fixacao_mm else "?"
     return f"{descricao_inicial} {modelo} {sentido} - {larg}mm x {alt}mm - #{fix}mm".strip()
+
+
+# ---- Versões _de_dados (Fly.io): recebem dados pré-serializados do projeto ----
+
+def _grupo_de_dados(item):
+    cam = item.get("_camara_info")
+    if cam and cam.get("codigo"):
+        return cam["codigo"], cam.get("nome"), cam["codigo"]
+    nome = item.get("ambiente_nao_climatizado_nome")
+    if nome:
+        return None, nome, f"AMB::{nome}"
+    return None, None, "—"
+
+
+def _volume_camara_dados(cam):
+    if not cam:
+        return None
+    if cam.get("tipo") == "completo":
+        return (cam.get("largura") or 0) * (cam.get("comprimento") or 0) * (cam.get("pedireito") or 0)
+    return (cam.get("area") or 0) * (cam.get("pedireito") or 0)
+
+
+def _descricao_porta_dados(p, descricao_inicial):
+    modelo = p.get("modelo") or ""
+    sentido = p.get("sentido") or ""
+    larg = int(p["vao_largura_mm"]) if p.get("vao_largura_mm") else "?"
+    alt = int(p["vao_altura_mm"]) if p.get("vao_altura_mm") else "?"
+    fix = int(p["espessura_fixacao_mm"]) if p.get("espessura_fixacao_mm") else "?"
+    return f"{descricao_inicial} {modelo} {sentido} - {larg}mm x {alt}mm - #{fix}mm".strip()
+
+
+def calcular_paineis_de_dados(db, dados):
+    paineis = dados["paineis"]
+    config = dados["config"]
+    largura_placa = config.get("largura_placa_painel_m") or 0
+    piso_larg = config.get("piso_placa_largura_m") or 0
+    piso_comp = config.get("piso_placa_comprimento_m") or 0
+    limite_min = config.get("largura_min_aproveitamento_placa_m") or 0
+
+    vao_por_espessura = {iso.material: (iso.vao_maximo_apoios_mm / 1000.0)
+                         for iso in db.query(m.IsolamentoParedeTeto).all() if iso.vao_maximo_apoios_mm}
+
+    grupos_id = {}
+    contador = {"Parede": 0, "Teto": 0}
+    pools_sobra = {}
+    sufixos_sobra = {}
+    saida = []
+    for p in paineis:
+        tipo = p.get("tipo")
+        espessura = p.get("espessura")
+        d1 = p.get("dimensao_1")
+        d2 = p.get("dimensao_2")
+        area = d1 * d2 if d1 is not None and d2 is not None else None
+        qtd_placas = area_considerada = id_painel = id_painel_base = None
+        saldo_m = None
+        comp_placa_m = None
+
+        def _garantir_id():
+            chave = (tipo, espessura, d2)
+            if tipo in contador and chave not in grupos_id:
+                contador[tipo] += 1
+                prefixo_id = "P" if tipo == "Parede" else "T"
+                grupos_id[chave] = f"{prefixo_id}{contador[tipo]:02d}"
+            return grupos_id.get(chave)
+
+        if tipo == "Isolamento Piso":
+            if area is not None and piso_larg and piso_comp:
+                qtd_placas = math.ceil(round(area / (piso_larg * piso_comp), 4))
+                area_considerada = qtd_placas * piso_larg * piso_comp
+                if _piso_dupla_camada(espessura):
+                    area_considerada *= 2
+
+        elif tipo == "Teto":
+            comp_placa_m, n_fileiras = _comp_placa_teto(d2, vao_por_espessura.get(espessura))
+            id_painel = id_painel_base = _garantir_id()
+            if d1 and largura_placa and comp_placa_m:
+                qtd_normal_fileira = math.ceil(round(d1 / largura_placa, 4))
+                sobra_fileira = round(qtd_normal_fileira * largura_placa - d1, 4)
+                chave_pool = ("Teto", espessura)
+                idx = len(saida)
+                id_planta, camara_nome, chave_grupo = _grupo_de_dados(p)
+                row_base = {k: v for k, v in p.items() if k != "_camara_info"}
+                row = {**row_base, "id_painel": id_painel_base, "id_painel_base": id_painel_base,
+                       "saldo_m": None, "id_planta": id_planta, "camara_nome": camara_nome,
+                       "chave_grupo": chave_grupo, "largura_placa_m": largura_placa,
+                       "area_total_m2": round(area, 2) if area is not None else None,
+                       "qtd_placas": None, "area_considerada_m2": None, "comp_placa_m": comp_placa_m}
+                saida.append(row)
+                total_qtd = 0
+                id_label = id_painel_base
+                for _ in range(n_fileiras):
+                    q, origem, saldo_gen = _reaproveitar_sobra(
+                        chave_pool, qtd_normal_fileira, sobra_fileira, largura_placa,
+                        limite_min, pools_sobra, saida, idx, comp_atual=comp_placa_m)
+                    total_qtd += q
+                    if saldo_gen is not None:
+                        row["saldo_m"] = saldo_gen
+                    if origem is not None and origem != idx:
+                        id_label = _proximo_sufixo(sufixos_sobra, id_painel_base)
+                row["id_painel"] = id_label
+                row["qtd_placas"] = total_qtd
+                row["area_considerada_m2"] = round(total_qtd * largura_placa * comp_placa_m, 2)
+                continue
+
+        else:  # Parede
+            comp_placa_m = round(d2, 2) if d2 is not None else None
+            if d1 and largura_placa:
+                qtd_placas_normal = math.ceil(round(d1 / largura_placa, 4))
+                sobra_normal = round(qtd_placas_normal * largura_placa - d1, 4)
+                id_painel_base = _garantir_id()
+                qtd_placas, origem, saldo_m = _reaproveitar_sobra(
+                    ("Parede", espessura), qtd_placas_normal, sobra_normal, largura_placa,
+                    limite_min, pools_sobra, saida, len(saida), comp_atual=d2)
+                id_painel = _proximo_sufixo(sufixos_sobra, id_painel_base) if origem is not None else id_painel_base
+                area_considerada = qtd_placas * largura_placa * (d2 or 0)
+            else:
+                id_painel = id_painel_base = _garantir_id()
+
+        id_planta, camara_nome, chave_grupo = _grupo_de_dados(p)
+        row_base = {k: v for k, v in p.items() if k != "_camara_info"}
+        saida.append({
+            **row_base,
+            "id_painel": id_painel,
+            "id_painel_base": id_painel_base,
+            "saldo_m": saldo_m,
+            "id_planta": id_planta,
+            "camara_nome": camara_nome,
+            "chave_grupo": chave_grupo,
+            "largura_placa_m": largura_placa,
+            "area_total_m2": round(area, 2) if area is not None else None,
+            "qtd_placas": qtd_placas,
+            "area_considerada_m2": round(area_considerada, 2) if area_considerada is not None else None,
+            "comp_placa_m": comp_placa_m,
+        })
+    return saida
+
+
+def calcular_portas_de_dados(db, dados):
+    portas = dados["portas"]
+    modelos_lkp = db.query(m.LookupPainelPorta).filter_by(categoria="Modelo Porta").all()
+    prefixo_por_modelo = {x.valor: (x.prefixo_id or "").strip() for x in modelos_lkp}
+    desc_ini_por_modelo = {x.valor: (x.descricao_inicial or "").strip() for x in modelos_lkp}
+
+    padrao_num = {}
+    contador_padrao = {}
+    seq_padrao = {}
+
+    saida = []
+    for p in portas:
+        modelo = p.get("modelo")
+        prefixo = prefixo_por_modelo.get(modelo) or "P"
+        chave_padrao = (modelo, p.get("sentido"), p.get("vao_largura_mm"), p.get("vao_altura_mm"))
+        if chave_padrao not in padrao_num:
+            contador_padrao[prefixo] = contador_padrao.get(prefixo, 0) + 1
+            padrao_num[chave_padrao] = contador_padrao[prefixo]
+            seq_padrao[chave_padrao] = 0
+        seq_padrao[chave_padrao] += 1
+        id_porta = f"{prefixo}-{padrao_num[chave_padrao]:02d}-{seq_padrao[chave_padrao]:02d}"
+
+        id_planta, camara_nome, chave_grupo = _grupo_de_dados(p)
+        row_base = {k: v for k, v in p.items() if k != "_camara_info"}
+        saida.append({
+            **row_base,
+            "id_porta": id_porta,
+            "id_planta": id_planta,
+            "camara_nome": camara_nome,
+            "chave_grupo": chave_grupo,
+            "descricao": _descricao_porta_dados(p, desc_ini_por_modelo.get(modelo, "")),
+        })
+    return saida
+
+
+def _valvulas_por_camara_de_dados(db, dados):
+    limite_cfg = db.query(m.ConfiguracaoGlobal).filter_by(chave="limite_valvula_equalizacao_m3").first()
+    limite_m3 = (limite_cfg.valor if limite_cfg else 2000) or 2000
+
+    camaras = {}
+    for p in dados["paineis"]:
+        if p.get("tipo") == "Isolamento Piso":
+            continue
+        cam = p.get("_camara_info")
+        if cam and cam.get("codigo"):
+            chave = (cam.get("tipo"), cam.get("id"))
+            if chave not in camaras:
+                camaras[chave] = cam
+
+    sem_aquec = com_aquec = 0
+    por_id_planta = {}
+    for cam in camaras.values():
+        vol = _volume_camara_dados(cam) or 0
+        qtd = math.ceil(vol / limite_m3) if vol else 0
+        com = cam.get("temp_interna") is not None and cam["temp_interna"] <= 0
+        if com:
+            com_aquec += qtd
+        else:
+            sem_aquec += qtd
+        por_id_planta[cam["codigo"]] = (qtd if com else 0, qtd if not com else 0)
+    return sem_aquec, com_aquec, por_id_planta
+
+
+def montar_resumo_de_dados(db, dados):
+    modo = dados.get("modo", "total")
+    paineis = calcular_paineis_de_dados(db, dados)
+    portas = calcular_portas_de_dados(db, dados)
+    sem_aquec, com_aquec, valvulas_por_camara_map = _valvulas_por_camara_de_dados(db, dados)
+
+    parede_teto = [p for p in paineis if p["tipo"] in ("Parede", "Teto")]
+    piso = [p for p in paineis if p["tipo"] == "Isolamento Piso"]
+    desc_por_espessura = {x.valor: (x.descricao_inicial or "").strip()
+                          for x in db.query(m.LookupPainelPorta).filter_by(categoria="Espessura Parede/Teto").all()}
+
+    if modo == "total":
+        return {
+            "modo": modo,
+            "paineis_parede_teto": _paineis_por_espessura(parede_teto, "Painéis térmicos tipo ")
+                                    + (_linhas_acessorios(parede_teto, sem_aquec, com_aquec) if parede_teto else []),
+            "isolamento_piso": _paineis_por_espessura(piso, "Isolamento de Piso tipo ")
+                                + (_linha_barreira_vapor(piso) if piso else []),
+            "portas": _portas_por_padrao(portas),
+        }
+
+    if modo in ("painel_portas", "painel_portas_geral"):
+        saida_res = {
+            "modo": modo,
+            "paineis_parede_teto": _paineis_por_id(parede_teto, desc_por_espessura)
+                                    + (_linhas_acessorios(parede_teto, sem_aquec, com_aquec) if parede_teto else []),
+            "isolamento_piso": _paineis_por_espessura(piso, "Isolamento de Piso tipo ")
+                                + (_linha_barreira_vapor(piso) if piso else []),
+        }
+        if modo == "painel_portas":
+            por_camara_portas = {}
+            for p in portas:
+                chave = p["chave_grupo"]
+                g = por_camara_portas.setdefault(chave, {"id_planta": p["id_planta"], "camara_nome": p["camara_nome"], "_portas": []})
+                g["_portas"].append(p)
+            portas_por_camara = []
+            for g in por_camara_portas.values():
+                brutas = g.pop("_portas")
+                g["portas"] = _portas_por_padrao(brutas)
+                portas_por_camara.append(g)
+            saida_res["portas_por_camara"] = portas_por_camara
+        else:
+            saida_res["portas"] = _portas_por_padrao(portas)
+        return saida_res
+
+    if modo == "camara":
+        por_camara = {}
+        for p in paineis:
+            chave = p["chave_grupo"]
+            g = por_camara.setdefault(chave, {"id_planta": p["id_planta"], "camara_nome": p["camara_nome"],
+                                               "_parede_teto": [], "_piso": [], "_portas": []})
+            (g["_piso"] if p["tipo"] == "Isolamento Piso" else g["_parede_teto"]).append(p)
+        for p in portas:
+            chave = p["chave_grupo"]
+            g = por_camara.setdefault(chave, {"id_planta": p["id_planta"], "camara_nome": p["camara_nome"],
+                                               "_parede_teto": [], "_piso": [], "_portas": []})
+            g["_portas"].append(p)
+        for chave, g in por_camara.items():
+            pt, pi, pr = g.pop("_parede_teto"), g.pop("_piso"), g.pop("_portas")
+            com_c, sem_c = valvulas_por_camara_map.get(g["id_planta"], (0, 0))
+            g["paineis_parede_teto"] = _paineis_por_espessura(pt, "Painéis térmicos tipo ") + (_linhas_acessorios(pt, sem_c, com_c) if pt else [])
+            g["isolamento_piso"] = _paineis_por_espessura(pi, "Isolamento de Piso tipo ") + (_linha_barreira_vapor(pi) if pi else [])
+            g["portas"] = _portas_por_padrao(pr)
+        return {"modo": modo, "camaras": list(por_camara.values())}
+
+    raise ValueError(f"modo inválido: {modo}")

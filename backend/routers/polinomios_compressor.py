@@ -6,7 +6,6 @@ PolinomioCompressor em models.py)."""
 from fastapi import APIRouter, Depends, Body
 from sqlalchemy.orm import Session
 from .. import models as m
-from ..calc_polinomio_compressor import calcular_compressor
 from ..database import get_db
 from ..utils import list_to_dict
 
@@ -46,6 +45,7 @@ def listar_tensoes(fabricante: str, modelo: str, gas: str, db: Session = Depends
 
 @router.post("/calcular")
 def calcular(payload: dict = Body(...), db: Session = Depends(get_db)):
+    from ..calc_polinomio_compressor import calcular_compressor
     return calcular_compressor(
         db, payload["fabricante"], payload["modelo"], payload["gas"], payload["tensao"],
         to=float(payload["to"]), tc=float(payload["tc"]),

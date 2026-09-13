@@ -12,7 +12,8 @@ from ..database import get_db
 from ..utils import model_to_dict, chave_ordem_camara, resposta_excel_projeto
 from ..exportacao.luminotecnico_export import gerar_excel_luminotecnico
 from .. import id_comercial as idc
-from ..calculos.luminotecnico import calcular_luminotecnico
+from .. import calc_remoto_client as _remoto
+from ..calc_service import _token_usuario
 from .camaras_completo import _codigo as _codigo_completo
 from .camaras_simples import _codigo as _codigo_simples
 
@@ -81,89 +82,50 @@ def excluir_lampada(item_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-def _extrair_potencia_w(texto):
-    """Extrai o número de watts do texto exato do nó da árvore (ex.: "36W" -> 36.0)."""
-    import re
-    if not texto:
-        return None
-    match = re.search(r"[\d.,]+", texto)
-    if not match:
-        return None
-    return float(match.group(0).replace(",", "."))
-
-
-def _linha_camara(db, camara, sistema, tipo_camara):
+def _serializar_camara(camara, sistema, tipo_camara):
     if not (camara.tipo_ambiente_lumino_id and camara.potencia_luminaria_texto):
         return None
     ambiente = camara.tipo_ambiente_lumino
-    potencia_w = _extrair_potencia_w(camara.potencia_luminaria_texto)
-    if potencia_w is None:
+    if not ambiente:
         return None
-    lampada = db.query(m.LookupLampada).filter_by(potencia_w=potencia_w).first()
-    if not lampada:
-        return None
-    largura = getattr(camara, "largura", None)
-    comprimento = getattr(camara, "comprimento", None)
-    altura = camara.pedireito
-    calc = calcular_luminotecnico(largura, comprimento, altura, camara.qtd_luminarias or 0,
-                                   ambiente.lux_recomendado, lampada.potencia_w, lampada.fluxo_lumens)
-    # Nomenclatura completa (sistema+sucção+elétrica), igual à Compilação de Linhas — aprovado
-    # 2026-08-10 (antes mostrava só camara.linha_succao cru). `_succao_ordem` guarda o valor cru
-    # só pra ordenação (chave_ordem_camara), sem mudar o critério de ordem existente.
-    codigo_completo = (_codigo_completo(camara) if tipo_camara == "Completo" else _codigo_simples(camara))
+    codigo = (_codigo_completo(camara) if tipo_camara == "Completo" else _codigo_simples(camara))
     return {
         "camara_id": camara.id, "tipo_camara": tipo_camara,
         "sistema_nome": sistema.nome if sistema else None,
-        "linha_succao": codigo_completo, "_succao_ordem": camara.linha_succao,
+        "linha_succao": codigo, "_succao_ordem": camara.linha_succao,
         "linha_eletrica": camara.linha_eletrica,
         "ambiente": camara.nome,
-        "largura": largura, "comprimento": comprimento, "altura": altura,
-        "plano_calculo": 0,
-        "qtd_luminarias": camara.qtd_luminarias, "modelo_luminaria": camara.modelo_luminaria_texto,
-        "potencia_w": lampada.potencia_w, "fluxo_lumens": lampada.fluxo_lumens, "ip": lampada.ip,
-        "temperatura_cor_k": lampada.temperatura_cor_k, "tensao": lampada.tensao,
+        "largura": getattr(camara, "largura", None),
+        "comprimento": getattr(camara, "comprimento", None),
+        "altura": camara.pedireito,
+        "qtd_luminarias": camara.qtd_luminarias,
+        "potencia_luminaria_texto": camara.potencia_luminaria_texto,
+        "lux_requerido": ambiente.lux_recomendado,
+        "modelo_luminaria": camara.modelo_luminaria_texto,
         "tipo_ambiente": ambiente.nome,
-        **calc,
     }
 
 
 def montar_estudo(db: Session, projeto_id: int) -> dict:
-    """Lógica do estudo luminotécnico, isolada da rota pra ser reaproveitada por
-    composicao_preco.sincronizar_luminarias (mesmo padrão de calc_paineis_portas.montar_resumo)."""
+    """Serializa câmaras do projeto e envia ao Fly.io para cálculo luminotécnico (R2)."""
     sistemas = db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).all()
-    linhas = []
+    camaras_serial = []
     for sistema in sistemas:
         for camara in sistema.camaras_completo:
-            linha = _linha_camara(db, camara, sistema, "Completo")
-            if linha:
-                linhas.append(linha)
+            d = _serializar_camara(camara, sistema, "Completo")
+            if d:
+                camaras_serial.append(d)
         for camara in sistema.camaras_simples:
-            linha = _linha_camara(db, camara, sistema, "Simples")
-            if linha:
-                linhas.append(linha)
-
-    linhas.sort(key=lambda l: chave_ordem_camara(l["sistema_nome"], l["_succao_ordem"], l["linha_eletrica"]))
-    for i, linha in enumerate(linhas, start=1):
-        linha["seq"] = i
-        linha.pop("_succao_ordem", None)
-
-    # Resumo somatório de materiais: agrupa por MODELO (o que se compra de fato), não por
-    # potência — aprovado 2026-08-10 ("não compro lâmpada por potência e sim modelo"). Fabricante
-    # vem de LookupLampada casado pelo MODELO (não pela potência — lampada em _linha_camara é
-    # casada só por potencia_w, pode ser um modelo diferente do escolhido na câmara).
-    resumo = {}
-    for linha in linhas:
-        modelo = linha["modelo_luminaria"]
-        if not modelo:
-            continue
-        resumo[modelo] = resumo.get(modelo, 0) + (linha["qtd_luminarias"] or 0)
-    resumo_lista = []
-    for modelo, qtd in sorted(resumo.items()):
-        lampada_modelo = db.query(m.LookupLampada).filter_by(modelo=modelo).first()
-        resumo_lista.append({"modelo_luminaria": modelo, "qtd_total": qtd,
-                              "fabricante": lampada_modelo.fabricante if lampada_modelo else None})
-
-    return {"linhas": linhas, "resumo_por_modelo": resumo_lista, "notas": NOTAS}
+            d = _serializar_camara(camara, sistema, "Simples")
+            if d:
+                camaras_serial.append(d)
+    status, resultado = _remoto.luminotecnico({"camaras": camaras_serial}, _token_usuario.get())
+    if status == _remoto.Status.OK and resultado:
+        resultado["notas"] = NOTAS
+        return resultado
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
+    raise HTTPException(503, "Servidor de cálculo indisponível.")
 
 
 @router.get("/estudo")

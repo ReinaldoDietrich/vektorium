@@ -78,3 +78,23 @@ def rack_compressores(dados: dict, token: str | None) -> tuple[str, dict | None]
 def lote(dados: dict, token: str | None) -> tuple[str, dict | None]:
     """Cálculo em lote: recebe dict com listas de câmaras, devolve lista de resultados."""
     return _post("/api/calc/lote", dados, token)
+
+
+def luminotecnico(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    return _post("/api/calc/luminotecnico", dados, token)
+
+
+def paineis(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    return _post("/api/calc/paineis", dados, token)
+
+
+def portas(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    return _post("/api/calc/portas", dados, token)
+
+
+def paineis_resumo(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    return _post("/api/calc/paineis-resumo", dados, token)
+
+
+def condensador(dados: dict, token: str | None) -> tuple[str, dict | None]:
+    return _post("/api/calc/condensador", dados, token)

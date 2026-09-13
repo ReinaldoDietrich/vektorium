@@ -228,7 +228,7 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
     antigas viram órfãs; são apagadas automaticamente SÓ se ainda estiverem com custo_unitario
     zerado (nunca precificadas, lixo puro); uma órfã com preço já digitado pelo usuário nunca é
     apagada sozinha (evita destruir preço real — mesma cautela de sempre)."""
-    from .calc_paineis_portas import montar_resumo
+    from .routers.paineis_portas import montar_resumo
     projeto = db.get(m.Projeto, projeto_id)
     resumo = montar_resumo(db, projeto, "total")
     # "item" (painéis/piso, ver calc_paineis_portas._linha) ou "descricao" (portas, ver

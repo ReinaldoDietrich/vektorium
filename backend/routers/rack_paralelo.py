@@ -553,111 +553,6 @@ def _envelope_bitzer_por_motor(db: Session, linha: str):
     return faixas
 
 
-def _modelos_candidatos(db: Session, fabricante: str, linha: str, gas_sistema: str,
-                         tensao_projeto: str, te, tc, motor_fixo=None):
-    """Modelos de PolinomioCompressor(fabricante,linha) cujo gás bate (normalizado) com o gás do
-    sistema, cuja tensão bate (volts+fases, normalizado) com a Tensão de Equipamentos do projeto, e
-    cujo envelope Te/Tc do próprio polinômio cobre a condição do projeto (envelope matemático — fora
-    dele o polinômio não é válido, não é filtro arbitrário). Devolve todos os candidatos válidos,
-    com capacidade calculada, ordenados do menor pro maior — quem chama escolhe o menor que atende.
-
-    Camada extra (Bitzer): pra cada modelo candidato, busca sua "Versão do motor" em Dados Físicos
-    Compressores Bitzer (casando o nome via _normalizar_modelo_polinomio) e checa se a Temp.
-    Evaporação do sistema está dentro da faixa "Regra" daquele motor (ver _envelope_bitzer_por_motor)
-    — faixa de OPERAÇÃO do compressor, não a Classificação do Sistema. Motor marcado "Não Aplicável"
-    pra essa família (ex.: Duplo Estágio pros motores 1/2) EXCLUI sempre, mesmo sem saber o modelo
-    exato — é a Temp. Evaporação que não tem compressor Bitzer dessa família pra atender (ver
-    discussão real 2026-07-18: Duplo Estágio + Te=+5°C deve dar zero candidatos, não pular a regra).
-    Modelo sem Versão do motor cadastrada (dado físico incompleto ou nome não casado) NÃO é excluído
-    — filtro conservador, só restringe quando o dado existe.
-
-    Devolve (candidatos, fora_do_envelope) — fora_do_envelope=True quando pelo menos um modelo foi
-    descartado só pela camada extra Bitzer e nenhum candidato sobrou (pra tela mostrar "Compressor
-    fora do envelope de operação." em vez de simplesmente não achar nada, sem motivo)."""
-    from ..calc_polinomio_compressor import calcular_compressor
-    from ..calculos.comum import W_PARA_KCAL_H
-    if not fabricante or not linha or te is None or tc is None:
-        return [], False
-    versao_motor_por_base = {}
-    envelope_por_motor = {}
-    if fabricante == "Bitzer":
-        fisicos = db.query(m.DadosFisicosCompressorBitzer).filter_by(linha=linha).all()
-        # nome-base em Dados Físicos já vem como "2CES-3(Y)" — normaliza tirando o sufixo "(Y)"
-        versao_motor_por_base = {re.sub(r"\(Y\)$", "", f.modelo): f.versao_motor for f in fisicos if f.versao_motor}
-        envelope_por_motor = _envelope_bitzer_por_motor(db, linha)
-        if motor_fixo is None:
-            # Modo Automático: se a Temp. Evaporação não cai em NENHUMA faixa "Regra" válida dessa
-            # família (união de todos os motores), a linha inteira (Semi-Hermético ou Duplo Estágio)
-            # está fora do envelope Bitzer pra essa condição — não adianta olhar modelo por modelo,
-            # nenhum vai servir (ex.: Duplo Estágio + Te=+5°C).
-            faixas_validas = [f for f in envelope_por_motor.values() if f is not None]
-            if faixas_validas and not any(fmin <= te <= fmax for fmin, fmax in faixas_validas):
-                return [], True
-    v_proj, f_proj = _volts_fases(tensao_projeto)
-    if v_proj is None:
-        return [], False
-    gas_norm = _gas_normalizado(gas_sistema)
-    linhas_cat = db.query(m.PolinomioCompressor).filter_by(fabricante=fabricante, linha=linha).all()
-    gas_real = next((r.gas for r in linhas_cat if _gas_normalizado(r.gas) == gas_norm), None)
-    if not gas_real:
-        return [], False
-    modelos = sorted({r.modelo for r in linhas_cat if r.gas == gas_real})
-    candidatos = []
-    excluidos_por_envelope = 0
-    for modelo in modelos:
-        linhas_modelo = [r for r in linhas_cat if r.modelo == modelo and r.gas == gas_real]
-        cap_refs = [r for r in linhas_modelo if r.grandeza == "Capacidade"]
-        if not cap_refs:
-            continue
-        ref = cap_refs[0]
-        if ref.te_min is not None and te < ref.te_min:
-            continue
-        if ref.te_max is not None and te > ref.te_max:
-            continue
-        if ref.tc_min is not None and tc < ref.tc_min:
-            continue
-        if ref.tc_max is not None and tc > ref.tc_max:
-            continue
-        tensao_bate = next((r.tensao for r in linhas_modelo
-                             if _volts_fases(r.tensao) == (v_proj, f_proj)), None)
-        if not tensao_bate:
-            continue
-        if motor_fixo is not None:
-            # Override manual (Tipo Motor Compress. na Tela 6): só passam modelos cuja Versão do
-            # Motor bate EXATAMENTE com o motor escolhido — ignora a tabela "Regra" pra decidir
-            # QUAIS modelos entram (é o próprio usuário decidindo a família), mas ainda respeita a
-            # faixa Te cadastrada pra esse motor, se houver.
-            versao_motor = versao_motor_por_base.get(_normalizar_modelo_polinomio(modelo))
-            if versao_motor is None or not str(versao_motor).isdigit() or int(versao_motor) != motor_fixo:
-                excluidos_por_envelope += 1
-                continue
-            faixa = envelope_por_motor.get(motor_fixo)
-            if faixa is not None and not (faixa[0] <= te <= faixa[1]):
-                excluidos_por_envelope += 1
-                continue
-        elif envelope_por_motor:
-            versao_motor = versao_motor_por_base.get(_normalizar_modelo_polinomio(modelo))
-            if versao_motor is not None and str(versao_motor).isdigit() and int(versao_motor) in envelope_por_motor:
-                faixa = envelope_por_motor[int(versao_motor)]
-                # faixa=None -> "Não Aplicável" nessa família pra esse motor -> exclui sempre.
-                # faixa=(min,max) -> exclui só se a Temp. Evaporação estiver fora dela.
-                if faixa is None or not (faixa[0] <= te <= faixa[1]):
-                    excluidos_por_envelope += 1
-                    continue
-        resultado = calcular_compressor(db, fabricante, modelo, gas_real, tensao_bate, to=te, tc=tc)
-        if not resultado.get("Capacidade"):
-            continue
-        cap_kcal_h = resultado["Capacidade"]["valor"] * W_PARA_KCAL_H
-        candidatos.append({"modelo": modelo, "tensao": tensao_bate, "gas": gas_real,
-                            "capacidade_kcal_h": cap_kcal_h, "resultado": resultado})
-    candidatos.sort(key=lambda d: d["capacidade_kcal_h"])
-    fora_do_envelope = not candidatos and excluidos_por_envelope > 0
-    return candidatos, fora_do_envelope
-
-
-# ---- Fase 3 (split projeto local / catálogo remoto): `_serializar_listar_compressores` só lê
-# dado de PROJETO (rack/sistema/projeto/posições); `_calcular_compressores_de_dados` só toca
-# catálogo — `_modelos_candidatos` já recebia só escalares, não precisou mudar.
 def _serializar_listar_compressores(db: Session, rack: m.RackParalelo) -> dict:
     _sincronizar_posicoes(db, rack)
     carga_requerida = _carga_por_rack(db, rack)
@@ -673,51 +568,6 @@ def _serializar_listar_compressores(db: Session, rack: m.RackParalelo) -> dict:
         "motor_fixo": rack.filtro_motor_compressor, "n_paralelo": _n_paralelo(rack),
         "posicoes": [{"id": c.id, "posicao": c.posicao, "percentual": percentuais.get(c.posicao, 0)}
                       for c in sorted(rack.compressores, key=lambda x: x.posicao)],
-    }
-
-
-def _calcular_compressores_de_dados(db: Session, dados: dict) -> dict:
-    carga_requerida, folga = dados["carga_requerida"], dados["folga"]
-    demanda_total = carga_requerida * (1 + folga / 100)
-    te, tc = dados["te"], dados["tc"]
-
-    candidatos, fora_do_envelope = _modelos_candidatos(db, dados["fabricante_compressor"], dados["linha_compressor"],
-                                                        dados["gas_refrigerante"], dados["tensao_projeto"], te, tc,
-                                                        motor_fixo=dados["motor_fixo"])
-
-    saida = []
-    for c in dados["posicoes"]:
-        pct = c["percentual"]
-        capacidade_minima = demanda_total * pct / 100
-        escolhido = next((cand for cand in candidatos if cand["capacidade_kcal_h"] >= capacidade_minima), None)
-        item = {
-            "id": c["id"], "posicao": c["posicao"], "percentual_sistema": round(pct, 2),
-            "capacidade_minima_kcal_h": round(capacidade_minima, 1),
-            "editavel_percentual": c["posicao"] == 1,
-            "modelo": escolhido["modelo"] if escolhido else None,
-            "tensao": escolhido["tensao"] if escolhido else None,
-            "resultado": None,
-            "nota": "Compressor fora do envelope de operação." if (not escolhido and fora_do_envelope) else None,
-        }
-        if escolhido:
-            resultado = escolhido["resultado"]
-            item["resultado"] = {
-                "capacidade_kcal_h": round(escolhido["capacidade_kcal_h"], 1),
-                "potencia_w": round(resultado.get("Potência", {}).get("valor") or 0, 1),
-                "corrente_a": round(resultado.get("Corrente", {}).get("valor") or 0, 2),
-                "corrente_fonte": (resultado.get("Corrente") or {}).get("fonte"),
-                "vazao_kg_h": round(resultado.get("Vazão Mássica", {}).get("valor") or 0, 1),
-                "atende": True,
-            }
-        saida.append(item)
-
-    return {
-        "carga_requerida_kcal_h": round(carga_requerida, 1), "folga_tecnica_pct": folga,
-        "demanda_total_kcal_h": round(demanda_total, 1),
-        "quantidade_paralelo": dados["n_paralelo"],
-        "carga_sistema_total_kcal_h": round(carga_requerida * dados["n_paralelo"], 1),
-        "temp_evaporacao": te, "temp_condensacao": round(tc, 1) if tc is not None else None,
-        "posicoes": saida,
     }
 
 
@@ -792,7 +642,6 @@ def condensador_opcoes(rack_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{rack_id}/condensador")
 def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
-    from ..calculos import condensador as cc_calc
     rack = db.get(m.RackParalelo, rack_id)
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
@@ -810,7 +659,6 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         "folga_condensador_pct": rack.folga_condensador_pct,
         "protecao_aletas_condensador": rack.protecao_aletas_condensador,
         "notas_condensador": rack.notas_condensador,
-        # quantidade_condensadores é POR RACK; o total no sistema = por-rack × N racks em paralelo.
         "quantidade_paralelo": _n_paralelo(rack),
         "quantidade_condensadores_total": (rack.quantidade_condensadores or 1) * _n_paralelo(rack),
         "calor_rejeitado_kcal_h": calor_rejeitado,
@@ -823,8 +671,6 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         "filtros_disponiveis": {"fpis": [], "polos_rpm": []},
         "selecao": None,
     }
-    # Mesma fórmula já usada no Sistema (Tela 1): Temp. Condensação = Temp. Ambiente + Delta;
-    # Temp. Linha de Líq. após Condensador = Temp. Condensação − 3 (sub-resfriamento fixo).
     if sistema.delta_condensacao is not None and projeto and projeto.temp_ambiente is not None:
         base["temp_condensacao"] = sistema.delta_condensacao + projeto.temp_ambiente
         base["temp_apos_condensador"] = base["temp_condensacao"] - 3
@@ -832,63 +678,35 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         base["temp_condensacao"] = None
         base["temp_apos_condensador"] = None
 
-    linha = _resolver_linha_condensador(db, rack)
-    if not linha:
+    if not rack.fabricante_condensador or not rack.linha_condensador:
         base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
         return base
 
-    # todos os modelos da linha (AC + EC) — o motor não é mais travado pelo Sistema aqui: o usuário
-    # escolhe livremente na caixa de Polos/RPM, que traz "EC" como opção explícita ao lado dos polos.
-    modelos = linha.modelos
-    polos_ac = sorted({str(int(md.polos_ou_rpm)) for md in modelos
-                       if (md.tipo_motor or "").upper() == "AC" and md.polos_ou_rpm not in (None, "")},
-                      key=lambda v: int(v))
-    tem_ac = bool(polos_ac)
-    tem_ec = any((md.tipo_motor or "").upper() == "EC" for md in modelos)
-    base["filtros_disponiveis"] = {
-        "fpis": sorted({md.fpi for md in modelos if md.fpi is not None}),
-        "polos_rpm": (["AC"] if tem_ac else []) + polos_ac + (["EC"] if tem_ec else []),
-    }
-    fatores_por_tipo = {}
-    for f in linha.fatores:
-        fatores_por_tipo.setdefault(f.tipo, []).append({"chave": f.chave, "fator": f.fator})
-
-    base["dt_catalogo_c"] = linha.dt_catalogo_c  # delta de referência do catálogo (razão de correção)
-    base["tensao_equipamentos"] = projeto.tensao_equipamentos if projeto else None
-    base["selecao"] = cc_calc.selecionar_condensador(
-        modelos, fatores_por_tipo, base["contexto"], calor_rejeitado, rack.folga_condensador_pct,
-        filtro_fpi=rack.filtro_fpi_condensador, filtro_polos_rpm=rack.filtro_polos_rpm_condensador,
-        delta_catalogo=linha.dt_catalogo_c, tensao_equipamentos=base["tensao_equipamentos"],
-        quantidade=rack.quantidade_condensadores or 1)
-    # Compõe o código comercial (troca o '*' coringa do modelo pelo código da Tensão, concatena os
-    # Campos Fixo/Automático, e usa a seleção manual salva pros Campos em modo Manual — mesmo padrão
-    # do painel de nomenclatura do Forçador) — nunca era chamado aqui, por isso o '*' nunca saía do
-    # código exibido e não havia onde escolher os campos manuais.
-    base["linha_id"] = linha.id
+    tensao_eq = projeto.tensao_equipamentos if projeto else None
     selecoes_manuais = json.loads(rack.nomenclatura_condensador_selecionada) if rack.nomenclatura_condensador_selecionada else {}
-    base["nomenclatura_selecionada"] = selecoes_manuais
-    def _contexto_do_candidato(cand):
-        # Automático usa o dado técnico do PRÓPRIO modelo (fpi/tipo_motor/num_fileiras/qtd_ventiladores/
-        # polos_ou_rpm) — cada candidato tem os seus, não um valor único do rack (mesmo padrão do
-        # num_ventiladores/diametro_ventilador_mm do Forçador considerado).
-        return {
-            "tensao_equipamentos": base["tensao_equipamentos"],
-            "fpi": str(cand["fpi"]) if cand.get("fpi") is not None else None,
-            "tipo_motor": cand.get("tipo_motor"),
-            "num_fileiras": str(cand["num_fileiras"]) if cand.get("num_fileiras") is not None else None,
-            "qtd_ventiladores": str(cand["qtd_ventiladores"]) if cand.get("qtd_ventiladores") is not None else None,
-            "polos_ou_rpm": str(cand["polos_ou_rpm"]) if cand.get("polos_ou_rpm") is not None else None,
-        }
-    if base["selecao"].get("escolhido"):
-        esc = base["selecao"]["escolhido"]
-        esc["codigo_comercial"] = cpc.montar_codigo(
-            db, "CondensadorRemoto", linha.id, modelo_base=esc["modelo"],
-            contexto=_contexto_do_candidato(esc), selecoes_manuais=selecoes_manuais)
-    for cand in base["selecao"].get("candidatos", []):
-        cand["codigo_comercial"] = cpc.montar_codigo(
-            db, "CondensadorRemoto", linha.id, modelo_base=cand["modelo"],
-            contexto=_contexto_do_candidato(cand), selecoes_manuais=selecoes_manuais)
-    return base
+    dados_remoto = {
+        "fabricante": rack.fabricante_condensador, "linha": rack.linha_condensador,
+        "tipo": rack.tipo_condensador,
+        "filtro_fpi": rack.filtro_fpi_condensador, "filtro_polos_rpm": rack.filtro_polos_rpm_condensador,
+        "contexto": base["contexto"], "calor_rejeitado": calor_rejeitado,
+        "folga_pct": rack.folga_condensador_pct, "quantidade": rack.quantidade_condensadores or 1,
+        "tensao_equipamentos": tensao_eq, "nomenclatura_selecionada": selecoes_manuais,
+    }
+    status, calc = _remoto.condensador(dados_remoto, _token_usuario.get())
+    if status == _remoto.Status.OK and calc:
+        base["filtros_disponiveis"] = calc["filtros_disponiveis"]
+        base["dt_catalogo_c"] = calc["dt_catalogo_c"]
+        base["tensao_equipamentos"] = tensao_eq
+        base["selecao"] = calc["selecao"]
+        base["linha_id"] = calc["linha_id"]
+        base["nomenclatura_selecionada"] = selecoes_manuais
+        return base
+    if not calc:
+        base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
+        return base
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
+    raise HTTPException(503, "Servidor de cálculo indisponível.")
 
 
 @router.get("/{rack_id}/resumo-compressores")

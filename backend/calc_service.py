@@ -5,14 +5,17 @@ import re
 from contextvars import ContextVar
 from sqlalchemy.orm import Session
 from . import models as m
-from .calculos import camara_completo as cc
-from .calculos import camara_simples as cs
-from .calculos import infiltracao as inf
-from .calculos import forcador as fc
-from .calculos import valvula as vl
 from .calculos.comum import volume_camara, capacidade_requerida, folga_percentual
 from .calculos.clima import resolver_clima_estacao
-from .calculos.luminotecnico import calcular_luminotecnico
+try:
+    from .calculos import camara_completo as cc
+    from .calculos import camara_simples as cs
+    from .calculos import infiltracao as inf
+    from .calculos import forcador as fc
+    from .calculos import valvula as vl
+    from .calculos.luminotecnico import calcular_luminotecnico
+except ImportError:
+    cc = cs = inf = fc = vl = calcular_luminotecnico = None  # type: ignore
 from . import campo_catalogo as cpc
 from . import calc_remoto_client as _remoto
 
