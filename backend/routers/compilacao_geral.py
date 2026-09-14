@@ -7,7 +7,7 @@ import io
 import re
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import chave_ordem_camara, resposta_excel_projeto
@@ -406,8 +406,14 @@ def _montar_compilacao_geral(db: Session, projeto_id: int):
     if not projeto:
         raise HTTPException(404, "Projeto não encontrado")
     # Ordenação canônica: sistemas por nome; colunas de câmara por Sucção › Elétrica.
-    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).all(),
-                      key=lambda s: chave_ordem_camara(s.nome, "", ""))
+    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id)
+                      .options(selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.forcadores),
+                               selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.equipamentos),
+                               selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.portas),
+                               selectinload(m.SistemaRefrigeracao.camaras_simples).selectinload(m.CamaraSimples.forcadores),
+                               selectinload(m.SistemaRefrigeracao.expositores).selectinload(m.Expositor.modelo_expositor),
+                               selectinload(m.SistemaRefrigeracao.racks))
+                      .all(), key=lambda s: chave_ordem_camara(s.nome, "", ""))
     tensao_comando = projeto.tensao_comando
 
     saida_sistemas = []

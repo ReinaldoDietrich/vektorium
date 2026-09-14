@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, list_to_dict, chave_ordem_camara
@@ -31,7 +31,9 @@ def _codigo(camara: m.CamaraCompleto) -> str:
 
 @router.get("")
 def listar(sistema_id: int = None, projeto_id: int = None, db: Session = Depends(get_db)):
-    q = db.query(m.CamaraCompleto)
+    q = db.query(m.CamaraCompleto).options(
+        selectinload(m.CamaraCompleto.sistema),
+        selectinload(m.CamaraCompleto.forcadores))
     if sistema_id:
         q = q.filter_by(sistema_id=sistema_id)
     if projeto_id:

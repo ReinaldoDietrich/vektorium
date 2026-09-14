@@ -6,7 +6,7 @@ os demais componentes."""
 import io
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, list_to_dict, resposta_excel_projeto
@@ -46,10 +46,14 @@ def _serializar(db, projeto, incluir_paineis=True, incluir_portas=True, modo=Non
     }}
     if incluir_paineis:
         paineis = (db.query(m.PainelTermico).filter_by(projeto_id=projeto.id)
+                   .options(selectinload(m.PainelTermico.camara_completo).selectinload(m.CamaraCompleto.sistema),
+                            selectinload(m.PainelTermico.camara_simples).selectinload(m.CamaraSimples.sistema))
                    .order_by(m.PainelTermico.ordem, m.PainelTermico.id).all())
         dados["paineis"] = [{**model_to_dict(p), "_camara_info": _cam_info(p)} for p in paineis]
     if incluir_portas:
         portas = (db.query(m.PortaFrigorifica).filter_by(projeto_id=projeto.id)
+                  .options(selectinload(m.PortaFrigorifica.camara_completo).selectinload(m.CamaraCompleto.sistema),
+                           selectinload(m.PortaFrigorifica.camara_simples).selectinload(m.CamaraSimples.sistema))
                   .order_by(m.PortaFrigorifica.ordem, m.PortaFrigorifica.id).all())
         dados["portas"] = [{**model_to_dict(p), "_camara_info": _cam_info(p)} for p in portas]
     if modo:

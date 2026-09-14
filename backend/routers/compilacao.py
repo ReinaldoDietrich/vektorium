@@ -4,7 +4,7 @@ mesma lógica já validada no mockup_telas.html."""
 import math
 import re
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..calc_service import calcular_camara_completo_seguro as calcular_camara_completo, calcular_camara_simples_seguro as calcular_camara_simples
@@ -539,8 +539,13 @@ def restaurar_observacao(projeto_id: int, db: Session = Depends(get_db)):
 
 
 def _montar_itens_compilacao(db: Session, projeto_id: int, fator_potencia: float = 0.92):
-    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).all(),
-                      key=lambda s: _natural_key(s.nome))
+    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id)
+                      .options(selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.forcadores),
+                               selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.portas),
+                               selectinload(m.SistemaRefrigeracao.camaras_simples).selectinload(m.CamaraSimples.forcadores),
+                               selectinload(m.SistemaRefrigeracao.expositores).selectinload(m.Expositor.modelo_expositor),
+                               selectinload(m.SistemaRefrigeracao.racks))
+                      .all(), key=lambda s: _natural_key(s.nome))
     projeto = db.get(m.Projeto, projeto_id)
     tensao_comando = projeto.tensao_comando if projeto else None
     tensao_equip = projeto.tensao_equipamentos if projeto else None

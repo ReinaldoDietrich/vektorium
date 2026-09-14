@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,6 +19,15 @@ if _DATABASE_URL:
     engine = create_engine(_DATABASE_URL, pool_pre_ping=True)
 else:
     engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_conn, _connection_record):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 

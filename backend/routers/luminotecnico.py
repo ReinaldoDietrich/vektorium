@@ -6,7 +6,7 @@
   Resumo de Painéis/Portas (nunca editado/excluído direto aqui, sempre reflexo do lançamento nas
   Telas 2/3)."""
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, chave_ordem_camara, resposta_excel_projeto
@@ -108,7 +108,9 @@ def _serializar_camara(camara, sistema, tipo_camara):
 
 def montar_estudo(db: Session, projeto_id: int) -> dict:
     """Serializa câmaras do projeto e envia ao Fly.io para cálculo luminotécnico (R2)."""
-    sistemas = db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).all()
+    sistemas = db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).options(
+        selectinload(m.SistemaRefrigeracao.camaras_completo),
+        selectinload(m.SistemaRefrigeracao.camaras_simples)).all()
     camaras_serial = []
     for sistema in sistemas:
         for camara in sistema.camaras_completo:

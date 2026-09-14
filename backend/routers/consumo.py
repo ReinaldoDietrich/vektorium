@@ -3,7 +3,7 @@
 import io
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import chave_ordem_camara, resposta_excel_projeto
@@ -57,8 +57,11 @@ def _montar_consumo(db: Session, projeto_id: int):
     projeto = db.get(m.Projeto, projeto_id)
     if not projeto:
         raise HTTPException(404, "Projeto não encontrado")
-    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id).all(),
-                      key=lambda s: chave_ordem_camara(s.nome, "", ""))
+    sistemas = sorted(db.query(m.SistemaRefrigeracao).filter_by(projeto_id=projeto_id)
+                      .options(selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.forcadores),
+                               selectinload(m.SistemaRefrigeracao.camaras_simples).selectinload(m.CamaraSimples.forcadores),
+                               selectinload(m.SistemaRefrigeracao.racks))
+                      .all(), key=lambda s: chave_ordem_camara(s.nome, "", ""))
     saida = []
     for s in sistemas:
         r = calcular_consumo_sistema(db, s)

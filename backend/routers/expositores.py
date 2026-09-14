@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict
@@ -45,7 +45,11 @@ def _serializar(exp: m.Expositor) -> dict:
 
 @router.get("")
 def listar(sistema_id: int = None, projeto_id: int = None, db: Session = Depends(get_db)):
-    q = db.query(m.Expositor)
+    q = db.query(m.Expositor).options(
+        selectinload(m.Expositor.sistema).selectinload(m.SistemaRefrigeracao.projeto),
+        selectinload(m.Expositor.setor),
+        selectinload(m.Expositor.modelo_expositor).selectinload(m.ModeloExpositor.banco),
+        selectinload(m.Expositor.modulos))
     if sistema_id:
         q = q.filter_by(sistema_id=sistema_id)
     if projeto_id:

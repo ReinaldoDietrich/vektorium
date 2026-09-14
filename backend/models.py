@@ -18,10 +18,10 @@ class Projeto(Base):
     # Substituídos por Estado+Estação INMET (ver estado_uf/estacao_inmet_id) — mantidos só pra não
     # perder dado de projeto antigo já salvo; não usados mais na Tela 1 (discussão real 2026-07-18:
     # eliminado o seletor de Critério de Projeto, fonte única agora é a Temperatura Máxima Histórica).
-    estacao_climatologica_id = Column(Integer, ForeignKey("cat_condicoes_climaticas.id"), nullable=True)
+    estacao_climatologica_id = Column(Integer, ForeignKey("cat_condicoes_climaticas.id"), nullable=True, index=True)
     criterio_climatico = Column(String, default="pico_sazonal")  # pico_sazonal | media_anual | maxima_absoluta
     estado_uf = Column(String)  # sigla (ver EstadoBrasileiro) — filtra a lista de Estação Climatológica
-    estacao_inmet_id = Column(Integer, ForeignKey("dados_climatologicos_inmet.id"), nullable=True)
+    estacao_inmet_id = Column(Integer, ForeignKey("dados_climatologicos_inmet.id"), nullable=True, index=True)
     ur_externa = Column(Float)  # preenchido a partir da estação (Temp. Máxima Histórica), editável
     contato = Column(String)
     telefone = Column(String)
@@ -71,7 +71,7 @@ class Projeto(Base):
     # revisão é só outro projeto, com os mesmos dados amarrados por projeto_id.
     codigo_base = Column(String)
     revisao = Column(Integer, default=0)
-    revisao_de = Column(Integer, ForeignKey("projetos.id"), nullable=True)
+    revisao_de = Column(Integer, ForeignKey("projetos.id"), nullable=True, index=True)
 
     # ---- Dados de Faturamento/Obra (Tela 1 — aprovado 2026-08-12) ----
     razao_social_faturamento = Column(String)
@@ -95,7 +95,7 @@ class Projeto(Base):
 class SistemaRefrigeracao(Base):
     __tablename__ = "sistemas_refrigeracao"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     classificacao = Column(String)
     gas_refrigerante = Column(String)
@@ -294,7 +294,7 @@ class FaixaAreaTabela02(Base):
     Altura (pé-direito)."""
     __tablename__ = "cat_faixa_area_tabela02"
     id = Column(Integer, primary_key=True)
-    tabela02_id = Column(Integer, ForeignKey("cat_tabela_tipo02.id"), nullable=False)
+    tabela02_id = Column(Integer, ForeignKey("cat_tabela_tipo02.id"), nullable=False, index=True)
     area_de = Column(Float, nullable=False)
     area_ate = Column(Float, nullable=False)
     carga_kcal_h = Column(Float, nullable=False)
@@ -365,7 +365,7 @@ class BancoExpositor(Base):
 class ModeloExpositor(Base):
     __tablename__ = "cat_modelos_expositor"
     id = Column(Integer, primary_key=True)
-    banco_id = Column(Integer, ForeignKey("cat_bancos_expositor.id"), nullable=False)
+    banco_id = Column(Integer, ForeignKey("cat_bancos_expositor.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     carga_termica_25 = Column(Float)  # kcal/h, salão 25C/60%UR
     carga_termica_28 = Column(Float)  # kcal/h, salão 28C/70%UR
@@ -396,12 +396,12 @@ class Fabricante(Base):
 class LinhaForcador(Base):
     __tablename__ = "forcador_linhas"
     id = Column(Integer, primary_key=True)
-    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False)
+    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     versao_catalogo = Column(String)  # ex.: "2024", "2026"
     ativo_comercial = Column(Boolean, default=True)  # False = fora de linha (só uso técnico/reformas)
     observacao_versao = Column(Text)  # ex.: "vale para 2024 e 2026, sem alterações"
-    linha_anterior_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=True)
+    linha_anterior_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=True, index=True)
     descricao_comercial = Column(Text)  # texto único do catálogo inteiro, não por modelo
     imagem_path = Column(Text)  # foto do equipamento, uma por catálogo (base64 data URI)
     # Id comercial auto-gerado na criação (categoria 6 = Forçador de Ar), formato "6.<fabricante>.
@@ -417,7 +417,7 @@ class LinhaForcador(Base):
 class ModeloForcador(Base):
     __tablename__ = "forcador_modelos"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False)
+    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False, index=True)
     modelo = Column(String, nullable=False)
     fpi = Column(Integer)  # aletas por polegada
     num_ventiladores = Column(Integer)
@@ -446,7 +446,7 @@ class CapacidadeForcador(Base):
     """Capacidade do modelo (kcal/h) em cada temperatura de evaporação tabelada, no DT/pdl de referência da linha."""
     __tablename__ = "forcador_capacidades"
     id = Column(Integer, primary_key=True)
-    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False)
+    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False, index=True)
     temp_evaporacao_c = Column(Float, nullable=False)
     capacidade_kcal_h = Column(Float, nullable=False)
 
@@ -456,7 +456,7 @@ class CapacidadeForcador(Base):
 class DadosEletricosForcador(Base):
     __tablename__ = "forcador_eletricos"
     id = Column(Integer, primary_key=True)
-    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False)
+    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False, index=True)
     tensao = Column(String, nullable=False)  # ex.: "220V/1F/60Hz"
     degelo_w = Column(Float)
     degelo_a = Column(Float)
@@ -469,7 +469,7 @@ class DadosEletricosForcador(Base):
 class DadosFisicosForcador(Base):
     __tablename__ = "forcador_fisicos"
     id = Column(Integer, primary_key=True)
-    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False)
+    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False, index=True)
     linha_liquido = Column(String)
     linha_succao = Column(String)
     equalizador = Column(String)
@@ -483,7 +483,7 @@ class DadosFisicosForcador(Base):
 class DadosDimensionaisForcador(Base):
     __tablename__ = "forcador_dimensionais"
     id = Column(Integer, primary_key=True)
-    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False)
+    modelo_id = Column(Integer, ForeignKey("forcador_modelos.id"), nullable=False, index=True)
     comprimento_mm = Column(Float)
     largura_mm = Column(Float)
     altura_mm = Column(Float)
@@ -497,7 +497,7 @@ class ImportacaoCatalogo(Base):
     """Registro de cada importação de catálogo (PDF/imagem) com status de revisão/confirmação."""
     __tablename__ = "forcador_importacoes"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=True)
+    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=True, index=True)
     nome_arquivo = Column(String)
     tipo_arquivo = Column(String)  # "pdf_nativo" | "pdf_escaneado" | "imagem"
     data_importacao = Column(DateTime, default=datetime.utcnow)
@@ -512,7 +512,7 @@ class FatorCorrecaoGasForcador(Base):
     Capacidade corrigida = Tabela × correção de ΔT × fator do gás."""
     __tablename__ = "forcador_fatores_gas"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False)
+    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False, index=True)
     gas = Column(String, nullable=False)  # ex.: "R-404A"
     fator = Column(Float, nullable=True)  # None = ainda não preenchido pelo usuário
 
@@ -533,14 +533,14 @@ class LinhaCondensadorRemoto(Base):
     separadas, cada uma com seu próprio texto/foto comercial (decisão do usuário 2026-07-19)."""
     __tablename__ = "condensador_linhas"
     id = Column(Integer, primary_key=True)
-    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False)
+    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     versao_catalogo = Column(String)
     tipo_estrutura = Column(String)  # "Plano (Fluxo Vertical)" | "V (Fluxo Horizontal)"
     dt_catalogo_c = Column(Float)  # ΔT de condensação de referência das capacidades do catálogo
     ativo_comercial = Column(Boolean, default=True)
     observacao_versao = Column(Text)
-    linha_anterior_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True)
+    linha_anterior_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True, index=True)
     descricao_comercial = Column(Text)  # texto único do catálogo (por tipo de estrutura)
     imagem_path = Column(Text)
     id_comercial = Column(String)  # auto-gerado, categoria 7 = Condensador Remoto (ver id_comercial.py)
@@ -559,7 +559,7 @@ class ModeloCondensadorRemoto(Base):
     não separa tabela elétrica (documento do usuário)."""
     __tablename__ = "condensador_modelos"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=False)
+    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=False, index=True)
     modelo = Column(String, nullable=False)
     fpi = Column(Integer)  # aletas por polegada (filtro de seleção)
     qtd_ventiladores = Column(Integer)
@@ -596,7 +596,7 @@ class FatorCorrecaoCondensador(Base):
     corrigida do condensador = capacidade de catálogo × produto de todos os fatores aplicáveis."""
     __tablename__ = "condensador_fatores"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=False)
+    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=False, index=True)
     tipo = Column(String, nullable=False)  # delta_condensacao|gas|aleta|altitude|temp_entrada_ar
     chave = Column(String, nullable=False)  # ex.: "5" (delta), "R-404A" (gás), "Padrão" (aleta), "600"/"45" (faixa até)
     fator = Column(Float, nullable=True)  # None = ainda não preenchido
@@ -610,7 +610,7 @@ class ImportacaoCondensador(Base):
     """Registro de cada importação de catálogo de condensador (histórico), espelho de ImportacaoCatalogo."""
     __tablename__ = "condensador_importacoes"
     id = Column(Integer, primary_key=True)
-    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True)
+    linha_id = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True, index=True)
     nome_arquivo = Column(String)
     tipo_arquivo = Column(String)
     data_importacao = Column(DateTime, default=datetime.utcnow)
@@ -624,7 +624,7 @@ class ImportacaoCondensador(Base):
 class ModeloValvula(Base):
     __tablename__ = "cat_modelos_valvula"
     id = Column(Integer, primary_key=True)
-    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False)
+    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False, index=True)
     tipo_expansao = Column(String, nullable=False)  # Eletrônica / Direta / Fluído Secundário
     modelo = Column(String, nullable=False)
     capacidade_nominal_kcal_h = Column(Float, nullable=False)
@@ -676,7 +676,7 @@ class TabelaCompatibilidadeValvula(Base):
 class CamaraCompleto(Base):
     __tablename__ = "camaras_completo"
     id = Column(Integer, primary_key=True)
-    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False)
+    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     linha_succao = Column(String)
     linha_eletrica = Column(String)
@@ -695,7 +695,7 @@ class CamaraCompleto(Base):
     dt_evaporacao_desejado = Column(Float)
 
     # Seção 1 — Calor de Produto
-    produto_id = Column(Integer, ForeignKey("cat_produtos.id"), nullable=True)
+    produto_id = Column(Integer, ForeignKey("cat_produtos.id"), nullable=True, index=True)
     qtd_estocada = Column(Float, default=0)
     mov_diaria = Column(Float, default=0)
     tempo_processo = Column(Float)
@@ -703,13 +703,13 @@ class CamaraCompleto(Base):
     temp_saida = Column(Float)
 
     # Seção 2 — Embalagem
-    tipo_embalagem_id = Column(Integer, ForeignKey("cat_tipos_embalagem.id"), nullable=True)
+    tipo_embalagem_id = Column(Integer, ForeignKey("cat_tipos_embalagem.id"), nullable=True, index=True)
     massa_embalagem = Column(Float, default=0)
 
     # Seção 3 — Penetração
-    isolamento_parede_id = Column(Integer, ForeignKey("cat_isolamento_parede_teto.id"), nullable=True)
-    isolamento_teto_id = Column(Integer, ForeignKey("cat_isolamento_parede_teto.id"), nullable=True)
-    isolamento_piso_id = Column(Integer, ForeignKey("cat_isolamento_piso.id"), nullable=True)
+    isolamento_parede_id = Column(Integer, ForeignKey("cat_isolamento_parede_teto.id"), nullable=True, index=True)
+    isolamento_teto_id = Column(Integer, ForeignKey("cat_isolamento_parede_teto.id"), nullable=True, index=True)
+    isolamento_piso_id = Column(Integer, ForeignKey("cat_isolamento_piso.id"), nullable=True, index=True)
 
     # Seção 4 — Infiltração
     num_portas = Column(Integer, default=0)
@@ -736,11 +736,11 @@ class CamaraCompleto(Base):
     # recalculado/sobrescrito automaticamente — só muda se o usuário escolher uma Potência
     # manualmente. Q6 continua Qtd x Potência x Horas, sem mudança de fórmula.
     potencia_luminaria = Column(Float, default=0)
-    tipo_ambiente_lumino_id = Column(Integer, ForeignKey("lookup_ambiente_luminotecnico.id"), nullable=True)
+    tipo_ambiente_lumino_id = Column(Integer, ForeignKey("lookup_ambiente_luminotecnico.id"), nullable=True, index=True)
     # modelo_luminaria_id: LEGADO, coluna mantida no banco sem uso — substituída pelas 2 abaixo
     # (aprovado 2026-08-08: Potência e Modelo viram seleções em cascata na árvore "1.4", em vez de
     # 1 FK só pra um cadastro à parte).
-    modelo_luminaria_id = Column(Integer, ForeignKey("lookup_lampada.id"), nullable=True)
+    modelo_luminaria_id = Column(Integer, ForeignKey("lookup_lampada.id"), nullable=True, index=True)
     # Texto EXATO do nó da árvore escolhido (ex.: "36W", filho direto de "1.4"). É a partir daqui
     # que o Fluxo Luminoso é buscado em "Cadastro Lâmpadas" (extrai o número e casa com Potência (W)).
     potencia_luminaria_texto = Column(String)
@@ -786,7 +786,7 @@ class PortaCamara(Base):
     de porta única em CamaraCompleto (num_portas/porta_largura/...) ficaram legados após a migração."""
     __tablename__ = "camara_completo_portas"
     id = Column(Integer, primary_key=True)
-    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False)
+    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False, index=True)
     quantidade = Column(Integer, default=1)
     largura = Column(Float)
     altura = Column(Float)
@@ -801,8 +801,8 @@ class PortaCamara(Base):
 class EquipamentoCamaraCompleto(Base):
     __tablename__ = "camara_completo_equipamentos"
     id = Column(Integer, primary_key=True)
-    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False)
-    tipo_equipamento_id = Column(Integer, ForeignKey("cat_tipos_equipamento.id"), nullable=False)
+    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False, index=True)
+    tipo_equipamento_id = Column(Integer, ForeignKey("cat_tipos_equipamento.id"), nullable=False, index=True)
     qtd = Column(Integer, default=1)
     tempo = Column(Float, default=0)
 
@@ -812,9 +812,9 @@ class EquipamentoCamaraCompleto(Base):
 class ForcadorSelecaoCompleto(Base):
     __tablename__ = "camara_completo_forcadores"
     id = Column(Integer, primary_key=True)
-    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False)
-    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False)
-    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False)
+    camara_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=False, index=True)
+    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False, index=True)
+    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False, index=True)
     folga_desejada = Column(Float, default=10)
     considerado = Column(Boolean, default=False)
     quantidade = Column(Integer, default=1)  # nº de unidades do modelo escolhido nessa linha
@@ -833,7 +833,7 @@ class ForcadorSelecaoCompleto(Base):
 class ValvulaSelecaoCompleto(Base):
     __tablename__ = "camara_completo_valvulas"
     id = Column(Integer, primary_key=True)
-    forcador_selecao_id = Column(Integer, ForeignKey("camara_completo_forcadores.id"), nullable=False)
+    forcador_selecao_id = Column(Integer, ForeignKey("camara_completo_forcadores.id"), nullable=False, index=True)
     # Danfoss/Fullgauge/Carel — mesma lista fixa da Automação (Tela 1), não é o catálogo técnico de
     # forçador (cat_fabricantes). Válvula não tem catálogo de capacidade próprio no sistema.
     fabricante = Column(String, nullable=False)
@@ -863,11 +863,11 @@ class ValvulaSelecaoCompleto(Base):
 class CamaraSimples(Base):
     __tablename__ = "camaras_simples"
     id = Column(Integer, primary_key=True)
-    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False)
+    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False, index=True)
     nome = Column(String, nullable=False)
     linha_succao = Column(String)
     linha_eletrica = Column(String)
-    tabela02_id = Column(Integer, ForeignKey("cat_tabela_tipo02.id"), nullable=True)
+    tabela02_id = Column(Integer, ForeignKey("cat_tabela_tipo02.id"), nullable=True, index=True)
     # Largura/Comprimento (novos, aprovado 2026-08-08 — Estudo Luminotécnico precisa dos 2
     # separados pro Índice do Ambiente, não só a Área). `area` continua existindo e é a fonte usada
     # pelo cálculo de carga térmica (Q1..Q7 simplificado) — passa a ser AUTOCALCULADA
@@ -883,9 +883,9 @@ class CamaraSimples(Base):
     # comentário completo. Câmara Simples nunca teve potência de iluminação manual antes (usava só
     # os 3 configs globais, agora aposentados) — não precisa de campo de fallback legado.
     qtd_luminarias = Column(Integer, default=0)
-    tipo_ambiente_lumino_id = Column(Integer, ForeignKey("lookup_ambiente_luminotecnico.id"), nullable=True)
+    tipo_ambiente_lumino_id = Column(Integer, ForeignKey("lookup_ambiente_luminotecnico.id"), nullable=True, index=True)
     # modelo_luminaria_id: LEGADO, coluna mantida sem uso — ver comentário completo na CamaraCompleto.
-    modelo_luminaria_id = Column(Integer, ForeignKey("lookup_lampada.id"), nullable=True)
+    modelo_luminaria_id = Column(Integer, ForeignKey("lookup_lampada.id"), nullable=True, index=True)
     potencia_luminaria_texto = Column(String)
     modelo_luminaria_texto = Column(String)
     horas_iluminacao_carga = Column(Float, default=24)
@@ -922,9 +922,9 @@ class CamaraSimples(Base):
 class ForcadorSelecaoSimples(Base):
     __tablename__ = "camara_simples_forcadores"
     id = Column(Integer, primary_key=True)
-    camara_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=False)
-    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False)
-    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False)
+    camara_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=False, index=True)
+    fabricante_id = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=False, index=True)
+    linha_id = Column(Integer, ForeignKey("forcador_linhas.id"), nullable=False, index=True)
     folga_desejada = Column(Float, default=10)
     considerado = Column(Boolean, default=False)
     quantidade = Column(Integer, default=1)  # nº de unidades do modelo escolhido nessa linha
@@ -941,7 +941,7 @@ class ForcadorSelecaoSimples(Base):
 class ValvulaSelecaoSimples(Base):
     __tablename__ = "camara_simples_valvulas"
     id = Column(Integer, primary_key=True)
-    forcador_selecao_id = Column(Integer, ForeignKey("camara_simples_forcadores.id"), nullable=False)
+    forcador_selecao_id = Column(Integer, ForeignKey("camara_simples_forcadores.id"), nullable=False, index=True)
     fabricante = Column(String, nullable=False)
     tipo_expansao = Column(String, nullable=False)
     modelo_selecao = Column(String)
@@ -965,12 +965,12 @@ class ValvulaSelecaoSimples(Base):
 class Expositor(Base):
     __tablename__ = "expositores"
     id = Column(Integer, primary_key=True)
-    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False)
+    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False, index=True)
     nome = Column(String)  # opcional, default = nome do modelo
     linha_succao = Column(String)
     linha_eletrica = Column(String)
-    setor_id = Column(Integer, ForeignKey("cat_setores_expositor.id"), nullable=True)
-    modelo_expositor_id = Column(Integer, ForeignKey("cat_modelos_expositor.id"), nullable=True)
+    setor_id = Column(Integer, ForeignKey("cat_setores_expositor.id"), nullable=True, index=True)
+    modelo_expositor_id = Column(Integer, ForeignKey("cat_modelos_expositor.id"), nullable=True, index=True)
     fechada = Column(Boolean, default=False)
     calculo_snapshot_json = Column(Text)
 
@@ -983,7 +983,7 @@ class Expositor(Base):
 class ModuloExpositor(Base):
     __tablename__ = "expositor_modulos"
     id = Column(Integer, primary_key=True)
-    expositor_id = Column(Integer, ForeignKey("expositores.id"), nullable=False)
+    expositor_id = Column(Integer, ForeignKey("expositores.id"), nullable=False, index=True)
     comprimento_modulo = Column(Float, nullable=False)
     qtd = Column(Integer, default=1)
 
@@ -1018,7 +1018,7 @@ class UnidadeCondensadora(Base):
     Capacidade depende de temp. ambiente E temp. de evaporação (ver CapacidadeUC)."""
     __tablename__ = "uc_unidades"
     id = Column(Integer, primary_key=True)
-    catalogo_id = Column(Integer, ForeignKey("uc_catalogos.id"), nullable=False)
+    catalogo_id = Column(Integer, ForeignKey("uc_catalogos.id"), nullable=False, index=True)
     modelo = Column(String, nullable=False)              # código base, ex.: U*HMB4250
     sistema = Column(String)                             # Alta | Média | Baixa | Média e Baixa
     gas = Column(String)                                 # R-404a, R-507c, R-134a...
@@ -1062,7 +1062,7 @@ class EletricaUC(Base):
     varia por tensão nem por compressor no catálogo real, fica escalar em UnidadeCondensadora."""
     __tablename__ = "uc_eletricas"
     id = Column(Integer, primary_key=True)
-    unidade_id = Column(Integer, ForeignKey("uc_unidades.id"), nullable=False)
+    unidade_id = Column(Integer, ForeignKey("uc_unidades.id"), nullable=False, index=True)
     tensao = Column(String)
     fases = Column(Integer)
     frequencia = Column(String)
@@ -1084,7 +1084,7 @@ class CapacidadeUC(Base):
     sempre a linha Q dentro da temp. ambiente da instalação."""
     __tablename__ = "uc_capacidades"
     id = Column(Integer, primary_key=True)
-    unidade_id = Column(Integer, ForeignKey("uc_unidades.id"), nullable=False)
+    unidade_id = Column(Integer, ForeignKey("uc_unidades.id"), nullable=False, index=True)
     temp_ambiente_c = Column(Float, nullable=False)
     temp_evaporacao_c = Column(Float, nullable=False)
     capacidade_kcal_h = Column(Float)                    # Q
@@ -1143,7 +1143,7 @@ class CampoCatalogoOpcao(Base):
     quanto no modo Automático (comparação contra o valor resolvido do campo_busca_sistema)."""
     __tablename__ = "campo_catalogo_opcao"
     id = Column(Integer, primary_key=True)
-    campo_id = Column(Integer, ForeignKey("campo_catalogo.id"), nullable=False)
+    campo_id = Column(Integer, ForeignKey("campo_catalogo.id"), nullable=False, index=True)
     valor = Column(String, nullable=False)
     codigo = Column(String, nullable=False)
     ordem = Column(Integer, default=0)
@@ -1160,11 +1160,11 @@ class UnidadeSelecaoSistema(Base):
     (diferente do código técnico de busca, que carrega '*' nesses campos)."""
     __tablename__ = "uc_selecao_sistema"
     id = Column(Integer, primary_key=True)
-    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False)
+    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False, index=True)
     fabricante_uc = Column(String)
     # Linha/catálogo do fabricante (UnidadeCondensadora.catalogo_id) — 2º filtro da cadeia
     # Fabricante UC > Linha > Tipo Compressor > Fabricante Compressor > Nº Compressores > Faixa.
-    catalogo_id = Column(Integer, ForeignKey("uc_catalogos.id"))
+    catalogo_id = Column(Integer, ForeignKey("uc_catalogos.id"), index=True)
     tipo_compressor = Column(String)
     fabricante_compressor = Column(String)
     # Número de compressores da unidade (UnidadeCondensadora.numero_compressores) — filtro entre
@@ -1258,7 +1258,7 @@ class IdComercial(Base):
     # Só usados em nós FOLHA (item final, sem filho) — categorias ficam com esses 3 em branco.
     campo_id = Column(String, nullable=True)  # referência ao CampoSistema.campo_id (ex.: "T13") — de onde o valor deste item vem
     centro_custo_padrao_codigo = Column(String, nullable=True)  # código de Centro de Custo (casa por código no projeto, mesmo padrão de ItemComposicaoMestre)
-    fator_venda_padrao_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True)
+    fator_venda_padrao_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
     # True = nó criado automaticamente por um catálogo próprio (Forçador/UC/Condensador — ver
     # id_comercial.gerar_proximo_id_catalogo — ou Modelo do Catálogo Comercial — ver
     # resolver_no_modelo), nunca digitado à mão. Campo (Id) não faz sentido nesses nós (o valor vem
@@ -1291,9 +1291,9 @@ class PainelTermico(Base):
     projeto, nunca variam entre painéis do mesmo projeto)."""
     __tablename__ = "paineis_termicos"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
-    camara_completo_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=True)
-    camara_simples_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=True)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
+    camara_completo_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=True, index=True)
+    camara_simples_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=True, index=True)
     tipo = Column(String, nullable=False)   # Parede | Teto | Isolamento Piso
     espessura = Column(String)
     dimensao_1 = Column(Float)   # perímetro (parede) / comprimento (teto) / largura (piso), m
@@ -1314,9 +1314,9 @@ class PortaFrigorifica(Base):
     leitura (ver calc_paineis_portas.py), não armazenado."""
     __tablename__ = "portas_frigorificas"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
-    camara_completo_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=True)
-    camara_simples_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=True)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
+    camara_completo_id = Column(Integer, ForeignKey("camaras_completo.id"), nullable=True, index=True)
+    camara_simples_id = Column(Integer, ForeignKey("camaras_simples.id"), nullable=True, index=True)
     funcao = Column(String)           # Resfriados | Congelados | Preparos | Docas | Não Climatizado
     modelo = Column(String)           # Correr | Embutir | Isoplana | Vai-Vem | Seccional | Portal Selamento
     sentido = Column(String)
@@ -1404,7 +1404,7 @@ class RackParalelo(Base):
     real já usada em Forçadores."""
     __tablename__ = "rack_paralelo"
     id = Column(Integer, primary_key=True)
-    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False)  # N racks por sistema
+    sistema_id = Column(Integer, ForeignKey("sistemas_refrigeracao.id"), nullable=False, index=True)  # N racks por sistema
     considerado = Column(Boolean, default=False)  # a opção que entra em cálculo/compilação/consumo
 
     quantidade_compressores = Column(Integer)
@@ -1483,7 +1483,7 @@ class RackCondensadorSelecao(Base):
     pra lá pelo backend, então todo o cálculo/exportação continua lendo do rack sem alteração."""
     __tablename__ = "rack_condensador_selecao"
     id = Column(Integer, primary_key=True)
-    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False)
+    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False, index=True)
     considerado = Column(Boolean, default=False)
     fabricante_condensador = Column(String)
     linha_condensador = Column(String)
@@ -1518,7 +1518,7 @@ class CompressorRack(Base):
     as demais posições (2..N), calculado na hora, não armazenado nelas."""
     __tablename__ = "compressor_rack"
     id = Column(Integer, primary_key=True)
-    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False)
+    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False, index=True)
     posicao = Column(Integer, nullable=False)   # 1..5
     percentual_sistema = Column(Float)          # só usado na posicao 1 (master)
     fabricante = Column(String)
@@ -1535,7 +1535,7 @@ class MaterialRack(Base):
     do RackParalelo com a lista padrão (~40 itens); quantidade fica em 0 até o usuário preencher."""
     __tablename__ = "material_rack"
     id = Column(Integer, primary_key=True)
-    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False)
+    rack_id = Column(Integer, ForeignKey("rack_paralelo.id"), nullable=False, index=True)
     categoria = Column(String)     # Descarga | Líquido | Sucção | Sistema de Óleo | Diversos
     descricao = Column(String, nullable=False)
     modelo = Column(String)        # ex.: "COBRE (kg)", "AÇO" — especificação/material da peça
@@ -1659,11 +1659,11 @@ class CentroCusto(Base):
 class MaterialTela10(Base):
     __tablename__ = "material_tela10"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     categoria = Column(String, nullable=False)
     descricao = Column(String, nullable=False)
     fabricante = Column(String)
-    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True)
+    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True, index=True)
     unidade = Column(String)
     quantidade = Column(Float, default=0)
     valor_unitario = Column(Float, nullable=True)
@@ -1677,9 +1677,9 @@ class MaterialTela10(Base):
 class EquipamentoValorTela10(Base):
     __tablename__ = "equipamento_valor_tela10"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     chave_equipamento = Column(String, nullable=False)
-    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True)
+    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True, index=True)
     valor_unitario = Column(Float, nullable=True)
     observacao = Column(String, nullable=True)
 
@@ -1722,9 +1722,9 @@ class ItemComposicaoMestre(Base):
     id = Column(Integer, primary_key=True)
     bloco = Column(String, nullable=False)
     centro_custo_codigo = Column(String)
-    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True)
+    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True, index=True)
     descricao = Column(String, nullable=False)
-    fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True)
+    fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
     custo_unitario_padrao = Column(Float, default=0)
     ordem = Column(Integer, default=0)
 
@@ -1751,10 +1751,10 @@ class ComposicaoPrecoItem(Base):
     (inserido à mão pelo usuário nesse projeto)."""
     __tablename__ = "composicao_preco_item"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     bloco = Column(String, nullable=False)
-    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True)
-    fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True)
+    centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True, index=True)
+    fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
     descricao = Column(String, nullable=False)
     fabricante = Column(String, nullable=True)
     unidade = Column(String, nullable=True)
@@ -1799,7 +1799,7 @@ class CondicaoPagamentoParcela(Base):
     aqui não recalcula as demais linhas."""
     __tablename__ = "condicao_pagamento_parcela"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     ordem = Column(Integer, nullable=False)   # 0 = Sinal de Negócio, 1..N = parcelas
     descricao = Column(String, nullable=False)
     data = Column(String, nullable=False)
@@ -1811,8 +1811,8 @@ class ComissaoVendedorProjeto(Base):
     padrão do mestre Vendedor, editável por projeto)."""
     __tablename__ = "comissao_vendedor_projeto"
     id = Column(Integer, primary_key=True)
-    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False)
-    vendedor_id = Column(Integer, ForeignKey("vendedor.id"), nullable=False)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
+    vendedor_id = Column(Integer, ForeignKey("vendedor.id"), nullable=False, index=True)
     percentual = Column(Float, default=0)
     fechada = Column(Boolean, default=False)
     calculo_snapshot_json = Column(Text)
