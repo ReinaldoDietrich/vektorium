@@ -544,6 +544,7 @@ def _montar_itens_compilacao(db: Session, projeto_id: int, fator_potencia: float
                                selectinload(m.SistemaRefrigeracao.camaras_completo).selectinload(m.CamaraCompleto.portas),
                                selectinload(m.SistemaRefrigeracao.camaras_simples).selectinload(m.CamaraSimples.forcadores),
                                selectinload(m.SistemaRefrigeracao.expositores).selectinload(m.Expositor.modelo_expositor),
+                               selectinload(m.SistemaRefrigeracao.expositores).selectinload(m.Expositor.setor),
                                selectinload(m.SistemaRefrigeracao.racks))
                       .all(), key=lambda s: _natural_key(s.nome))
     projeto = db.get(m.Projeto, projeto_id)
