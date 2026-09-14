@@ -603,23 +603,6 @@ def atualizar_posicao(rack_id: int, posicao: int, payload: dict = Body(...), db:
 
 # ---------- Seleção de Condensador Remoto (Fase 2, catálogo da Tela C) ----------
 
-def _resolver_linha_condensador(db: Session, rack: m.RackParalelo):
-    """Acha a LinhaCondensadorRemoto do fabricante/linha escolhidos no rack, com tipo_estrutura
-    igual (comparação EXATA, rack.tipo_condensador agora é editável direto na Tela 6 — antes vinha
-    do Sistema/Tela 1 por palavra-chave fuzzy). Se houver mais de uma versão, pega a de maior id
-    (mais recente)."""
-    if not rack.fabricante_condensador or not rack.linha_condensador:
-        return None
-    q = (db.query(m.LinhaCondensadorRemoto)
-         .join(m.Fabricante, m.LinhaCondensadorRemoto.fabricante_id == m.Fabricante.id)
-         .filter(m.Fabricante.nome == rack.fabricante_condensador,
-                 m.LinhaCondensadorRemoto.nome == rack.linha_condensador))
-    linhas = q.all()
-    if rack.tipo_condensador:
-        linhas = [l for l in linhas if (l.tipo_estrutura or "") == rack.tipo_condensador]
-    return max(linhas, key=lambda l: l.id) if linhas else None
-
-
 @router.get("/{rack_id}/condensador-opcoes")
 def condensador_opcoes(rack_id: int, db: Session = Depends(get_db)):
     """Fabricantes e linhas de condensador disponíveis pro rack, já filtrados pelo Tipo Condensador
@@ -701,11 +684,11 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         base["linha_id"] = calc["linha_id"]
         base["nomenclatura_selecionada"] = selecoes_manuais
         return base
+    if status == _remoto.Status.SEM_LICENCA:
+        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
     if not calc:
         base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
         return base
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
     raise HTTPException(503, "Servidor de cálculo indisponível.")
 
 
