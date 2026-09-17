@@ -279,11 +279,19 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
     fica em branco aqui pro usuário completar manual. Mesmo padrão de cria/atualiza/apaga órfã sem
     preço de sincronizar_paineis_portas."""
     from .routers.luminotecnico import montar_estudo
-    estudo = montar_estudo(db, projeto_id)
-    linhas = estudo["resumo_por_modelo"]
+    projeto = db.get(m.Projeto, projeto_id)
+    considerar = (projeto.considerar_iluminacao_ambiente if projeto and projeto.considerar_iluminacao_ambiente is not None else True)
     existentes = {i.chave_sistema: i for i in
                   db.query(m.ComposicaoPrecoItem)
                   .filter_by(projeto_id=projeto_id, bloco="Outros Serviços/ Materiais", origem="sistema").all()}
+    if not considerar:
+        for item in existentes.values():
+            if not item.custo_unitario:
+                db.delete(item)
+        db.commit()
+        return
+    estudo = montar_estudo(db, projeto_id)
+    linhas = estudo["resumo_por_modelo"]
     chaves_atuais = set()
     for idx, linha in enumerate(linhas):
         chave = linha["modelo_luminaria"]

@@ -338,6 +338,9 @@ def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out):
         "temp_linha_liquido": sistema.temp_apos_subresfriamento or sistema.temp_apos_condensador,
         "tanque_liquido_l": None, "carga_gas_estimada_kg": None,
         "tipo_partida": idc.nome_por_codigo(db, sistema.partida), "folga_tecnica_pct": folga,
+        "delta_condensacao": sistema.delta_condensacao if sistema.delta_condensacao is not None else 10,
+        "temp_condensacao": round(projeto.temp_ambiente + (sistema.delta_condensacao if sistema.delta_condensacao is not None else 10), 1)
+            if projeto and projeto.temp_ambiente is not None else None,
     }
 
 
@@ -393,7 +396,9 @@ def _bloco_condensador(db, sistema):
         "tipo_equipamento": "Condensador Onboard", "fonte": "uc",
         "modelo_condensador": None,  # não é um equipamento separado — embutido na própria UC
         "temp_ambiente": projeto.temp_ambiente if projeto else None,
-        "delta_condensacao": sistema.delta_condensacao, "temp_condensacao": _temp_condensacao(projeto, sistema),
+        "delta_condensacao": sistema.delta_condensacao if sistema.delta_condensacao is not None else 10,
+        "temp_condensacao": round(projeto.temp_ambiente + (sistema.delta_condensacao if sistema.delta_condensacao is not None else 10), 1)
+            if projeto and projeto.temp_ambiente is not None else None,
         "qtd_ventiladores": uc.vent_qtd, "tensao": eletrica.vent_tensao if eletrica else None,
         "corrente_nominal_ventiladores_a": eletrica.vent_corrente_a if eletrica else None,
         "capacidade_condensador_kcal_h": None,  # não captado separadamente do restante da UC ainda

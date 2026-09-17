@@ -26,20 +26,19 @@ function _authHeader() {
 const REMOTE_API = 'https://vektorium-calc.fly.dev';
 
 const _PREFIXOS_REMOTOS = [
-  '/api/catalogos/ids-comerciais', '/api/catalogos/fabricantes',
-  '/api/forcadores', '/api/condensadores', '/api/polinomios',
+  '/api/polinomios',
   '/api/calc', '/api/catalogo-comercial', '/api/valvulas-expansao',
   '/api/importacao',
   '/api/admin',
   '/api/luminotecnico/lampadas',
   '/api/uc/catalogos-detalhe', '/api/uc/unidades', '/api/uc/eletricas',
   '/api/uc/template', '/api/uc/documento', '/api/uc/preview',
-  '/api/uc/confirmar', '/api/uc/exportar-bd', '/api/uc/opcoes',
+  '/api/uc/confirmar', '/api/uc/confirmar-editado', '/api/uc/exportar-bd', '/api/uc/opcoes',
 ];
 
 const _ESCRITA_SEM_FALLBACK = [
   '/api/admin',
-  '/api/uc/confirmar',
+  '/api/uc/confirmar', '/api/uc/confirmar-editado',
   '/api/forcadores/importar', '/api/forcadores/confirmar',
   '/api/condensadores/importar', '/api/condensadores/confirmar',
   '/api/importacao',
@@ -49,9 +48,8 @@ const _ESCRITA_SEM_FALLBACK = [
 
 const _LEITURA_SEM_FALLBACK = [
   '/api/admin',
-  '/api/forcadores', '/api/condensadores', '/api/polinomios',
+  '/api/polinomios',
   '/api/valvulas-expansao',
-  '/api/catalogos/ids-comerciais', '/api/catalogos/fabricantes',
   '/api/luminotecnico/lampadas',
   '/api/uc/catalogos-detalhe', '/api/uc/unidades', '/api/uc/eletricas',
   '/api/uc/template', '/api/uc/documento', '/api/uc/preview',
@@ -200,6 +198,10 @@ const api = {
     const r = await fetch(path, { method: 'POST', headers: { ..._authHeader() }, body: fd });
     if (!r.ok) throw new Error(await _extrairErro(r));
     return r.json();
+  },
+  downloadRemoto(path) {
+    const base = (typeof AUTH !== 'undefined' && AUTH.token()) ? REMOTE_API : '';
+    window.location.href = base + path;
   },
   // Exportação Excel de tela de projeto: se o projeto tem "Pasta de Salvamento" (Tela 1), o backend
   // grava o arquivo direto na pasta e devolve JSON {salvo_em}; senão devolve o próprio arquivo (download).

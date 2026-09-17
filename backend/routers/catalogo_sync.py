@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from fastapi import APIRouter, Body, Depends
 from fastapi.requests import Request as FastAPIRequest
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models as m
@@ -117,11 +118,18 @@ def exportar(tipo: str, db: Session = Depends(get_db)):
 
 # ── RECEBER (upsert) ─────────────────────────────────────────────────────────
 
-def _garantir_fabricante(db: Session, nome: str) -> int:
-    fab = db.query(m.Fabricante).filter_by(nome=nome).first()
+def _garantir_fabricante(db: Session, nome: str, fab_id: int = None) -> int:
+    if fab_id:
+        fab = db.get(m.Fabricante, fab_id)
+        if fab:
+            return fab.id
+    fab = db.query(m.Fabricante).filter(func.lower(m.Fabricante.nome) == nome.strip().lower()).first()
     if fab:
         return fab.id
-    fab = m.Fabricante(nome=nome)
+    fab_data = {"nome": nome.strip()}
+    if fab_id:
+        fab_data["id"] = fab_id
+    fab = m.Fabricante(**fab_data)
     db.add(fab)
     db.flush()
     return fab.id
@@ -157,9 +165,10 @@ def _upsert_campos(db: Session, tipo_catalogo: str, catalogo_id: int, campos_pay
 
 def _receber_forcadores(db: Session, payload: dict):
     for fp in payload.get("fabricantes", []):
-        _garantir_fabricante(db, fp["nome"])
+        _garantir_fabricante(db, fp["nome"], fp.get("id"))
     criados, atualizados = 0, 0
     for lp in payload.get("linhas", []):
+        orig_id = lp.get("id")
         fab_nome = lp.pop("fabricante_nome", None)
         modelos_p = lp.pop("modelos", [])
         fatores_p = lp.pop("fatores_gas", [])
@@ -173,7 +182,11 @@ def _receber_forcadores(db: Session, payload: dict):
                     setattr(ln, k, v)
             atualizados += 1
         else:
-            ln = m.LinhaForcador(fabricante_id=fab_id, **{k: v for k, v in lp.items() if hasattr(m.LinhaForcador, k) and k not in ("id", "fabricante_id")})
+            ln_data = {k: v for k, v in lp.items() if hasattr(m.LinhaForcador, k) and k not in ("fabricante_id",)}
+            if orig_id:
+                ln_data["id"] = orig_id
+            ln_data["fabricante_id"] = fab_id
+            ln = m.LinhaForcador(**ln_data)
             db.add(ln)
             db.flush()
             criados += 1
@@ -267,9 +280,10 @@ def _receber_uc(db: Session, payload: dict):
 
 def _receber_condensadores(db: Session, payload: dict):
     for fp in payload.get("fabricantes", []):
-        _garantir_fabricante(db, fp["nome"])
+        _garantir_fabricante(db, fp["nome"], fp.get("id"))
     criados, atualizados = 0, 0
     for lp in payload.get("linhas", []):
+        orig_id = lp.get("id")
         fab_nome = lp.pop("fabricante_nome", None)
         modelos_p = lp.pop("modelos", [])
         fatores_p = lp.pop("fatores", [])
@@ -284,7 +298,11 @@ def _receber_condensadores(db: Session, payload: dict):
                     setattr(ln, k, v)
             atualizados += 1
         else:
-            ln = m.LinhaCondensadorRemoto(fabricante_id=fab_id, **{k: v for k, v in lp.items() if hasattr(m.LinhaCondensadorRemoto, k) and k not in ("id", "fabricante_id")})
+            ln_data = {k: v for k, v in lp.items() if hasattr(m.LinhaCondensadorRemoto, k) and k not in ("fabricante_id",)}
+            if orig_id:
+                ln_data["id"] = orig_id
+            ln_data["fabricante_id"] = fab_id
+            ln = m.LinhaCondensadorRemoto(**ln_data)
             db.add(ln)
             db.flush()
             criados += 1

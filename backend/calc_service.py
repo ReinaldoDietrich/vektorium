@@ -208,7 +208,15 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
         "projeto_altitude_m": projeto.altitude_m if projeto else None,
         "projeto_tensao_comando": projeto.tensao_comando if projeto else None,
         "projeto_tensao_equipamentos": projeto.tensao_equipamentos if projeto else None,
-        "projeto_estacao_climatologica": projeto.estacao_climatologica if projeto else None,
+        "projeto_estacao_climatologica": {
+            "tbs_pico_sazonal": projeto.estacao_climatologica.tbs_pico_sazonal,
+            "tbu_pico_sazonal": projeto.estacao_climatologica.tbu_pico_sazonal,
+            "ur_pico_sazonal": projeto.estacao_climatologica.ur_pico_sazonal,
+            "tbs_media_anual": projeto.estacao_climatologica.tbs_media_anual,
+            "tbu_media_anual": projeto.estacao_climatologica.tbu_media_anual,
+            "ur_media_anual": projeto.estacao_climatologica.ur_media_anual,
+            "tbs_maxima_absoluta": projeto.estacao_climatologica.tbs_maxima_absoluta,
+        } if projeto and projeto.estacao_climatologica else None,
         "projeto_criterio_climatico": projeto.criterio_climatico if projeto else None,
     }
 
@@ -1042,8 +1050,8 @@ def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> di
             db.commit()
             return calc
         return _snapshot_ou_erro(camara, status)
-    except ValueError:
-        raise
+    except ValueError as e:
+        return {"_sem_calculo": True, "_motivo": str(e)}
     except Exception:
         return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
 
@@ -1058,8 +1066,8 @@ def calcular_camara_simples_seguro(db: Session, camara: m.CamaraSimples) -> dict
             db.commit()
             return calc
         return _snapshot_ou_erro(camara, status)
-    except ValueError:
-        raise
+    except ValueError as e:
+        return {"_sem_calculo": True, "_motivo": str(e)}
     except Exception:
         return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
 

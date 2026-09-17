@@ -678,7 +678,7 @@ function t17_calcularTabelaOrcamento(composicao) {
     if (!blocoAlvo) return;
     const ccInfo = t17_centrosCusto.find(c => c.id === it.centro_custo_id);
     const valor = it.valor_venda_negociacao || 0;
-    blocoAlvo.total += valor;
+    blocoAlvo.totalComissao = (blocoAlvo.totalComissao || 0) + valor;
     const chave = (ccInfo && (ccInfo.descricao || ccInfo.codigo)) || 'Sem Centro de Custo';
     blocoAlvo.extraPorCC[chave] = (blocoAlvo.extraPorCC[chave] || 0) + valor;
   });
@@ -719,7 +719,7 @@ function t17_renderTabelaOrcamento(composicao) {
   let totalProposta = 0;
   const blocosHtml = dados.ordem.map(bloco => {
     const info = dados.blocos[bloco];
-    totalProposta += info.total;
+    totalProposta += info.total + (info.totalComissao || 0);
     let body = '';
 
     if (isBlocoCC) {
@@ -817,7 +817,7 @@ async function t17_salvarParcelaPagamento(parcelaId, inp) {
 // existe mais. Se tiver valor, gera/regera a agenda normalmente (aprovado 2026-08-06).
 async function t17_atualizarAgendaPagamento() {
   const dadosOrc = t17_calcularTabelaOrcamento(t17_composicaoAtual);
-  const totalProposta = dadosOrc.ordem.reduce((s, bloco) => s + dadosOrc.blocos[bloco].total, 0);
+  const totalProposta = dadosOrc.ordem.reduce((s, bloco) => s + dadosOrc.blocos[bloco].total + (dadosOrc.blocos[bloco].totalComissao || 0), 0);
   const existente = document.querySelectorAll('#t17_condicaoPagamento [data-parcela-id]').length;
 
   if (totalProposta === 0) {
