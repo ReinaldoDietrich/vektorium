@@ -757,7 +757,7 @@ def gerar(db, projeto_id, opcoes=None):
     empresa = campos.get("empresa_contratada") or "Empresa contratada"
 
     ids_sel = opcoes.get("ids_selecionados")
-    if not ids_sel:
+    if ids_sel is None:
         ids_sel = (d.get("memorial") or {}).get("ids_resolvidos") or []
     conteudo = _conteudo_comercial(db, ids_sel)
 

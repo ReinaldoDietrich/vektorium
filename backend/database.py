@@ -26,7 +26,7 @@ else:
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
         cur.execute("PRAGMA busy_timeout=5000")
-        cur.execute("PRAGMA foreign_keys=ON")
+        cur.execute("PRAGMA foreign_keys=OFF")
         cur.close()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

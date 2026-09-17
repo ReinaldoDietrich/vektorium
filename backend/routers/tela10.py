@@ -29,14 +29,14 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
 
     raw = []
 
-    def add(tipo, descricao, fabricante, qtd, chave=None):
+    def add(tipo, descricao, fabricante, qtd, chave=None, id_comercial=None):
         # `chave` (aprovado 2026-08-08): identidade estável do item pra sincronizar_equipamentos
         # não duplicar quando a descrição muda com o recálculo (ex.: Rack Paralelo, cuja descrição
         # embute capacidade/modelo calculados, que mudam a cada ajuste de Folga Técnica/Motor).
         # Itens sem chave própria (Forçador/UC/Válvula) continuam usando a descrição como sempre.
         raw.append({"tipo": tipo, "descricao": descricao,
                      "fabricante": fabricante, "quantidade": qtd or 1,
-                     "chave": chave or descricao})
+                     "chave": chave or descricao, "id_comercial": id_comercial})
 
     for s in dados["sistemas"]:
         sistema = db.get(m.SistemaRefrigeracao, s["sistema_id"])
@@ -46,7 +46,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             if f.get("modelo_evp"):
                 add("Forçador de Ar",
                     f'Forçador de Ar - {_t(f.get("fornecedor"))} - {_t(f.get("modelo_evp"))} - {_t(tensao_comando)}',
-                    f.get("fornecedor"), f.get("quantidade"))
+                    f.get("fornecedor"), f.get("quantidade"), id_comercial=f.get("id_comercial"))
                 if f.get("modelo_valvula_base"):
                     # Agrupa pelo modelo PURO da válvula (sem o "Nx" por forçador embutido, ver
                     # compilacao.py:_rotulo_valvula_base) e multiplica a quantidade real de
@@ -67,10 +67,14 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             uc_sel = (db.query(m.UnidadeSelecaoSistema)
                       .filter_by(sistema_id=sistema.id, considerado=True).first())
             fab_uc = uc_sel.fabricante_uc if uc_sel else None
+            uc_id_com = None
+            if uc_sel and uc_sel.catalogo_id:
+                cat = db.get(m.CatalogoUC, uc_sel.catalogo_id)
+                uc_id_com = cat.id_comercial if cat else None
             # N unidades idênticas em paralelo (aprovado 2026-08-13) — a quantidade do BOM = N.
             add("Unidade Condensadora",
                 f'Unidade Condensadora - {_t(fab_uc)} - {_t(ru.get("modelo_tecnico"))} - {_t(tensao_eq)}',
-                fab_uc, ru.get("quantidade_paralelo") or 1)
+                fab_uc, ru.get("quantidade_paralelo") or 1, id_comercial=uc_id_com)
         elif ru.get("fonte") == "rack":
             cap = ru.get("carga_total_fornecida_kcal_h")
             # N racks idênticos em paralelo — quantidade do BOM = N.
@@ -92,13 +96,14 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
 
     # Agrupa por `chave` (identidade estável), não por `descricao` (que pro Rack Paralelo muda a
     # cada recálculo) — mantém a última descrição vista pra exibição/sincronização.
-    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None})
+    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None, "id_comercial": None})
     for item in raw:
         k = item["chave"]
         agrupado[k]["quantidade"] += item["quantidade"]
         agrupado[k]["fabricante"] = item["fabricante"]
         agrupado[k]["tipo"] = item["tipo"]
         agrupado[k]["descricao"] = item["descricao"]
+        agrupado[k]["id_comercial"] = item.get("id_comercial")
 
     resultado = []
     for chave in sorted(agrupado.keys()):
@@ -110,6 +115,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             "tipo": g["tipo"],
             "unidade": "un",
             "quantidade": g["quantidade"],
+            "id_comercial": g.get("id_comercial"),
         })
     return projeto, resultado
 

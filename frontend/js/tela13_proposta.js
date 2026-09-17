@@ -96,10 +96,9 @@ function t19_renderTabelas() {
   box.innerHTML = (t19_ctx.tabelas || []).map(t => {
     const disp = t.disponivel !== false;
     const checked = disp ? 'checked' : '';
-    const disabled = disp ? '' : 'disabled';
-    const estilo = disp ? '' : 'opacity:0.45;cursor:not-allowed;';
+    const estilo = disp ? '' : 'opacity:0.45;';
     const hint = disp ? '' : ' (sem dados)';
-    return `<label class="checkrow" style="white-space:nowrap;${estilo}"><input type="checkbox" class="t19-tab" data-chave="${t.chave}" ${checked} ${disabled}> ${t.rotulo}${hint}</label>`;
+    return `<label class="checkrow" style="white-space:nowrap;${estilo}"><input type="checkbox" class="t19-tab" data-chave="${t.chave}" ${checked}> ${t.rotulo}${hint}</label>`;
   }).join('');
 }
 

@@ -168,6 +168,20 @@ def _margem_negociacao(db: Session, projeto_id: int) -> float:
     return reg.percentual if reg else 0.05
 
 
+def _cc_fator_de_idc(db, id_comercial_code):
+    """Retorna (centro_custo_id, fator_id) configurados no nó IdComercial para o código dado."""
+    if not id_comercial_code:
+        return None, None
+    no = db.query(m.IdComercial).filter_by(codigo=id_comercial_code).first()
+    if not no:
+        return None, None
+    cc_id = None
+    if no.centro_custo_padrao_codigo:
+        cc = db.query(m.CentroCusto).filter_by(codigo=no.centro_custo_padrao_codigo).first()
+        cc_id = cc.id if cc else None
+    return cc_id, no.fator_venda_padrao_id
+
+
 def sincronizar_equipamentos(db: Session, projeto_id: int):
     """Sincroniza o bloco "Equipamentos" com a lista gerada pela Tela 10 (mesma fonte —
     _gerar_equipamentos, que já reusa a Compilação Geral) — cria os itens que faltam (custo
@@ -199,11 +213,13 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
         else:
+            cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Equipamentos", descricao=eq["descricao"],
                 fabricante=eq.get("fabricante"), unidade="un",
                 quantidade=eq["quantidade"], custo_unitario=0, origem="sistema",
-                chave_sistema=chave, ordem=ordem_max))
+                chave_sistema=chave, ordem=ordem_max,
+                centro_custo_id=cc_id, fator_id=fator_id))
             ordem_max += 1
     for chave, item in existentes.items():
         if chave not in chaves_atuais and not item.custo_unitario:

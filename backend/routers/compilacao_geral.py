@@ -164,7 +164,8 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
                 "gas_refrigerante": None, "capacidade_unit_kcal_h": None, "diametro_ventilador_mm": None,
                 "num_ventiladores": None, "vazao_ar_m3h": None, "tensao": None, "tipo_degelo": None,
                 "corrente_ventiladores_a": None, "potencia_resist_degelo_w": None, "corrente_resist_degelo_a": None,
-                "flecha_ar_m": None, "trocas_de_ar": None, "quantidade_gas_kg": None, "folga_tecnica_pct": None}
+                "flecha_ar_m": None, "trocas_de_ar": None, "quantidade_gas_kg": None, "folga_tecnica_pct": None,
+                "id_comercial": None}
     # Válvula de Expansão da linha considerada — mesmo rótulo padrão da Tela 5 ("Nx TEN2 orif. 02").
     # modelo_valvula_base/valvula_qtd_unit (sem o "Nx" embutido) existem à parte pra Tela 10 poder
     # agrupar pelo modelo puro e multiplicar a quantidade real (ver bug real corrigido: Tela 10
@@ -173,6 +174,12 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
     valv = next((v for v in considerado.get("valvulas", []) if v.get("considerado")), None)
     rotulo_valv = _rotulo_valvula(valv)
     rotulo_valv_base = _rotulo_valvula_base(valv)
+    sel_frc = next((f for f in camara.forcadores if f.considerado), None)
+    id_com_frc = None
+    if sel_frc:
+        lf = db.get(m.LinhaForcador, sel_frc.linha_id)
+        id_com_frc = lf.id_comercial if lf else None
+
     return {
         "quantidade": considerado.get("quantidade"), "fornecedor": considerado.get("fabricante"),
         # Modelo EVP usa a nomenclatura COMPLETA (código comercial composto), não só o código base
@@ -195,6 +202,7 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
         "potencia_resist_degelo_w": eletrica.get("degelo_w"), "corrente_resist_degelo_a": eletrica.get("degelo_a"),
         "flecha_ar_m": considerado.get("flecha_ar_m"), "trocas_de_ar": considerado.get("trocas_de_ar"),
         "quantidade_gas_kg": considerado.get("carga_gas_kg"), "folga_tecnica_pct": considerado.get("folga_real"),
+        "id_comercial": id_com_frc,
     }
 
 
