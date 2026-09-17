@@ -87,12 +87,17 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
         cd = s["condensador"]
         if cd.get("fonte") == "rack" and cd.get("modelo_condensador"):
             rack = sistema.rack_paralelo
+            cond_id_com = None
+            if rack and rack.linha_condensador:
+                lc = db.query(m.LinhaCondensadorRemoto).filter_by(nome=rack.linha_condensador).first()
+                cond_id_com = lc.id_comercial if lc else None
             # A descrição carrega a qtd de condensadores POR RACK ("Nx modelo", escolha do usuário);
             # a quantidade do BOM = nº de racks em paralelo, então o total = qtd_por_rack × N racks.
             add("Condensador Remoto a Ar",
                 f'Condensador Remoto a Ar - {_t(rack.tipo_condensador if rack else None)} - '
                 f'{_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)}',
-                (rack.fabricante_condensador if rack else None), cd.get("quantidade_paralelo") or 1)
+                (rack.fabricante_condensador if rack else None), cd.get("quantidade_paralelo") or 1,
+                id_comercial=cond_id_com)
 
     # Agrupa por `chave` (identidade estável), não por `descricao` (que pro Rack Paralelo muda a
     # cada recálculo) — mantém a última descrição vista pra exibição/sincronização.

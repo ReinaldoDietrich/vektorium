@@ -35,6 +35,7 @@ class Status:
 
 
 def _post(endpoint: str, dados: dict, token: str | None) -> tuple[str, dict | None]:
+    global _client
     client = _get_client()
     if not client:
         return Status.SEM_REDE, None
@@ -52,9 +53,11 @@ def _post(endpoint: str, dados: dict, token: str | None) -> tuple[str, dict | No
         log.warning("Calc remoto %s retornou %s: %s", endpoint, r.status_code, r.text[:200])
         return Status.ERRO_SERVIDOR, None
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, OSError) as e:
+        _client = None  # conexão morta — reseta para abrir nova na próxima chamada
         log.warning("Calc remoto %s sem rede: %s", endpoint, e)
         return Status.SEM_REDE, None
     except Exception as e:
+        _client = None
         log.warning("Calc remoto %s falhou: %s", endpoint, e)
         return Status.ERRO_SERVIDOR, None
 

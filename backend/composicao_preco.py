@@ -227,6 +227,27 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
     db.commit()
 
 
+def _cc_fator_painel_porta(db, linha):
+    """Retorna (centro_custo_id, fator_id) para uma linha do resumo de painéis/portas.
+    Portas: linha["id_porta"] == LookupPainelPorta.prefixo_id (Modelo Porta).
+    Painéis: LookupPainelPorta.valor (Tipo Painel) como substring de linha["item"]."""
+    if "id_porta" in linha:
+        lk = (db.query(m.LookupPainelPorta)
+              .filter_by(categoria="Modelo Porta", prefixo_id=linha["id_porta"])
+              .filter(m.LookupPainelPorta.id_comercial.isnot(None))
+              .first())
+    else:
+        item_str = linha.get("item", "")
+        lk = None
+        for lkp in (db.query(m.LookupPainelPorta)
+                    .filter_by(categoria="Tipo Painel")
+                    .filter(m.LookupPainelPorta.id_comercial.isnot(None)).all()):
+            if lkp.valor and lkp.valor in item_str:
+                lk = lkp
+                break
+    return _cc_fator_de_idc(db, lk.id_comercial if lk else None)
+
+
 def sincronizar_paineis_portas(db: Session, projeto_id: int):
     """Sincroniza o bloco "Painéis Térmicos" com o resumo calculado na Tela 7 (Painéis/Portas —
     ver calc_paineis_portas.montar_resumo, modo "total"): painéis/isolamento agrupados por
@@ -277,10 +298,12 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             existentes[chave].unidade = linha["unidade"]
             existentes[chave].ordem = idx
         else:
+            cc_id, fator_id = _cc_fator_painel_porta(db, linha)
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Painéis Térmicos", descricao=chave,
                 unidade=linha["unidade"], quantidade=linha["quantidade"],
-                custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx))
+                custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx,
+                centro_custo_id=cc_id, fator_id=fator_id))
     for chave, item in existentes.items():
         if chave not in chaves_atuais and not item.custo_unitario:
             db.delete(item)
