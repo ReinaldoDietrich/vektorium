@@ -96,11 +96,13 @@ const AUTH = {
     try {
       const rConv = await fetch('/api/catalogo-sync/converter-fotos', { method: 'POST' });
       const conv = await rConv.json();
-      if (conv.convertidos > 0) {
+      const dirty = localStorage.getItem('catalogosDirty') === 'true';
+      if (conv.convertidos > 0 || dirty) {
         await fetch('/api/catalogo-sync/push-para-remoto', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
         });
+        localStorage.removeItem('catalogosDirty');
       }
     } catch (e) {
       console.warn('[auth] Sync de fotos falhou (não-bloqueante):', e);

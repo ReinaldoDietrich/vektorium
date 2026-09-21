@@ -686,6 +686,7 @@ async function t7_salvarTabela02Faixas() {
   try {
     await api.put('/api/catalogos/tabela02-faixas', { faixas });
     alert('Tabela 02 (faixas de área) salva.');
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     t7_carregarTabela02Faixas();
   } catch (err) { alert('Erro ao salvar: ' + err.message); }
 }
@@ -727,6 +728,7 @@ async function t7_carregarIsolamentoParedeTeto() {
     const e = Number(b.dataset.excluirEspessura);
     if (porEspessura[e].pir) await api.del(`/api/catalogos/isolamento-parede-teto/${porEspessura[e].pir.id}`);
     if (porEspessura[e].eps) await api.del(`/api/catalogos/isolamento-parede-teto/${porEspessura[e].eps.id}`);
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     t7_carregarIsolamentoParedeTeto();
   }));
 }
@@ -753,6 +755,7 @@ async function t7_salvarCelulaParedeTeto(inp) {
     }
     await api.put(`/api/catalogos/isolamento-parede-teto/${id}`, { vao_maximo_apoios_mm: valor === '' ? null : Number(valor) });
   }
+  try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
   t7_carregarIsolamentoParedeTeto();
 }
 
@@ -805,6 +808,7 @@ async function t7_carregarIsolamentoPiso() {
   el.querySelectorAll('[data-excluir-piso]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir esta opção de piso?')) return;
     await api.del(`/api/catalogos/isolamento-piso/${b.dataset.excluirPiso}`);
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     t7_carregarIsolamentoPiso();
   }));
 }
@@ -819,10 +823,12 @@ async function t7_salvarLinhaPiso(tr) {
     valido_apenas_acima_zero: get('valido_apenas_acima_zero').checked,
   };
   await api.put(`/api/catalogos/isolamento-piso/${id}`, payload);
+  try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
 }
 
 async function t7_addPiso() {
   const obj = await api.post('/api/catalogos/isolamento-piso', { material: 'Novo material', u_valor: 0 });
+  try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
   t7_carregarIsolamentoPiso();
 }
 

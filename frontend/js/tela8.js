@@ -238,6 +238,7 @@ async function t8_confirmar() {
     document.getElementById('ucResultado').innerHTML = `Importado: ${r.criadas} criada(s), ${r.atualizadas} atualizada(s).`;
     t8_cancelarPreview();
     t8_carregarCatalogo();
+    catalogoSincronizar();  // push imediato para Fly.io/Supabase
   } catch (err) { alert('Erro ao confirmar importação: ' + err.message); }
 }
 
@@ -306,7 +307,11 @@ async function t8_carregarCatalogo() {
     const id = Number(b.dataset.excluirCat);
     const cat = cats.find(c => c.id === id);
     if (!confirm(`Excluir o catálogo inteiro "${cat.nome}" e todas as suas unidades?`)) return;
-    try { await api.del(`/api/uc/catalogos-detalhe/${id}`); t8_fechar(); t8_carregarCatalogo(); }
+    try {
+      await api.del(`/api/uc/catalogos-detalhe/${id}`);
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
+      t8_fechar(); t8_carregarCatalogo();
+    }
     catch (err) { alert('Erro ao excluir: ' + err.message); }
   }));
 }
@@ -380,6 +385,7 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
         const conteudo = document.querySelector(`[data-cat-conteudo="${catalogoId}"]`);
         if (conteudo) await t8_renderCatalogoConteudo(conteudo, catalogoId);
       }
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       if (erros.length) {
         alert('Algumas partes NÃO foram salvas:\n' + erros.join('\n') + '\n\nAs demais partes foram salvas normalmente.');
       }
@@ -394,6 +400,7 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
     try {
       const r = await api.upload(`/api/uc/catalogos-detalhe/${catalogoId}/foto`, file);
       document.getElementById(`catFotoPreview_${catalogoId}`).innerHTML = `<img src="${r.imagem_path}" style="max-width:220px;max-height:160px;border:1px solid var(--line);border-radius:4px;">`;
+      catalogoSincronizar();  // push imediato para Fly.io/Supabase
     } catch (err) { alert('Erro ao enviar foto: ' + err.message); }
   });
   await t8_obterEditorNomenclatura(catalogoId).carregar(`/api/uc/catalogos-detalhe/${catalogoId}/campos`);
@@ -407,6 +414,7 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
     if (!confirm('Excluir esta unidade?')) return;
     try {
       await api.del(`/api/uc/unidades/${b.dataset.excluirUc}`);
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       if (t8_unidadeAtual === Number(b.dataset.excluirUc)) t8_fechar();
       await t8_renderCatalogoConteudo(container, catalogoId);
       t8_carregarCatalogo();

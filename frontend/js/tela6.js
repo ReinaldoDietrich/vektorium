@@ -154,6 +154,7 @@ async function t6_confirmarImportacao() {
     nomenc_invalidarCache();  // importação pode ter trazido Campos novos/atualizados pras linhas gravadas
     t6_cancelarPreview();
     t6_carregarTudo();
+    catalogoSincronizar();  // push imediato para Fly.io/Supabase
   } catch (err) {
     alert('Falha ao gravar: ' + err.message);
   }
@@ -200,6 +201,7 @@ async function t6_carregarLinhas() {
       await api.del(`/api/forcadores/linhas/${b.dataset.excluirLinha}`);
       if (t6_linhaAtualId === Number(b.dataset.excluirLinha)) t6_fecharLinha();
       t6_carregarLinhas();
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     } catch (err) { alert('Erro ao excluir linha: ' + err.message); }
   }));
   el.querySelectorAll('[data-renomear-fab-id]').forEach(b => b.addEventListener('click', async (e) => {
@@ -212,6 +214,7 @@ async function t6_carregarLinhas() {
       try {
         await api.put(`/api/forcadores/fabricantes/${id}`, { nome: nomeNovo });
         t6_carregarLinhas();
+        try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       } catch (err) { alert('Erro ao renomear: ' + err.message); }
     });
   }));
@@ -247,6 +250,7 @@ async function t6_enviarFotoLinha(ev) {
   try {
     const r = await api.upload(`/api/forcadores/linhas/${t6_linhaAtualId}/foto`, file);
     t6_renderFotoPreview(r.imagem_path);
+    catalogoSincronizar();  // push imediato para Fly.io/Supabase
   } catch (err) { alert('Erro ao enviar foto: ' + err.message); }
   ev.target.value = '';
 }
@@ -309,6 +313,7 @@ async function t6_salvarLinha() {
     tituloEl.textContent = tituloEl.textContent.replace(/\/ .+$/, `/ ${document.getElementById('f6_linhaNome').value} `);
     t6_carregarLinhas();
 
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     if (erros.length) {
       alert('Algumas partes NÃO foram salvas:\n' + erros.join('\n') + '\n\nAs demais partes foram salvas normalmente.');
     }
@@ -377,6 +382,7 @@ async function t6_excluirLinhaAtual() {
     await api.del(`/api/forcadores/linhas/${t6_linhaAtualId}`);
     t6_fecharLinha();
     t6_carregarLinhas();
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
   } catch (err) { alert('Erro ao excluir: ' + err.message); }
 }
 

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models as m
 from ..utils import model_to_dict
+from .catalogos import bumpar_versao_catalogo
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/catalogo-sync", tags=["catalogo-sync"])
@@ -361,6 +362,9 @@ def receber(payload: dict = Body(...), db: Session = Depends(get_db)):
         return {"erro": f"Tipo desconhecido: {tipo}"}
     try:
         resultado = fn(db, payload)
+        for tabela in _GRUPOS_TABELAS.get(tipo, []):
+            bumpar_versao_catalogo(db, tabela)
+        db.commit()
         log.info("Sync %s: %s", tipo, resultado)
         return {"ok": True, **resultado}
     except Exception as e:

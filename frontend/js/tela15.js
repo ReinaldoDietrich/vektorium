@@ -183,6 +183,7 @@ async function c15_confirmarImportacao() {
     nomenc_invalidarCache();  // importação pode ter trazido Campos novos/atualizados pras linhas gravadas
     c15_cancelarPreview();
     c15_carregarTudo();
+    catalogoSincronizar();  // push imediato para Fly.io/Supabase
   } catch (err) {
     alert('Falha ao gravar: ' + err.message);
   }
@@ -223,6 +224,7 @@ async function c15_carregarLinhas() {
     if (!confirm('Excluir esta linha e todos os seus modelos?')) return;
     try {
       await api.del(`/api/condensadores/linhas/${b.dataset.excluirLinha}`);
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       if (c15_linhaAtualId === Number(b.dataset.excluirLinha)) c15_fecharLinha();
       c15_carregarLinhas();
     } catch (err) { alert('Erro ao excluir linha: ' + err.message); }
@@ -258,6 +260,7 @@ async function c15_enviarFoto(ev) {
   const r = await api.upload(`/api/condensadores/linhas/${c15_linhaAtualId}/foto`, file);
   c15_renderFoto(r.imagem_path);
   ev.target.value = '';
+  catalogoSincronizar();  // push imediato para Fly.io/Supabase
 }
 
 // ---------- Modelos (tabela plana editável inline) ----------
@@ -273,11 +276,13 @@ async function c15_carregarModelos(idAbertura = c15_linhaAtualId) {
       const c = C15_MODELO_COLS.find(x => x.k === inp.dataset.campo);
       const v = c.n ? parseNumBR(inp.value) : (inp.value || null);
       await api.put(`/api/condensadores/modelos/${id}`, { [inp.dataset.campo]: v });
+      try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     }));
     tr.querySelector('[data-excluir-modelo]').addEventListener('click', async () => {
       if (!confirm('Excluir este modelo?')) return;
       try {
         await api.del(`/api/condensadores/modelos/${id}`);
+        try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
         c15_carregarModelos();
       } catch (err) { alert('Erro ao excluir modelo: ' + err.message); }
     });
@@ -287,6 +292,7 @@ async function c15_carregarModelos(idAbertura = c15_linhaAtualId) {
 async function c15_addModelo() {
   if (!c15_linhaAtualId) return;
   await api.post(`/api/condensadores/linhas/${c15_linhaAtualId}/modelos`, { modelo: 'Novo modelo' });
+  try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
   c15_carregarModelos();
 }
 
@@ -371,6 +377,7 @@ async function c15_salvarLinha() {
     await c15_carregarFatores();
     await c15_carregarNomenclatura();
     c15_carregarLinhas();
+    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
     if (erros.length) alert('Algumas partes NÃO foram salvas:\n' + erros.join('\n'));
   } finally {
     btn.disabled = false;
