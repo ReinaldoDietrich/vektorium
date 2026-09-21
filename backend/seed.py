@@ -16,8 +16,42 @@ from . import models as m
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 
+def _migrar_colunas_faltantes():
+    """Adiciona colunas que existem no modelo ORM mas ainda não existem na tabela SQLite.
+    create_all só cria tabelas novas — não altera tabelas existentes. Sem isso, usuários
+    que instalaram uma versão anterior ficam com HTTP 500 porque o SELECT pede colunas
+    que a tabela deles não tem."""
+    if "sqlite" not in str(engine.url):
+        return
+    from sqlalchemy import text, inspect as sa_inspect
+    with engine.connect() as conn:
+        inspector = sa_inspect(engine)
+        for table in Base.metadata.sorted_tables:
+            if table.name not in inspector.get_table_names():
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                col_type = col.type.compile(dialect=engine.dialect)
+                default = ""
+                if col.default is not None and col.default.arg is not None:
+                    v = col.default.arg
+                    if isinstance(v, bool):
+                        default = f" DEFAULT {1 if v else 0}"
+                    elif isinstance(v, (int, float)):
+                        default = f" DEFAULT {v}"
+                    elif isinstance(v, str):
+                        default = f" DEFAULT '{v}'"
+                conn.execute(text(
+                    f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type}{default}'
+                ))
+        conn.commit()
+
+
 def run():
     Base.metadata.create_all(bind=engine)
+    _migrar_colunas_faltantes()
     db = SessionLocal()
     try:
         if db.query(m.FaixaTrocasAr).count() == 0:
@@ -92,8 +126,22 @@ def run():
             for mat, esp, u in [("PIR 50mm", 50, 0.38), ("PIR 70mm", 70, 0.27), ("PIR 100mm", 100, 0.19),
                                  ("PIR 120mm", 120, 0.15), ("PIR 150mm", 150, 0.13), ("PIR 200mm", 200, 0.09),
                                  ("EPS 50mm", 50, 0.60), ("EPS 100mm", 100, 0.30), ("EPS 150mm", 150, 0.20),
-                                 ("EPS 200mm", 200, 0.15), ("EPS 250mm", 250, 0.12)]:
+                                 ("EPS 200mm", 200, 0.15), ("EPS 250mm", 250, 0.12),
+                                 ("Tijolo Cerâmico Furado 15cm", 150, 2.13),
+                                 ("Bloco de Concreto 15cm", 150, 2.58),
+                                 ("Laje de Concreto 20cm", 200, 3.38),
+                                 ("Forro de PVC (sem isolamento)", 10, 2.51)]:
                 db.add(m.IsolamentoParedeTeto(material=mat, espessura_mm=esp, u_valor=u))
+        else:
+            _alvenaria = [
+                ("Tijolo Cerâmico Furado 15cm", 150, 2.13),
+                ("Bloco de Concreto 15cm", 150, 2.58),
+                ("Laje de Concreto 20cm", 200, 3.38),
+                ("Forro de PVC (sem isolamento)", 10, 2.51),
+            ]
+            for mat, esp, u in _alvenaria:
+                if db.query(m.IsolamentoParedeTeto).filter_by(material=mat).count() == 0:
+                    db.add(m.IsolamentoParedeTeto(material=mat, espessura_mm=esp, u_valor=u))
 
         if db.query(m.IsolamentoPiso).count() == 0:
             for mat, esp, u, so_acima_zero in [

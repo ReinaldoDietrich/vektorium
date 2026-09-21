@@ -1,8 +1,48 @@
+/* Modal reutilizável — substitui window.prompt() que não funciona no Electron. */
+function vkPrompt(titulo, campos, callback) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:8px;padding:24px;min-width:340px;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+  box.innerHTML = `<h3 style="margin:0 0 16px;font-size:15px;">${titulo}</h3>` +
+    campos.map((c, i) => {
+      if (c.tipo === 'checkbox') return `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" data-vk="${c.name}" ${c.valor ? 'checked' : ''}> ${c.label}</label>`;
+      return `<label style="display:block;margin-bottom:12px;font-size:13px;">${c.label}<input data-vk="${c.name}" type="${c.tipo || 'text'}" value="${c.valor != null ? c.valor : ''}" style="display:block;width:100%;margin-top:4px;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:14px;" ${i === 0 ? 'autofocus' : ''}></label>`;
+    }).join('') +
+    '<div style="text-align:right;margin-top:16px;"><button class="vk-cancel" style="margin-right:8px;padding:6px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Cancelar</button><button class="vk-ok" style="padding:6px 16px;border:none;border-radius:4px;background:#1668c7;color:#fff;cursor:pointer;">OK</button></div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  const primeiro = box.querySelector('[data-vk]');
+  if (primeiro && primeiro.type !== 'checkbox') { primeiro.focus(); primeiro.select(); }
+  function coletar() {
+    const r = {};
+    box.querySelectorAll('[data-vk]').forEach(el => { r[el.dataset.vk] = el.type === 'checkbox' ? el.checked : el.value; });
+    return r;
+  }
+  function fechar() { overlay.remove(); }
+  box.querySelector('.vk-cancel').addEventListener('click', fechar);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+  box.querySelector('.vk-ok').addEventListener('click', () => { const v = coletar(); fechar(); callback(v); });
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') fechar();
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); const v = coletar(); fechar(); callback(v); }
+  });
+}
+
 /* Componente reaproveitado pelas Telas 2 e 3 — Seção 8 Forçadores e 8.1 Válvulas
    (mesmo padrão de add-row + lista agrupada por fabricante + Excluir). */
 
 async function carregarFabricantes() {
-  return api.get('/api/catalogos/fabricantes');
+  try {
+    const [fabs, linhas] = await Promise.all([
+      api.get('/api/catalogos/fabricantes'),
+      api.get('/api/forcadores/linhas'),
+    ]);
+    const comLinhas = new Set(linhas.map(l => l.fabricante_id));
+    return fabs.filter(f => comLinhas.has(f.id));
+  } catch (_) {
+    try { return await api.get('/api/catalogos/fabricantes'); } catch (_2) { return []; }
+  }
 }
 
 async function carregarLinhasDoFabricante(fabricanteId) {
@@ -299,6 +339,7 @@ function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
     if (carrossel) carrossel.scrollLeft = scrollAnterior;
 
     el.querySelectorAll('[data-remover-campo]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Remover esta coluna de nomenclatura?')) return;
       const c2 = estado();
       c2.splice(Number(b.dataset.removerCampo), 1);
       salvarEstadoLocal(c2);
@@ -311,6 +352,7 @@ function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
       redesenhar();
     }));
     el.querySelectorAll('[data-remover-opcao]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Remover esta opção?')) return;
       const [ci, oi] = b.dataset.removerOpcao.split(':').map(Number);
       const c2 = estado();
       c2[ci].opcoes.splice(oi, 1);

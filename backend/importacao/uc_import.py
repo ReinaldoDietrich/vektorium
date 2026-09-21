@@ -10,6 +10,7 @@ Físico/Dimensional NÃO varia por tensão, fica na aba Unidades (escalar)."""
 import io
 from datetime import datetime
 import openpyxl
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from .. import models as m
 from .. import campo_catalogo as cc
@@ -250,10 +251,11 @@ def salvar_unidades(db: Session, unidades, eletricas_por_modelo, caps_por_modelo
         catalogo = catalogos_cache.get(chave_cat)
         if not catalogo:
             catalogo = (db.query(m.CatalogoUC)
-                        .filter_by(fabricante_uc=u["Fabricante_UC"], nome=u["Nome_Catalogo"],
-                                   versao_catalogo=u["Versao_Catalogo"]).first())
+                        .filter(func.lower(m.CatalogoUC.fabricante_uc) == u["Fabricante_UC"].strip().lower(),
+                                m.CatalogoUC.nome == u["Nome_Catalogo"],
+                                m.CatalogoUC.versao_catalogo == u["Versao_Catalogo"]).first())
             if not catalogo:
-                catalogo = m.CatalogoUC(fabricante_uc=u["Fabricante_UC"], nome=u["Nome_Catalogo"],
+                catalogo = m.CatalogoUC(fabricante_uc=u["Fabricante_UC"].strip(), nome=u["Nome_Catalogo"],
                                         versao_catalogo=u["Versao_Catalogo"])
                 db.add(catalogo)
                 db.flush()

@@ -92,21 +92,23 @@
     } catch (e) { msg.textContent = 'Erro: ' + e.message; }
   };
 
-  window._t20_editarPapel = async function (id) {
+  window._t20_editarPapel = function (id) {
     const p = _papeis.find(x => x.id === id);
     if (!p) return;
-    const nome = prompt('Nome do tipo:', p.nome);
-    if (nome === null) return;
-    const descricao = prompt('Descrição:', p.descricao);
-    if (descricao === null) return;
-    const is_admin = confirm('Este tipo tem acesso administrativo?');
-    try {
-      await api.put(`/api/admin/papeis/${id}`, { nome, descricao, is_admin });
-      await carregarPapeis();
-      await carregarUsuarios();
-      renderPermHead();
-      await carregarPermissoes();
-    } catch (e) { alert('Erro: ' + e.message); }
+    vkPrompt('Editar Tipo', [
+      {label: 'Nome do tipo', name: 'nome', valor: p.nome},
+      {label: 'Descrição', name: 'descricao', valor: p.descricao},
+      {label: 'Acesso administrativo', name: 'is_admin', tipo: 'checkbox', valor: p.is_admin}
+    ], async (v) => {
+      if (!v.nome || !v.nome.trim()) return;
+      try {
+        await api.put(`/api/admin/papeis/${id}`, { nome: v.nome.trim(), descricao: v.descricao || '', is_admin: v.is_admin });
+        await carregarPapeis();
+        await carregarUsuarios();
+        renderPermHead();
+        await carregarPermissoes();
+      } catch (e) { alert('Erro: ' + e.message); }
+    });
   };
 
   window._t20_excluirPapel = async function (id, nome) {
@@ -207,6 +209,7 @@
   }
 
   window._t20_toggleDisp = async function (did, ativar) {
+    if (!confirm(ativar ? 'Ativar este dispositivo?' : 'Desativar este dispositivo? O usuário perderá acesso.')) return;
     try {
       await api.put(`/api/admin/dispositivos/${did}/${ativar ? 'ativar' : 'desativar'}`);
       await carregarDispositivos();

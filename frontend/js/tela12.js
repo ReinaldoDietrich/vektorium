@@ -70,9 +70,15 @@ const T12_BLOCO_CONDENSADOR = [
 
 function initTela12() {
   document.getElementById('t12_btnAtualizar').addEventListener('click', t12_carregar);
-  document.getElementById('t12_btnImprimir').addEventListener('click', () => window.print());
-  document.getElementById('t12_btnExportarExcel').addEventListener('click', () => {
-    if (state.projetoId) api.baixarOuSalvar(`/api/compilacao-geral/exportar/excel?projeto_id=${state.projetoId}`);
+  document.getElementById('t12_btnImprimir').addEventListener('click', () => {
+    document.body.classList.add('t12-imprimindo');
+    window.print();
+    document.body.classList.remove('t12-imprimindo');
+  });
+  document.getElementById('t12_btnExportarExcel').addEventListener('click', async () => {
+    if (!state.projetoId) return;
+    try { await api.baixarOuSalvar(`/api/compilacao-geral/exportar/excel?projeto_id=${state.projetoId}`); }
+    catch (e) { alert(`Erro ao exportar Excel:\n${e.message}`); }
   });
   document.addEventListener('projeto-changed', t12_onProjetoChanged);
 }

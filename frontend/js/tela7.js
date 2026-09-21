@@ -130,8 +130,8 @@ function t7_criarTabelaGenerica(containerId, apiPath, campos, defaults) {
       tr.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', () => salvarLinha(tr)));
       tr.querySelector('[data-excluir]').addEventListener('click', async () => {
         if (!confirm('Excluir este item?')) return;
-        await api.del(`${apiPath}/${tr.dataset.id}`);
-        carregar();
+        try { await api.del(`${apiPath}/${tr.dataset.id}`); carregar(); }
+        catch (err) { alert('Erro ao excluir: ' + err.message); }
       });
     });
   }
@@ -141,14 +141,15 @@ function t7_criarTabelaGenerica(containerId, apiPath, campos, defaults) {
       const v = tr.querySelector(`[data-campo="${c.key}"]`).value;
       payload[c.key] = c.tipo === 'number' ? parseNumBR(v) : v;
     });
-    await api.put(`${apiPath}/${tr.dataset.id}`, payload);
+    try { await api.put(`${apiPath}/${tr.dataset.id}`, payload); }
+    catch (err) { alert('Erro ao salvar: ' + err.message); }
   }
   async function add() {
     const el = document.getElementById(containerId);
     await Promise.all(Array.from(el.querySelectorAll('tbody tr')).map(tr => salvarLinha(tr)));
     const payload = typeof defaults === 'function' ? defaults() : (defaults || {});
-    await api.post(apiPath, payload);
-    carregar();
+    try { await api.post(apiPath, payload); carregar(); }
+    catch (err) { alert('Erro ao adicionar: ' + err.message); }
   }
   return { carregar, add };
 }
@@ -549,8 +550,8 @@ const t7_arvoreIdsComerciais = (function () {
       tr.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', () => salvarLinha(tr)));
       tr.querySelector('[data-excluir]').addEventListener('click', async () => {
         if (!confirm('Excluir este item (e possíveis itens abaixo dele ficarão órfãos)?')) return;
-        await api.del(`${apiPath}/${tr.querySelector('[data-excluir]').dataset.excluir}`);
-        await carregar();
+        try { await api.del(`${apiPath}/${tr.querySelector('[data-excluir]').dataset.excluir}`); await carregar(); }
+        catch (err) { alert('Erro ao excluir: ' + err.message); }
       });
       tr.querySelector('[data-add-filho]').addEventListener('click', () => addFilho(tr.querySelector('[data-add-filho]').dataset.addFilho));
     });
@@ -612,24 +613,26 @@ const t7_arvoreIdsComerciais = (function () {
     if (cc) payload.centro_custo_padrao_codigo = cc.value || null;
     const fator = tr.querySelector('[data-campo="fator_venda_padrao_id"]');
     if (fator) payload.fator_venda_padrao_id = fator.value ? Number(fator.value) : null;
-    await api.put(`${apiPath}/${tr.dataset.id}`, payload);
-    await carregar();
+    try { await api.put(`${apiPath}/${tr.dataset.id}`, payload); await carregar(); }
+    catch (err) { alert('Erro ao salvar: ' + err.message); }
   }
 
-  async function addFilho(paiCodigo) {
-    const nome = prompt(`Nome do novo item dentro de "${paiCodigo}":`);
-    if (!nome) return;
-    const codigo = proximoCodigoFilho(paiCodigo);
-    await api.post(apiPath, { codigo, nome: nome.trim(), ordem: 0 });
-    await carregar();
+  function addFilho(paiCodigo) {
+    vkPrompt(`Novo item dentro de "${paiCodigo}"`, [{label: 'Nome', name: 'nome'}], async (v) => {
+      if (!v.nome || !v.nome.trim()) return;
+      const codigo = proximoCodigoFilho(paiCodigo);
+      try { await api.post(apiPath, { codigo, nome: v.nome.trim(), ordem: 0 }); await carregar(); }
+      catch (err) { alert('Erro ao adicionar: ' + err.message); }
+    });
   }
 
-  async function addNivel1() {
-    const nome = prompt('Nome da nova etapa principal (nível 1):');
-    if (!nome) return;
-    const codigo = proximoCodigoFilho(null);
-    await api.post(apiPath, { codigo, nome: nome.trim(), ordem: 0 });
-    await carregar();
+  function addNivel1() {
+    vkPrompt('Nova etapa principal (nível 1)', [{label: 'Nome', name: 'nome'}], async (v) => {
+      if (!v.nome || !v.nome.trim()) return;
+      const codigo = proximoCodigoFilho(null);
+      try { await api.post(apiPath, { codigo, nome: v.nome.trim(), ordem: 0 }); await carregar(); }
+      catch (err) { alert('Erro ao adicionar: ' + err.message); }
+    });
   }
 
   return { carregar, addNivel1 };
@@ -680,9 +683,11 @@ async function t7_salvarTabela02Faixas() {
       valores,
     };
   });
-  await api.put('/api/catalogos/tabela02-faixas', { faixas });
-  alert('Tabela 02 (faixas de área) salva.');
-  t7_carregarTabela02Faixas();
+  try {
+    await api.put('/api/catalogos/tabela02-faixas', { faixas });
+    alert('Tabela 02 (faixas de área) salva.');
+    t7_carregarTabela02Faixas();
+  } catch (err) { alert('Erro ao salvar: ' + err.message); }
 }
 
 // ---------- Painéis Isolantes — Parede/Teto (tabela cruzada Espessura × PIR/EPS) ----------
@@ -752,9 +757,13 @@ async function t7_salvarCelulaParedeTeto(inp) {
 }
 
 function t7_addEspessura() {
-  const valor = prompt('Nova espessura (mm):');
-  const esp = Number(valor);
-  if (!esp) return;
+  vkPrompt('Nova espessura', [{label: 'Espessura (mm)', name: 'esp', tipo: 'number'}], (v) => {
+    const esp = Number(v.esp);
+    if (!esp) return;
+    _t7_inserirEspessura(esp);
+  });
+}
+function _t7_inserirEspessura(esp) {
   const el = document.getElementById('cfg_isolamentoParedeTeto');
   if (el.querySelector(`tr[data-espessura="${esp}"]`)) { alert('Essa espessura já existe.'); return; }
   const tbody = el.querySelector('tbody');
@@ -913,8 +922,8 @@ async function t7_carregar() {
   el.querySelectorAll('[data-cfg-salvar]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.cfgSalvar;
     const valor = parseNumBR(document.querySelector(`[data-cfg-valor="${id}"]`).value);
-    await api.put(`/api/catalogos/configuracao-global/${id}`, { valor });
-    alert('Configuração salva.');
+    try { await api.put(`/api/catalogos/configuracao-global/${id}`, { valor }); alert('Configuração salva.'); }
+    catch (err) { alert('Erro ao salvar: ' + err.message); }
   }));
 }
 

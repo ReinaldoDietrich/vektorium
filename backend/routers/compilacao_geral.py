@@ -75,17 +75,21 @@ def _nomenclatura_completa_forcador(db, considerado, tensao_comando=None):
                              contexto=contexto, selecoes_manuais=selecoes)
 
 
+_DELTA_CONDENSACAO_PADRAO = 10  # mesmo padrão de tela11.js e _bloco_rack_uc/_bloco_condensador
+
+
 def _temp_condensacao(projeto, sistema):
-    if projeto is None or projeto.temp_ambiente is None or sistema.delta_condensacao is None:
+    if projeto is None or projeto.temp_ambiente is None:
         return None
-    return round(projeto.temp_ambiente + sistema.delta_condensacao, 1)
+    delta = sistema.delta_condensacao if sistema.delta_condensacao is not None else _DELTA_CONDENSACAO_PADRAO
+    return round(projeto.temp_ambiente + delta, 1)
 
 
 def _bloco_carga(projeto, sistema, camara, calc, tipo):
     return {
         "sistema": sistema.nome,
         "temp_ambiente": projeto.temp_ambiente if projeto else None,
-        "delta_condensacao": sistema.delta_condensacao,
+        "delta_condensacao": sistema.delta_condensacao if sistema.delta_condensacao is not None else _DELTA_CONDENSACAO_PADRAO,
         "temp_condensacao": _temp_condensacao(projeto, sistema),
         "temp_evaporacao": sistema.temp_evaporacao,
         "temp_interna": camara.temp_interna,

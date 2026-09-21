@@ -85,12 +85,12 @@ function c15_gerarExportacao() {
   const g = (id, key) => { const v = document.getElementById(id).value; if (v) p.set(key, v); };
   g('c15exp_fabricante', 'fabricante'); g('c15exp_linha', 'linha'); g('c15exp_estrutura', 'tipo_estrutura');
   g('c15exp_fpi', 'fpi'); g('c15exp_motor', 'tipo_motor');
-  window.location.href = '/api/condensadores/exportar-bd' + (p.toString() ? '?' + p.toString() : '');
+  api.baixarOuSalvar('/api/condensadores/exportar-bd' + (p.toString() ? '?' + p.toString() : ''));
   document.getElementById('c15_exportFiltro').style.display = 'none';
 }
 
-function c15_baixarTemplate(e) { e.preventDefault(); window.location.href = '/api/condensadores/template'; }
-function c15_baixarDocumento(e) { e.preventDefault(); window.location.href = '/api/condensadores/documento'; }
+function c15_baixarTemplate(e) { e.preventDefault(); api.baixarOuSalvar('/api/condensadores/template'); }
+function c15_baixarDocumento(e) { e.preventDefault(); api.baixarOuSalvar('/api/condensadores/documento'); }
 
 // ---------- Tabela de modelos (achatada, reutilizada no preview e no detalhe) ----------
 function c15_htmlTabelaModelos(modelos, { comExcluir }) {
@@ -221,9 +221,11 @@ async function c15_carregarLinhas() {
   el.querySelectorAll('[data-excluir-linha]').forEach(b => b.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (!confirm('Excluir esta linha e todos os seus modelos?')) return;
-    await api.del(`/api/condensadores/linhas/${b.dataset.excluirLinha}`);
-    if (c15_linhaAtualId === Number(b.dataset.excluirLinha)) c15_fecharLinha();
-    c15_carregarLinhas();
+    try {
+      await api.del(`/api/condensadores/linhas/${b.dataset.excluirLinha}`);
+      if (c15_linhaAtualId === Number(b.dataset.excluirLinha)) c15_fecharLinha();
+      c15_carregarLinhas();
+    } catch (err) { alert('Erro ao excluir linha: ' + err.message); }
   }));
 }
 
@@ -274,8 +276,10 @@ async function c15_carregarModelos(idAbertura = c15_linhaAtualId) {
     }));
     tr.querySelector('[data-excluir-modelo]').addEventListener('click', async () => {
       if (!confirm('Excluir este modelo?')) return;
-      await api.del(`/api/condensadores/modelos/${id}`);
-      c15_carregarModelos();
+      try {
+        await api.del(`/api/condensadores/modelos/${id}`);
+        c15_carregarModelos();
+      } catch (err) { alert('Erro ao excluir modelo: ' + err.message); }
     });
   });
 }
@@ -386,9 +390,11 @@ function c15_fecharLinha() {
 async function c15_excluirLinhaAtual() {
   if (!c15_linhaAtualId) return;
   if (!confirm('Excluir este catálogo (linha) inteiro e todos os seus modelos?')) return;
-  await api.del(`/api/condensadores/linhas/${c15_linhaAtualId}`);
-  c15_fecharLinha();
-  c15_carregarLinhas();
+  try {
+    await api.del(`/api/condensadores/linhas/${c15_linhaAtualId}`);
+    c15_fecharLinha();
+    c15_carregarLinhas();
+  } catch (err) { alert('Erro ao excluir catálogo: ' + err.message); }
 }
 
 window.initTela15 = initTela15;

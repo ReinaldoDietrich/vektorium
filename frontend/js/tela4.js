@@ -145,8 +145,11 @@ function t4_renderModulos(modulos) {
   el.innerHTML = '<table class="list"><tbody>' + modulos.map(m =>
     `<tr><td>${m.qtd}x ${m.comprimento_modulo}m</td><td style="text-align:right;"><span class="btn-text danger" data-excluir-modulo="${m.id}">Excluir</span></td></tr>`).join('') + '</tbody></table>';
   el.querySelectorAll('[data-excluir-modulo]').forEach(b => b.addEventListener('click', async () => {
-    await api.del(`/api/expositores/${t4_editandoId}/modulos/${b.dataset.excluirModulo}`);
-    t4_abrirExpositor(t4_editandoId);
+    if (!confirm('Excluir este módulo?')) return;
+    try {
+      await api.del(`/api/expositores/${t4_editandoId}/modulos/${b.dataset.excluirModulo}`);
+      t4_abrirExpositor(t4_editandoId);
+    } catch (err) { alert('Erro ao excluir módulo: ' + err.message); }
   }));
 }
 

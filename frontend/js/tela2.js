@@ -395,9 +395,12 @@ function t2_renderEquipamentos(itens) {
   el.querySelectorAll('[data-equip-qtd]').forEach(i => i.addEventListener('change', () => salvarEquip(i.dataset.equipQtd)));
   el.querySelectorAll('[data-equip-tempo]').forEach(i => i.addEventListener('change', () => salvarEquip(i.dataset.equipTempo)));
   el.querySelectorAll('[data-excluir-equip]').forEach(b => b.addEventListener('click', async () => {
-    await api.del(`/api/camaras-completo/${t2_editandoId}/equipamentos/${b.dataset.excluirEquip}`);
-    t2_atualizarPainel(t2_editandoId);
-    t2_carregarLista();
+    if (!confirm('Excluir este equipamento?')) return;
+    try {
+      await api.del(`/api/camaras-completo/${t2_editandoId}/equipamentos/${b.dataset.excluirEquip}`);
+      t2_atualizarPainel(t2_editandoId);
+      t2_carregarLista();
+    } catch (err) { alert('Erro ao excluir equipamento: ' + err.message); }
   }));
 }
 
@@ -488,8 +491,11 @@ function t2_renderPortas(portas) {
 }
 
 async function t2_delPorta(id) {
-  await api.del(`/api/camaras-completo/portas/${id}`);
-  await t2_atualizarPainelPortas();
+  if (!confirm('Excluir esta porta?')) return;
+  try {
+    await api.del(`/api/camaras-completo/portas/${id}`);
+    await t2_atualizarPainelPortas();
+  } catch (err) { alert('Erro ao excluir porta: ' + err.message); }
 }
 
 async function t2_addForcador() {

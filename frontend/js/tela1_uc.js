@@ -210,8 +210,11 @@ async function t1uc_render() {
     t1uc_render();
   }));
   el.querySelectorAll('[data-uc-excluir]').forEach(b => b.addEventListener('click', async () => {
-    await api.del(`/api/uc/selecao/${b.dataset.ucExcluir}`);
-    t1uc_render();
+    if (!confirm('Excluir esta seleção de UC?')) return;
+    try {
+      await api.del(`/api/uc/selecao/${b.dataset.ucExcluir}`);
+      t1uc_render();
+    } catch (err) { alert('Erro ao excluir seleção: ' + err.message); }
   }));
   el.querySelectorAll('[data-uc-editar]').forEach(b => b.addEventListener('click', async () => {
     await api.post(`/api/uc/selecao/${b.dataset.ucEditar}/editar`, {});

@@ -170,6 +170,15 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
         "tipo_embalagem_id": camara.tipo_embalagem_id, "massa_embalagem": camara.massa_embalagem,
         "isolamento_parede_id": camara.isolamento_parede_id, "isolamento_teto_id": camara.isolamento_teto_id,
         "isolamento_piso_id": camara.isolamento_piso_id,
+        # Propriedades resolvidas localmente — usadas pelo Fly.io quando o ID não existe no PostgreSQL
+        # remoto (ex.: material criado localmente). O servidor usa o u_valor inline quando presente
+        # em vez de buscar por ID, garantindo que materiais customizados impactem no cálculo.
+        "isolamento_parede_u_valor": camara.isolamento_parede.u_valor if camara.isolamento_parede else None,
+        "isolamento_parede_espessura_mm": camara.isolamento_parede.espessura_mm if camara.isolamento_parede else None,
+        "isolamento_teto_u_valor": camara.isolamento_teto.u_valor if camara.isolamento_teto else None,
+        "isolamento_teto_espessura_mm": camara.isolamento_teto.espessura_mm if camara.isolamento_teto else None,
+        "isolamento_piso_u_valor": camara.isolamento_piso.u_valor if camara.isolamento_piso else None,
+        "isolamento_piso_espessura_mm": camara.isolamento_piso.espessura_mm if camara.isolamento_piso else None,
         "fonte_ar": camara.fonte_ar, "temp_adjacente": camara.temp_adjacente,
         "umidade_adjacente": camara.umidade_adjacente,
         "num_pessoas": camara.num_pessoas, "tempo_pessoas": camara.tempo_pessoas,

@@ -736,11 +736,13 @@ function t17_renderTabelaOrcamento(composicao) {
 
       body = ordemCC.map(cc => {
         const subtotalItens = porCC[cc].reduce((s, it) => s + it.valor, 0);
-        const subtotal = subtotalItens + (info.extraPorCC[cc] || 0);
+        const comissaoCC = info.extraPorCC[cc] || 0;
+        const subtotal = subtotalItens + comissaoCC;
         const itensHtml = porCC[cc].map(it =>
           linha(it.descricao, exibir === 'individual' ? t17_brl(it.valor) : '', { u: it.unidade, q: it.quantidade })
         ).join('');
-        const subtotalHtml = exibir === 'total_bloco'
+        // Subtotal sempre visível quando há comissão no CC; em total_bloco mostra mesmo sem comissão
+        const subtotalHtml = (exibir === 'total_bloco' || comissaoCC > 0)
           ? linha('Subtotal — ' + cc, t17_brl(subtotal), { fs: 12, muted: true })
           : '';
         return `<div style="padding:6px 4px 0;font-size:12px;color:var(--muted,#888);">${cc}</div>` + itensHtml + subtotalHtml;
@@ -750,7 +752,7 @@ function t17_renderTabelaOrcamento(composicao) {
     const header = '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px 6px;border-top:1px solid var(--line);">' +
       `<div style="flex:1;min-width:0;font-size:14px;font-weight:bold;">${bloco}</div>` +
       (showQtd ? '<div style="width:52px;flex-shrink:0;"></div><div style="width:64px;flex-shrink:0;"></div>' : '') +
-      `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(info.total)}</div>` +
+      `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(info.total + (info.totalComissao || 0))}</div>` +
     '</div>';
 
     return header + body;

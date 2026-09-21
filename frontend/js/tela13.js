@@ -203,18 +203,25 @@ async function t13_carregarFatores() {
     await api.put(`/api/composicao-preco/fatores/${tr.dataset.fatorId}`, { [campo]: valor });
   }));
   tbody.querySelectorAll('[data-del-fator]').forEach(b => b.addEventListener('click', async (e) => {
+    if (!confirm('Excluir este fator?')) return;
     const tr = e.target.closest('tr');
     try { await api.del(`/api/composicao-preco/fatores/${tr.dataset.fatorId}`); t13_carregarFatores(); }
-    catch (err) { alert(JSON.parse(await err.message).detail || 'Erro ao excluir.'); }
+    catch (err) { alert('Erro ao excluir: ' + err.message); }
   }));
 }
 
-async function t13_addFator() {
-  const codigo = prompt('Código do fator (ex.: FT1):');
-  if (!codigo) return;
-  const descricao = prompt('Descrição:') || codigo;
-  await api.post('/api/composicao-preco/fatores', { codigo, descricao, tipo: '', pct_impostos: 0, pct_comissao: 0, pct_margem: 0 });
-  t13_carregarFatores();
+function t13_addFator() {
+  vkPrompt('Adicionar Fator', [
+    {label: 'Código (ex.: FT1)', name: 'codigo'},
+    {label: 'Descrição', name: 'descricao'}
+  ], async (v) => {
+    if (!v.codigo || !v.codigo.trim()) return;
+    const descricao = (v.descricao && v.descricao.trim()) || v.codigo.trim();
+    try {
+      await api.post('/api/composicao-preco/fatores', { codigo: v.codigo.trim(), descricao, tipo: '', pct_impostos: 0, pct_comissao: 0, pct_margem: 0 });
+      t13_carregarFatores();
+    } catch (err) { alert('Erro ao adicionar: ' + err.message); }
+  });
 }
 
 // ---------------- Itens Default ----------------
@@ -250,17 +257,21 @@ async function t13_carregarItensDefault() {
     await api.put(`/api/composicao-preco/itens-mestre/${tr.dataset.itemId}`, { [campo]: valor });
   }));
   tbody.querySelectorAll('[data-del-item]').forEach(b => b.addEventListener('click', async (e) => {
+    if (!confirm('Excluir este item?')) return;
     const tr = e.target.closest('tr');
-    await api.del(`/api/composicao-preco/itens-mestre/${tr.dataset.itemId}`);
-    t13_carregarItensDefault();
+    try { await api.del(`/api/composicao-preco/itens-mestre/${tr.dataset.itemId}`); t13_carregarItensDefault(); }
+    catch (err) { alert('Erro ao excluir: ' + err.message); }
   }));
 }
 
-async function t13_addItemDefault() {
-  const descricao = prompt('Descrição do item (ex.: Mão de Obra de Instalação):');
-  if (!descricao) return;
-  await api.post('/api/composicao-preco/itens-mestre', { bloco: T13_BLOCOS_COMPOSICAO[0], descricao });
-  t13_carregarItensDefault();
+function t13_addItemDefault() {
+  vkPrompt('Adicionar Item', [{label: 'Descrição (ex.: Mão de Obra de Instalação)', name: 'descricao'}], async (v) => {
+    if (!v.descricao || !v.descricao.trim()) return;
+    try {
+      await api.post('/api/composicao-preco/itens-mestre', { bloco: T13_BLOCOS_COMPOSICAO[0], descricao: v.descricao.trim() });
+      t13_carregarItensDefault();
+    } catch (err) { alert('Erro ao adicionar: ' + err.message); }
+  });
 }
 
 // ---------------- Vendedores (mestre) ----------------
@@ -289,11 +300,14 @@ async function t13_carregarVendedores() {
   }));
 }
 
-async function t13_addVendedorMestre() {
-  const nome = prompt('Nome do vendedor:');
-  if (!nome) return;
-  await api.post('/api/composicao-preco/vendedores', { nome, pct_comissao_padrao: 0, default: false });
-  t13_carregarVendedores();
+function t13_addVendedorMestre() {
+  vkPrompt('Adicionar Vendedor', [{label: 'Nome do vendedor', name: 'nome'}], async (v) => {
+    if (!v.nome || !v.nome.trim()) return;
+    try {
+      await api.post('/api/composicao-preco/vendedores', { nome: v.nome.trim(), pct_comissao_padrao: 0, default: false });
+      t13_carregarVendedores();
+    } catch (err) { alert('Erro ao adicionar: ' + err.message); }
+  });
 }
 
 window.initTela13 = initTela13;

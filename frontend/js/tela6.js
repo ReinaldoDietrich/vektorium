@@ -60,18 +60,18 @@ function t6_gerarExportacao() {
   if (lin) params.set('linha', lin);
   if (fpi) params.set('fpi', fpi);
   if (pdl) params.set('pdl', pdl);
-  window.location.href = '/api/forcadores/exportar-bd' + (params.toString() ? '?' + params.toString() : '');
+  api.downloadRemoto('/api/forcadores/exportar-bd' + (params.toString() ? '?' + params.toString() : ''));
   document.getElementById('f6_exportFiltro').style.display = 'none';
 }
 
 function t6_baixarTemplate(e) {
   e.preventDefault();
-  window.location.href = '/api/importacao/template';
+  api.downloadRemoto('/api/importacao/template');
 }
 
 function t6_baixarDocumento(e) {
   e.preventDefault();
-  window.location.href = '/api/importacao/documento';
+  api.downloadRemoto('/api/importacao/documento');
 }
 
 // ---------- Importação por Excel, com revisão antes de gravar ----------
@@ -177,7 +177,8 @@ async function t6_carregarLinhas() {
   linhas.forEach(l => { (grupos[l.fabricante_nome] = grupos[l.fabricante_nome] || []).push(l); });
   let html = '';
   Object.keys(grupos).forEach(fab => {
-    html += `<div class="group-head">${fab}</div><table class="list"><tbody>`;
+    const fabId = grupos[fab][0].fabricante_id;
+    html += `<div class="group-head">${fab} <span class="btn-text" data-renomear-fab-id="${fabId}" data-renomear-fab-nome="${fab}" style="font-size:11px;cursor:pointer;">Renomear</span></div><table class="list"><tbody>`;
     grupos[fab].forEach(l => {
       html += `<tr class="clickable" data-linha="${l.id}">
         <td style="font-weight:bold;">${l.nome}</td><td>versão ${l.versao_catalogo || '—'}</td>
@@ -195,9 +196,24 @@ async function t6_carregarLinhas() {
   el.querySelectorAll('[data-excluir-linha]').forEach(b => b.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (!confirm('Excluir esta linha e todos os seus modelos?')) return;
-    await api.del(`/api/forcadores/linhas/${b.dataset.excluirLinha}`);
-    if (t6_linhaAtualId === Number(b.dataset.excluirLinha)) t6_fecharLinha();
-    t6_carregarLinhas();
+    try {
+      await api.del(`/api/forcadores/linhas/${b.dataset.excluirLinha}`);
+      if (t6_linhaAtualId === Number(b.dataset.excluirLinha)) t6_fecharLinha();
+      t6_carregarLinhas();
+    } catch (err) { alert('Erro ao excluir linha: ' + err.message); }
+  }));
+  el.querySelectorAll('[data-renomear-fab-id]').forEach(b => b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const id = b.dataset.renomearFabId;
+    const nomeAtual = b.dataset.renomearFabNome;
+    vkPrompt('Renomear Fabricante', [{ chave: 'nome', rotulo: 'Novo nome', valor: nomeAtual }], async (vals) => {
+      const nomeNovo = (vals.nome || '').trim();
+      if (!nomeNovo || nomeNovo === nomeAtual) return;
+      try {
+        await api.put(`/api/forcadores/fabricantes/${id}`, { nome: nomeNovo });
+        t6_carregarLinhas();
+      } catch (err) { alert('Erro ao renomear: ' + err.message); }
+    });
   }));
 }
 
@@ -228,8 +244,10 @@ function t6_renderFotoPreview(caminho) {
 async function t6_enviarFotoLinha(ev) {
   const file = ev.target.files[0];
   if (!file || !t6_linhaAtualId) return;
-  const r = await api.upload(`/api/forcadores/linhas/${t6_linhaAtualId}/foto`, file);
-  t6_renderFotoPreview(r.imagem_path);
+  try {
+    const r = await api.upload(`/api/forcadores/linhas/${t6_linhaAtualId}/foto`, file);
+    t6_renderFotoPreview(r.imagem_path);
+  } catch (err) { alert('Erro ao enviar foto: ' + err.message); }
   ev.target.value = '';
 }
 
@@ -355,9 +373,11 @@ async function t6_carregarNomenclatura(idAbertura = t6_linhaAtualId) {
 async function t6_excluirLinhaAtual() {
   if (!t6_linhaAtualId) return;
   if (!confirm('Excluir este catálogo (linha) inteiro e todos os seus modelos?')) return;
-  await api.del(`/api/forcadores/linhas/${t6_linhaAtualId}`);
-  t6_fecharLinha();
-  t6_carregarLinhas();
+  try {
+    await api.del(`/api/forcadores/linhas/${t6_linhaAtualId}`);
+    t6_fecharLinha();
+    t6_carregarLinhas();
+  } catch (err) { alert('Erro ao excluir: ' + err.message); }
 }
 
 window.initTela6 = initTela6;

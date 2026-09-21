@@ -59,8 +59,10 @@ async function t1_renderAcoesProjetoAtivo() {
   });
   document.getElementById('apaExcluir').addEventListener('click', async () => {
     if (!confirm('EXCLUIR este projeto/revisão em definitivo? Todos os dados dele (sistemas, câmaras, seleções) serão apagados. Esta ação não pode ser desfeita.')) return;
-    await api.del(`/api/projetos/${id}`);
-    await t1_fecharProjetoAtivo();
+    try {
+      await api.del(`/api/projetos/${id}`);
+      await t1_fecharProjetoAtivo();
+    } catch (err) { alert('Erro ao excluir projeto: ' + err.message); }
   });
 }
 
@@ -424,7 +426,9 @@ async function t1_carregarProjetos() {
     ev.stopPropagation();
     if (!confirm('EXCLUIR este projeto/revisão em definitivo? Todos os dados dele (sistemas, câmaras, seleções) serão apagados. Esta ação não pode ser desfeita.')) return;
     const id = Number(b.dataset.excluirProj);
-    await api.del(`/api/projetos/${id}`);
+    try {
+      await api.del(`/api/projetos/${id}`);
+    } catch (err) { alert('Erro ao excluir projeto: ' + err.message); return; }
     if (state.projetoId === id) await t1_fecharProjetoAtivo();
     if (t1_editandoProjetoId === id) t1_editandoProjetoId = null;
     await t1_carregarProjetos();

@@ -80,11 +80,13 @@ function t10_celulaCamaraHtml(item, idCampoCamara, idCampoAmbiente) {
 async function t10_limparTudo() {
   if (!state.projetoId) return;
   if (!confirm('Apagar TODOS os painéis e portas deste projeto? Não pode ser desfeito.')) return;
-  const r = await api.del(`/api/paineis-portas/limpar?projeto_id=${state.projetoId}`);
-  alert(`Removidos: ${r.paineis_removidos} painéis, ${r.portas_removidas} portas.`);
-  await t10_carregarPaineis();
-  await t10_carregarPortas();
-  await t10_carregarResumo();
+  try {
+    const r = await api.del(`/api/paineis-portas/limpar?projeto_id=${state.projetoId}`);
+    alert(`Removidos: ${r.paineis_removidos} painéis, ${r.portas_removidas} portas.`);
+    await t10_carregarPaineis();
+    await t10_carregarPortas();
+    await t10_carregarResumo();
+  } catch (err) { alert('Erro ao limpar: ' + err.message); }
 }
 
 async function t10_carregar() {
@@ -111,14 +113,16 @@ async function t10_carregar() {
 }
 
 async function t10_salvarPlacas() {
-  await api.put(`/api/projetos/${state.projetoId}`, {
-    largura_placa_painel_m: parseNumBR(document.getElementById('t10_largPlaca').value),
-    piso_placa_largura_m: parseNumBR(document.getElementById('t10_pisoLarg').value),
-    piso_placa_comprimento_m: parseNumBR(document.getElementById('t10_pisoComp').value),
-    largura_min_aproveitamento_placa_m: parseNumBR(document.getElementById('t10_larguraMinAprov').value),
-  });
-  await t10_carregarPaineis();
-  await t10_carregarResumo();
+  try {
+    await api.put(`/api/projetos/${state.projetoId}`, {
+      largura_placa_painel_m: parseNumBR(document.getElementById('t10_largPlaca').value),
+      piso_placa_largura_m: parseNumBR(document.getElementById('t10_pisoLarg').value),
+      piso_placa_comprimento_m: parseNumBR(document.getElementById('t10_pisoComp').value),
+      largura_min_aproveitamento_placa_m: parseNumBR(document.getElementById('t10_larguraMinAprov').value),
+    });
+    await t10_carregarPaineis();
+    await t10_carregarResumo();
+  } catch (err) { alert('Erro ao salvar placas: ' + err.message); }
 }
 
 // ---------------- Painéis ----------------
@@ -184,11 +188,12 @@ function t10_wireDragPaineis(el) {
       tr.style.opacity = '';
       if (!arrastada) return;
       arrastada = null;
-      // Persiste a nova ordem (0..N) de cada painel e recarrega — o motor recalcula o reuso.
-      const ids = [...tbody.querySelectorAll('tr[data-painel-id]')].map(r => Number(r.dataset.painelId));
-      await Promise.all(ids.map((id, i) => api.put(`/api/paineis-portas/paineis/${id}`, { ordem: i })));
-      await t10_carregarPaineis();
-      await t10_carregarResumo();
+      try {
+        const ids = [...tbody.querySelectorAll('tr[data-painel-id]')].map(r => Number(r.dataset.painelId));
+        await Promise.all(ids.map((id, i) => api.put(`/api/paineis-portas/paineis/${id}`, { ordem: i })));
+        await t10_carregarPaineis();
+        await t10_carregarResumo();
+      } catch (err) { alert('Erro ao reordenar: ' + err.message); }
     });
     tr.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -236,9 +241,11 @@ function t10_wirePaineis(el) {
   });
   el.querySelectorAll('[data-excluir-painel]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir este painel?')) return;
-    await api.del(`/api/paineis-portas/paineis/${b.dataset.excluirPainel}`);
-    await t10_carregarPaineis();
-    await t10_carregarResumo();
+    try {
+      await api.del(`/api/paineis-portas/paineis/${b.dataset.excluirPainel}`);
+      await t10_carregarPaineis();
+      await t10_carregarResumo();
+    } catch (err) { alert('Erro ao excluir painel: ' + err.message); }
   }));
 }
 
@@ -260,9 +267,11 @@ async function t10_atualizarCalculosPaineis() {
 }
 
 async function t10_addPainel() {
-  await api.post(`/api/paineis-portas/paineis?projeto_id=${state.projetoId}`, { tipo: 'Parede' });
-  await t10_carregarPaineis();
-  await t10_carregarResumo();
+  try {
+    await api.post(`/api/paineis-portas/paineis?projeto_id=${state.projetoId}`, { tipo: 'Parede' });
+    await t10_carregarPaineis();
+    await t10_carregarResumo();
+  } catch (err) { alert('Erro ao adicionar painel: ' + err.message); }
 }
 
 // ---------------- Portas ----------------
@@ -356,9 +365,11 @@ function t10_wirePortas(el) {
   });
   el.querySelectorAll('[data-excluir-porta]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir esta porta?')) return;
-    await api.del(`/api/paineis-portas/portas/${b.dataset.excluirPorta}`);
-    await t10_carregarPortas();
-    await t10_carregarResumo();
+    try {
+      await api.del(`/api/paineis-portas/portas/${b.dataset.excluirPorta}`);
+      await t10_carregarPortas();
+      await t10_carregarResumo();
+    } catch (err) { alert('Erro ao excluir porta: ' + err.message); }
   }));
 }
 
@@ -407,9 +418,11 @@ async function t10_atualizarCalculosPortas() {
 }
 
 async function t10_addPorta() {
-  await api.post(`/api/paineis-portas/portas?projeto_id=${state.projetoId}`, { funcao: 'Resfriados', modelo: 'Correr' });
-  await t10_carregarPortas();
-  await t10_carregarResumo();
+  try {
+    await api.post(`/api/paineis-portas/portas?projeto_id=${state.projetoId}`, { funcao: 'Resfriados', modelo: 'Correr' });
+    await t10_carregarPortas();
+    await t10_carregarResumo();
+  } catch (err) { alert('Erro ao adicionar porta: ' + err.message); }
 }
 
 // ---------------- Resumo ----------------

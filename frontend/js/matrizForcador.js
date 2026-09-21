@@ -59,7 +59,7 @@ function mf_renderMatriz(container, matriz, opts) {
     const orig = { id: md.id, fpi: md.fpi, tipo_degelo: md.tipo_degelo, carga_refrigerante_kg: md.carga_refrigerante_kg,
       pot_resistencia_degelo_w: md.pot_resistencia_degelo_w, dt_referencia_c: md.dt_referencia_c,
       pdl_referencia_m: md.pdl_referencia_m, coletores_por_forcador: md.coletores_por_forcador,
-      altura_max_instalacao_m: md.altura_max_instalacao_m };
+      altura_max_instalacao_m: md.altura_max_instalacao_m, descricao_comercial: md.descricao_comercial };
     return `<tr data-row="${ri}" data-orig='${JSON.stringify(orig).replace(/'/g, "&#39;")}'>${tds}</tr>`;
   }).join('');
 
@@ -75,6 +75,7 @@ function mf_renderMatriz(container, matriz, opts) {
 
   if (!opts.readOnly) {
     container.querySelectorAll('.mf-excluir-linha').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Excluir este modelo da grade?')) return;
       b.closest('tr').remove();
     }));
     const addBtn = container.querySelector('#mf-add-modelo');
@@ -126,6 +127,7 @@ function mf_coletarMatriz(container, matrizBase) {
       pot_resistencia_degelo_w: original.pot_resistencia_degelo_w, dt_referencia_c: original.dt_referencia_c,
       pdl_referencia_m: original.pdl_referencia_m, coletores_por_forcador: original.coletores_por_forcador,
       altura_max_instalacao_m: original.altura_max_instalacao_m,
+      descricao_comercial: original.descricao_comercial || null,
       id: original.id || null,
     };
   }).filter(md => md.modelo);

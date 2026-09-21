@@ -12,15 +12,19 @@ function initTela9() {
 
 async function t9_salvarObservacao() {
   if (!state.projetoId) return;
-  await api.put(`/api/consumo/observacao?projeto_id=${state.projetoId}`, { texto: document.getElementById('t9_observacao').value });
-  alert('Observação salva.');
+  try {
+    await api.put(`/api/consumo/observacao?projeto_id=${state.projetoId}`, { texto: document.getElementById('t9_observacao').value });
+    alert('Observação salva.');
+  } catch (err) { alert('Erro ao salvar observação: ' + err.message); }
 }
 
 async function t9_restaurarObservacao() {
   if (!state.projetoId) return;
   if (!confirm('Restaurar o texto padrão? A observação customizada atual será perdida.')) return;
-  await api.del(`/api/consumo/observacao?projeto_id=${state.projetoId}`);
-  t9_carregar();
+  try {
+    await api.del(`/api/consumo/observacao?projeto_id=${state.projetoId}`);
+    t9_carregar();
+  } catch (err) { alert('Erro ao restaurar observação: ' + err.message); }
 }
 
 async function t9_carregar() {

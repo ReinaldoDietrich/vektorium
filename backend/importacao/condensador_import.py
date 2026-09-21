@@ -8,6 +8,7 @@ import io
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from .. import models as m
 from .. import campo_catalogo as cc
@@ -176,7 +177,7 @@ def montar_preview(db: Session, conteudo: bytes) -> dict:
         versao = versao or datetime.now().strftime("%Y-%m-%d")
         modelos = grupo["modelos"]
 
-        fabricante = db.query(m.Fabricante).filter_by(nome=nome_fab).first()
+        fabricante = db.query(m.Fabricante).filter(func.lower(m.Fabricante.nome) == nome_fab.strip().lower()).first()
         status, observacao, linha_anterior = "nova_linha", None, None
         if fabricante:
             linha_anterior = (db.query(m.LinhaCondensadorRemoto)
@@ -222,9 +223,9 @@ def salvar_grupo(db: Session, fabricante: str, linha_nome: str, versao_catalogo:
         return {"erro": "Fabricante ou Linha em branco."}
     versao_catalogo = versao_catalogo or datetime.now().strftime("%Y-%m-%d")
 
-    fabricante_obj = db.query(m.Fabricante).filter_by(nome=fabricante).first()
+    fabricante_obj = db.query(m.Fabricante).filter(func.lower(m.Fabricante.nome) == fabricante.strip().lower()).first()
     if not fabricante_obj:
-        fabricante_obj = m.Fabricante(nome=fabricante)
+        fabricante_obj = m.Fabricante(nome=fabricante.strip())
         db.add(fabricante_obj)
         db.commit()
         db.refresh(fabricante_obj)

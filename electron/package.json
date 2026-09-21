@@ -1,6 +1,6 @@
 {
   "name": "vektorium",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Vektorium — Sistema de Cálculos Térmicos",
   "main": "main.js",
   "scripts": {

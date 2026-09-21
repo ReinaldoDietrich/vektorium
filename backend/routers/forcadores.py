@@ -142,6 +142,8 @@ def excluir_linha(linha_id: int, db: Session = Depends(get_db)):
     obj = db.get(m.LinhaForcador, linha_id)
     if not obj:
         raise HTTPException(404, "Linha não encontrada")
+    db.query(m.ImportacaoCatalogo).filter_by(linha_id=linha_id).delete()
+    db.query(m.FatorCorrecaoGasForcador).filter_by(linha_id=linha_id).delete()
     idc.remover_no_catalogo(db, obj.id_comercial)
     db.delete(obj)
     db.commit()
