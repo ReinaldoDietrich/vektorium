@@ -270,9 +270,10 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
     fator_insolacao = (sum(fatores_insolacao_cadastrados) / len(fatores_insolacao_cadastrados)
                         if fatores_insolacao_cadastrados else 1.10)
     if dados["largura"] and dados["comprimento"] and dados["pedireito"]:
-        u_parede = isolamento_parede.u_valor if isolamento_parede else 0
-        u_teto = isolamento_teto.u_valor if isolamento_teto else 0
-        u_piso = isolamento_piso.u_valor if isolamento_piso else 0
+        # Usa u_valor inline como fallback para materiais customizados (não existem no PostgreSQL remoto).
+        u_parede = (isolamento_parede.u_valor if isolamento_parede else None) or dados.get("isolamento_parede_u_valor") or 0
+        u_teto = (isolamento_teto.u_valor if isolamento_teto else None) or dados.get("isolamento_teto_u_valor") or 0
+        u_piso = (isolamento_piso.u_valor if isolamento_piso else None) or dados.get("isolamento_piso_u_valor") or 0
         q3, areas = cc.calor_penetracao(u_parede, u_teto, u_piso, dados["largura"], dados["comprimento"],
                                          dados["pedireito"], temp_fonte,
                                          dados["temp_interna"] or 0, bulbo_umido, fator_insolacao)
