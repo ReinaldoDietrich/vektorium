@@ -15,17 +15,49 @@ Write-Host "Versao: $($pkg.version)" -ForegroundColor Yellow
 # ---- 2. Instalar dependencias Electron (se node_modules ausente) ----
 if (-not (Test-Path "electron\node_modules")) {
     Write-Host ""
-    Write-Host "[1/3] Instalando dependencias npm..." -ForegroundColor Cyan
+    Write-Host "[1/4] Instalando dependencias npm..." -ForegroundColor Cyan
     Push-Location electron
     npm install
     Pop-Location
 } else {
-    Write-Host "[1/3] Dependencias npm OK" -ForegroundColor Green
+    Write-Host "[1/4] Dependencias npm OK" -ForegroundColor Green
 }
 
-# ---- 3. Build Electron ----
+# ---- 3. Compilar arquivos de calculo para .pyc (protecao do codigo-fonte) ----
 Write-Host ""
-Write-Host "[2/3] Buildando Electron (npm run build)..." -ForegroundColor Cyan
+Write-Host "[2/4] Compilando calculos para .pyc..." -ForegroundColor Cyan
+$pyEmbed = "python-embed\python.exe"
+if (Test-Path $pyEmbed) {
+    $calcArqs = @(
+        "backend\calc_service.py",
+        "backend\calc_puro_uc_rack.py",
+        "backend\calc_paineis_portas.py",
+        "backend\calc_polinomio_compressor.py",
+        "backend\calculos\camara_completo.py",
+        "backend\calculos\camara_simples.py",
+        "backend\calculos\condensador.py",
+        "backend\calculos\forcador.py",
+        "backend\calculos\infiltracao.py",
+        "backend\calculos\luminotecnico.py",
+        "backend\calculos\valvula.py",
+        "backend\calculos\comum.py"
+    )
+    $compiled = 0
+    foreach ($f in $calcArqs) {
+        if (Test-Path $f) {
+            & $pyEmbed -m py_compile $f 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { $compiled++ }
+            else { Write-Host "  AVISO: falha ao compilar $f" -ForegroundColor Yellow }
+        }
+    }
+    Write-Host "  $compiled arquivo(s) compilado(s) para .pyc." -ForegroundColor Green
+} else {
+    Write-Host "  AVISO: python-embed nao encontrado — .pyc nao gerados." -ForegroundColor Yellow
+}
+
+# ---- 4. Build Electron ----
+Write-Host ""
+Write-Host "[3/4] Buildando Electron (npm run build)..." -ForegroundColor Cyan
 Push-Location electron
 npm run build
 $exitCode = $LASTEXITCODE
@@ -38,9 +70,9 @@ if ($exitCode -ne 0) {
     exit $exitCode
 }
 
-# ---- 4. Resultado ----
+# ---- 5. Resultado ----
 Write-Host ""
-Write-Host "[3/3] Build concluido!" -ForegroundColor Green
+Write-Host "[4/4] Build concluido!" -ForegroundColor Green
 $instalador = Get-ChildItem "Instalacao EXE\Vektorium-Setup-*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($instalador) {
     Write-Host "Instalador: $($instalador.FullName)" -ForegroundColor Yellow
