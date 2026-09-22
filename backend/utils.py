@@ -9,25 +9,9 @@ _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def resposta_excel_projeto(conteudo: bytes, nome_arquivo: str, projeto):
-    """Devolve a exportação Excel de uma tela do PROJETO (Compilação Linhas, Painéis e Portas,
-    Compilação Geral, Consumo Elétrico): se o projeto tem "Pasta de Salvamento" definida (Tela 1),
-    grava o arquivo direto nessa pasta (sobrescreve se já existir) e devolve o caminho salvo — sem
-    passar pelo download do navegador. Sem pasta definida, mantém o comportamento padrão (download).
-    PDF nunca usa isso (segue sempre pela impressão do navegador)."""
-    pasta = getattr(projeto, "pasta_salvamento", None) if projeto else None
-    if not pasta:
-        return StreamingResponse(io.BytesIO(conteudo), media_type=_XLSX_MIME,
-                                 headers={"Content-Disposition": f"attachment; filename={nome_arquivo}"})
-    # codigo_projeto costuma conter "/" (ex.: "001/001") — sanitiza pra não virar subpasta inexistente
-    nome_arquivo = re.sub(r'[\\/:*?"<>|]', "-", nome_arquivo)
-    destino = Path(pasta)
-    try:
-        destino.mkdir(parents=True, exist_ok=True)
-        caminho = destino / nome_arquivo
-        caminho.write_bytes(conteudo)
-    except OSError as e:
-        raise HTTPException(400, f"Não foi possível salvar em \"{pasta}\": {e}")
-    return {"salvo_em": str(caminho)}
+    """Devolve a exportação Excel de uma tela do PROJETO sempre salvando em disco
+    (usa pasta_salvamento do projeto ou ~/Downloads como fallback). Compatível com Electron."""
+    return resposta_arquivo_projeto(conteudo, nome_arquivo, projeto, _XLSX_MIME)
 
 
 def resposta_arquivo_projeto(conteudo: bytes, nome_arquivo: str, projeto, mime: str):

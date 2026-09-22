@@ -17,7 +17,7 @@ try:
 except ImportError:
     cc = cs = inf = fc = vl = calcular_luminotecnico = None  # type: ignore
 from . import campo_catalogo as cpc
-from . import calc_remoto_client as _remoto
+
 
 _token_usuario: ContextVar[str | None] = ContextVar("_token_usuario", default=None)
 
@@ -1053,42 +1053,36 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
 def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> dict:
     try:
         dados = _serializar_camara_completo(camara)
-        status, calc = _remoto.camara_completo(dados, _token_usuario.get())
-        if status == _remoto.Status.OK and calc:
-            camara.calculo_snapshot_json = json.dumps(calc)
-            camara.calculo_desatualizado = False
-            db.commit()
-            return calc
-        return _snapshot_ou_erro(camara, status)
+        calc = calcular_camara_completo_de_dados(db, dados)
+        camara.calculo_snapshot_json = json.dumps(calc)
+        camara.calculo_desatualizado = False
+        db.commit()
+        return calc
     except ValueError as e:
         return {"_sem_calculo": True, "_motivo": str(e)}
-    except Exception:
-        return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
+    except Exception as e:
+        if camara.calculo_snapshot_json:
+            calc = json.loads(camara.calculo_snapshot_json)
+            calc["_snapshot_desatualizado"] = True
+            return calc
+        return {"_sem_calculo": True, "_motivo": str(e)}
 
 
 def calcular_camara_simples_seguro(db: Session, camara: m.CamaraSimples) -> dict:
     try:
         dados = _serializar_camara_simples(camara)
-        status, calc = _remoto.camara_simples(dados, _token_usuario.get())
-        if status == _remoto.Status.OK and calc:
-            camara.calculo_snapshot_json = json.dumps(calc)
-            camara.calculo_desatualizado = False
-            db.commit()
-            return calc
-        return _snapshot_ou_erro(camara, status)
+        calc = calcular_camara_simples_de_dados(db, dados)
+        camara.calculo_snapshot_json = json.dumps(calc)
+        camara.calculo_desatualizado = False
+        db.commit()
+        return calc
     except ValueError as e:
         return {"_sem_calculo": True, "_motivo": str(e)}
-    except Exception:
-        return _snapshot_ou_erro(camara, _remoto.Status.ERRO_SERVIDOR)
+    except Exception as e:
+        if camara.calculo_snapshot_json:
+            calc = json.loads(camara.calculo_snapshot_json)
+            calc["_snapshot_desatualizado"] = True
+            return calc
+        return {"_sem_calculo": True, "_motivo": str(e)}
 
 
-def _snapshot_ou_erro(entidade, status: str) -> dict:
-    if entidade.calculo_snapshot_json:
-        calc = json.loads(entidade.calculo_snapshot_json)
-        calc["_snapshot_desatualizado"] = True
-        if status == _remoto.Status.SEM_LICENCA:
-            calc["_sem_licenca"] = True
-        return calc
-    if status == _remoto.Status.SEM_LICENCA:
-        raise ValueError("Assinatura inativa — cálculo não disponível.")
-    raise ValueError("Sem conexão com o servidor de cálculo e sem snapshot anterior.")

@@ -76,6 +76,7 @@ async function t1uc_render() {
   const el = document.getElementById('ucSelecaoSistemas');
   if (!el) return;
   if (!state.projetoId) { el.innerHTML = ''; return; }
+  try {
   const totais = await api.get(`/api/uc/sistemas/${state.projetoId}/totais`);
   if (!totais.length) { el.innerHTML = '<div class="small" style="padding:10px;color:#9ca3af;">Cadastre sistemas acima primeiro.</div>'; return; }
 
@@ -249,6 +250,9 @@ async function t1uc_render() {
   // sem persistir no servidor (fica em t1uc_addFiltros até o usuário clicar "+") ----
   el.querySelectorAll('[data-uc-addfields]').forEach(fields => t1uc_wireAddFields(el, fields.dataset.ucAddfields));
   el.querySelectorAll('[data-uc-add]').forEach(b => b.addEventListener('click', () => t1uc_confirmarAdd(el, b.dataset.ucAdd)));
+  } catch (err) {
+    el.innerHTML = `<div style="color:red;padding:10px;">Erro ao carregar seleção de UC: ${err.message}</div>`;
+  }
 }
 
 function t1uc_wireAddFields(el, sid) {

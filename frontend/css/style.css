@@ -129,6 +129,8 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
   #t5_bannerAbertas, #t12_bannerAbertas, .badge-fechada { display: none !important; }
   /* Tela 10 (#tela17) imprime só a Lista de Materiais e Equipamentos (simples, sem valores
      financeiros) — nunca a tela financeira em si (Composição de Preço fica só na tela). */
+  body.t17-imprimindo-lista .topbar,
+  body.t17-imprimindo-lista aside.sidebar { display: none !important; }
   body.t17-imprimindo-lista #tela17 > *:not(#t17_conteudo) { display: none !important; }
   body.t17-imprimindo-lista #tela17 > .body-pad > *:not(#t17_listaMateriaisPrint) { display: none !important; }
   body.t17-imprimindo-lista #t17_listaMateriaisPrint { display: block !important; }

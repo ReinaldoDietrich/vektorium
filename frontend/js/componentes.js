@@ -662,21 +662,10 @@ function renderizarAlertas(container, alertas) {
     alertas.map(a => `<div class="alert-item">• ${a}</div>`).join('');
 }
 
-// Sincroniza catálogos com o servidor remoto (Fly.io/Supabase): converte fotos locais para base64,
-// faz push de todos os catálogos e limpa o flag dirty. Chamado imediatamente após import e após
-// upload de foto; demais writes setam localStorage.catalogosDirty para push no próximo login.
 async function catalogoSincronizar() {
-  const token = AUTH.token();
-  if (!token) return;
   try {
     await fetch('/api/catalogo-sync/converter-fotos', { method: 'POST' });
-    await fetch('/api/catalogo-sync/push-para-remoto', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-    });
-    localStorage.removeItem('catalogosDirty');
   } catch (e) {
-    try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
-    console.warn('[sync] Push falhou, flag dirty mantido para próximo login:', e);
+    console.warn('[sync] Conversão de fotos falhou (não-bloqueante):', e);
   }
 }

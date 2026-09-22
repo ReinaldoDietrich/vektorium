@@ -472,8 +472,11 @@ _GRUPOS_TABELAS = {
 
 @router.post("/sync-boot")
 def sync_boot(request: FastAPIRequest, db: Session = Depends(get_db)):
-    """Sincroniza catálogos na inicialização: compara versões locais vs remotas,
-    baixa grupos desatualizados do Fly.io."""
+    """Catálogos são locais — sync com Fly.io desabilitado."""
+    return {"ok": True, "atualizados": []}
+
+def _sync_boot_legado(request: FastAPIRequest, db: Session = Depends(get_db)):
+    """Legado — mantido apenas para referência, não é chamado."""
     auth = request.headers.get("authorization", "")
     token = auth[7:] if auth.lower().startswith("bearer ") else ""
     if not token:
@@ -541,35 +544,5 @@ def sync_boot(request: FastAPIRequest, db: Session = Depends(get_db)):
 
 @router.post("/push-para-remoto")
 def push_para_remoto(request: FastAPIRequest, db: Session = Depends(get_db)):
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.lower().startswith("bearer "):
-        return {"ok": False, "erro": "Token JWT não fornecido"}
-    token = auth_header[7:]
-    remote_url = os.environ.get("VEKTORIUM_API_URL", "https://vektorium-calc.fly.dev")
-    resultados = {}
-    for tipo in ("forcadores", "uc", "condensadores", "comercial"):
-        fn = _EXPORTADORES.get(tipo)
-        dados = fn(db)
-        payload_bytes = json.dumps(dados, ensure_ascii=False).encode("utf-8")
-        req = Request(
-            f"{remote_url}/api/catalogo-sync/receber",
-            data=payload_bytes,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
-            },
-            method="POST",
-        )
-        try:
-            resp = urlopen(req, timeout=120)
-            body = json.loads(resp.read().decode("utf-8"))
-            resultados[tipo] = body
-            log.info("Push %s → remoto: %s", tipo, body)
-        except HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            resultados[tipo] = {"ok": False, "erro": f"HTTP {e.code}: {body[:200]}"}
-            log.error("Push %s falhou: %s %s", tipo, e.code, body[:200])
-        except (URLError, Exception) as e:
-            resultados[tipo] = {"ok": False, "erro": str(e)}
-            log.error("Push %s falhou: %s", tipo, e)
-    return {"ok": True, "resultados": resultados}
+    """Catálogos são locais — sync com Fly.io desabilitado."""
+    return {"ok": True}

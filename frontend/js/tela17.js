@@ -155,6 +155,7 @@ async function t17_imprimirListaMateriais() {
       </tr>`).join('')}</tbody>
     </table>`;
   document.body.classList.add('t17-imprimindo-lista');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   window.print();
   document.body.classList.remove('t17-imprimindo-lista');
 }

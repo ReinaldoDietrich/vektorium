@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, list_to_dict
-from .. import calc_remoto_client as _remoto
-from ..calc_service import _token_usuario
+from ..calc_puro_uc_rack import calcular_selecao_uc_de_dados
+
 from .. import campo_catalogo as cc
 from ..calc_puro_uc_rack import _normalizar_sistema
 from ..importacao.uc_import import (gerar_template_uc, montar_preview_uc, salvar_planilha_uc,
@@ -530,12 +530,7 @@ def obter_selecao(sistema_id: int, db: Session = Depends(get_db), itens_precompu
     infinita quando quem chama é a própria _montar_itens_compilacao, ex.: o resumo de potência
     de compressão)."""
     dados = _serializar_selecao_uc(db, sistema_id, itens_precomputados)
-    status, calc = _remoto.uc_selecao(dados, _token_usuario.get())
-    if status == _remoto.Status.OK and calc:
-        return calc
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
-    raise HTTPException(503, "Servidor de cálculo indisponível.")
+    return calcular_selecao_uc_de_dados(db, dados)
 
 
 @router.post("/sistemas/{sistema_id}/selecao")

@@ -94,18 +94,9 @@ const AUTH = {
 
   async _syncFotosSeNecessario(token) {
     try {
-      const rConv = await fetch('/api/catalogo-sync/converter-fotos', { method: 'POST' });
-      const conv = await rConv.json();
-      const dirty = localStorage.getItem('catalogosDirty') === 'true';
-      if (conv.convertidos > 0 || dirty) {
-        await fetch('/api/catalogo-sync/push-para-remoto', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        localStorage.removeItem('catalogosDirty');
-      }
+      await fetch('/api/catalogo-sync/converter-fotos', { method: 'POST' });
     } catch (e) {
-      console.warn('[auth] Sync de fotos falhou (não-bloqueante):', e);
+      console.warn('[auth] Conversão de fotos falhou (não-bloqueante):', e);
     }
   },
 

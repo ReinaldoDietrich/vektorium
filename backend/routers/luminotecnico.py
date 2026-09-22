@@ -5,6 +5,7 @@
   Tipo Ambiente + Modelo Luminária preenchidos, recalculando ao vivo — igual ao padrão de
   Resumo de Painéis/Portas (nunca editado/excluído direto aqui, sempre reflexo do lançamento nas
   Telas 2/3)."""
+import re
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
 from .. import models as m
@@ -12,8 +13,7 @@ from ..database import get_db
 from ..utils import model_to_dict, chave_ordem_camara, resposta_excel_projeto
 from ..exportacao.luminotecnico_export import gerar_excel_luminotecnico
 from .. import id_comercial as idc
-from .. import calc_remoto_client as _remoto
-from ..calc_service import _token_usuario
+from ..calculos.luminotecnico import calcular_luminotecnico
 from .camaras_completo import _codigo as _codigo_completo
 from .camaras_simples import _codigo as _codigo_simples
 
@@ -121,13 +121,57 @@ def montar_estudo(db: Session, projeto_id: int) -> dict:
             d = _serializar_camara(camara, sistema, "Simples")
             if d:
                 camaras_serial.append(d)
-    status, resultado = _remoto.luminotecnico({"camaras": camaras_serial}, _token_usuario.get())
-    if status == _remoto.Status.OK and resultado:
-        resultado["notas"] = NOTAS
-        return resultado
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
-    raise HTTPException(503, "Servidor de cálculo indisponível.")
+    linhas = []
+    for cam in camaras_serial:
+        potencia_texto = cam.get("potencia_luminaria_texto")
+        lux_requerido = cam.get("lux_requerido")
+        if not potencia_texto or lux_requerido is None:
+            continue
+        match = re.search(r"[\d.,]+", potencia_texto)
+        if not match:
+            continue
+        potencia_w = float(match.group(0).replace(",", "."))
+        lampada = db.query(m.LookupLampada).filter_by(potencia_w=potencia_w).first()
+        if not lampada:
+            continue
+        calc = calcular_luminotecnico(
+            cam.get("largura"), cam.get("comprimento"), cam.get("altura"),
+            cam.get("qtd_luminarias") or 0, lux_requerido,
+            lampada.potencia_w, lampada.fluxo_lumens)
+        linhas.append({
+            "camara_id": cam.get("camara_id"), "tipo_camara": cam.get("tipo_camara"),
+            "sistema_nome": cam.get("sistema_nome"),
+            "linha_succao": cam.get("linha_succao"), "_succao_ordem": cam.get("_succao_ordem"),
+            "linha_eletrica": cam.get("linha_eletrica"),
+            "ambiente": cam.get("ambiente"),
+            "largura": cam.get("largura"), "comprimento": cam.get("comprimento"),
+            "altura": cam.get("altura"), "plano_calculo": 0,
+            "qtd_luminarias": cam.get("qtd_luminarias"),
+            "modelo_luminaria": cam.get("modelo_luminaria"),
+            "potencia_w": lampada.potencia_w, "fluxo_lumens": lampada.fluxo_lumens,
+            "ip": lampada.ip, "temperatura_cor_k": lampada.temperatura_cor_k,
+            "tensao": lampada.tensao,
+            "tipo_ambiente": cam.get("tipo_ambiente"),
+            **calc,
+        })
+    linhas.sort(key=lambda l: chave_ordem_camara(l["sistema_nome"], l["_succao_ordem"], l["linha_eletrica"]))
+    for i, linha in enumerate(linhas, start=1):
+        linha["seq"] = i
+        linha.pop("_succao_ordem", None)
+    resumo = {}
+    for linha in linhas:
+        modelo = linha["modelo_luminaria"]
+        if not modelo:
+            continue
+        resumo[modelo] = resumo.get(modelo, 0) + (linha["qtd_luminarias"] or 0)
+    resumo_lista = []
+    for modelo, qtd in sorted(resumo.items()):
+        lampada_modelo = db.query(m.LookupLampada).filter_by(modelo=modelo).first()
+        resumo_lista.append({"modelo_luminaria": modelo, "qtd_total": qtd,
+                              "fabricante": lampada_modelo.fabricante if lampada_modelo else None})
+    resultado = {"linhas": linhas, "resumo_por_modelo": resumo_lista}
+    resultado["notas"] = NOTAS
+    return resultado
 
 
 @router.get("/estudo")

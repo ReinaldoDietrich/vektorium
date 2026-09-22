@@ -93,7 +93,6 @@ function iniciarBackend() {
       ELECTRON: '1',
       VEKTORIUM_APPDATA: appData,
       PYTHONPATH: process.resourcesPath,
-      VEKTORIUM_API_URL: 'https://vektorium-calc.fly.dev',
       VEKTORIUM_VERSION: app.getVersion()
     };
   } else {
@@ -103,7 +102,6 @@ function iniciarBackend() {
       ...process.env,
       PYTHONDONTWRITEBYTECODE: '1',
       ELECTRON: '1',
-      VEKTORIUM_API_URL: 'https://vektorium-calc.fly.dev',
       VEKTORIUM_VERSION: app.getVersion()
     };
   }

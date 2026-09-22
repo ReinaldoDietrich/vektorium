@@ -115,6 +115,9 @@ async function initTela1() {
   document.getElementById('sAutomacaoFabricante').addEventListener('change', () =>
     t1_popularModeloControladorEquipamentos(document.getElementById('sAutomacao').value,
       document.getElementById('sAutomacaoFabricante').value, ''));
+  document.getElementById('accSelecaoUC').addEventListener('toggle', () => {
+    if (document.getElementById('accSelecaoUC').open && window.t1uc_render) window.t1uc_render();
+  });
   document.addEventListener('projeto-changed', t1_atualizarStatusProjeto);
   t1_carregarEstados();
   t1_carregarProjetos();

@@ -3,16 +3,13 @@
 editáveis (Configurações — aba única) e o endpoint de resumo (4 modos). Cadastro comercial
 (texto+foto) fica em CatalogoComercial (backend/routers/catalogo_comercial.py), unificado com
 os demais componentes."""
-import io
 from fastapi import APIRouter, Body, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
 from ..utils import model_to_dict, list_to_dict, resposta_excel_projeto
 from ..exportacao.paineis_portas_export import gerar_excel_paineis_portas
-from .. import calc_remoto_client as _remoto
-from ..calc_service import _token_usuario
+from ..calc_paineis_portas import calcular_paineis_de_dados, calcular_portas_de_dados, montar_resumo_de_dados
 from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
 
@@ -61,30 +58,20 @@ def _serializar(db, projeto, incluir_paineis=True, incluir_portas=True, modo=Non
     return dados
 
 
-def _resultado_ou_erro(status, resultado):
-    if status == _remoto.Status.OK and resultado is not None:
-        return resultado
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
-    raise HTTPException(503, "Servidor de cálculo indisponível.")
-
 
 def calcular_paineis(db, projeto):
     dados = _serializar(db, projeto, incluir_portas=False)
-    status, res = _remoto.paineis(dados, _token_usuario.get())
-    return _resultado_ou_erro(status, res)
+    return calcular_paineis_de_dados(db, dados)
 
 
 def calcular_portas(db, projeto):
     dados = _serializar(db, projeto, incluir_paineis=False)
-    status, res = _remoto.portas(dados, _token_usuario.get())
-    return _resultado_ou_erro(status, res)
+    return calcular_portas_de_dados(db, dados)
 
 
 def montar_resumo(db, projeto, modo="total"):
     dados = _serializar(db, projeto, modo=modo)
-    status, res = _remoto.paineis_resumo(dados, _token_usuario.get())
-    return _resultado_ou_erro(status, res)
+    return montar_resumo_de_dados(db, dados)
 
 CAMPOS_PAINEL = {"camara_completo_id", "camara_simples_id", "ambiente_nao_climatizado_nome", "tipo",
                   "espessura", "dimensao_1", "dimensao_2", "ordem"}

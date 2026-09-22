@@ -13,8 +13,8 @@ from ..utils import model_to_dict, list_to_dict
 from ..calculos.comum import folga_percentual
 from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
-from .. import calc_remoto_client as _remoto
-from ..calc_service import _token_usuario
+from ..calc_puro_uc_rack import calcular_compressores_de_dados
+from ..calculos import condensador as cc_calc
 
 router = APIRouter(prefix="/api/rack-paralelo", tags=["rack-paralelo"])
 
@@ -577,12 +577,7 @@ def listar_compressores(rack_id: int, db: Session = Depends(get_db)):
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     dados = _serializar_listar_compressores(db, rack)
-    status, calc = _remoto.rack_compressores(dados, _token_usuario.get())
-    if status == _remoto.Status.OK and calc:
-        return calc
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
-    raise HTTPException(503, "Servidor de cálculo indisponível.")
+    return calcular_compressores_de_dados(db, dados)
 
 
 @router.put("/{rack_id}/compressores/{posicao}")
@@ -675,21 +670,60 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         "folga_pct": rack.folga_condensador_pct, "quantidade": rack.quantidade_condensadores or 1,
         "tensao_equipamentos": tensao_eq, "nomenclatura_selecionada": selecoes_manuais,
     }
-    status, calc = _remoto.condensador(dados_remoto, _token_usuario.get())
-    if status == _remoto.Status.OK and calc:
-        base["filtros_disponiveis"] = calc["filtros_disponiveis"]
-        base["dt_catalogo_c"] = calc["dt_catalogo_c"]
-        base["tensao_equipamentos"] = tensao_eq
-        base["selecao"] = calc["selecao"]
-        base["linha_id"] = calc["linha_id"]
-        base["nomenclatura_selecionada"] = selecoes_manuais
-        return base
-    if status == _remoto.Status.SEM_LICENCA:
-        raise HTTPException(403, "Assinatura inativa — cálculo não disponível.")
-    if not calc:
+    q = (db.query(m.LinhaCondensadorRemoto)
+         .join(m.Fabricante, m.LinhaCondensadorRemoto.fabricante_id == m.Fabricante.id)
+         .filter(m.Fabricante.nome == rack.fabricante_condensador,
+                 m.LinhaCondensadorRemoto.nome == rack.linha_condensador))
+    linhas_cond = q.all()
+    if rack.tipo_condensador:
+        linhas_cond = [l for l in linhas_cond if (l.tipo_estrutura or "") == rack.tipo_condensador]
+    linha = max(linhas_cond, key=lambda l: l.id) if linhas_cond else None
+    if not linha:
         base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
         return base
-    raise HTTPException(503, "Servidor de cálculo indisponível.")
+    modelos = linha.modelos
+    polos_ac = sorted({str(int(md.polos_ou_rpm)) for md in modelos
+                       if (md.tipo_motor or "").upper() == "AC" and md.polos_ou_rpm not in (None, "")},
+                      key=lambda v: int(v))
+    tem_ec = any((md.tipo_motor or "").upper() == "EC" for md in modelos)
+    filtros_disponiveis = {
+        "fpis": sorted({md.fpi for md in modelos if md.fpi is not None}),
+        "polos_rpm": (["AC"] if polos_ac else []) + polos_ac + (["EC"] if tem_ec else []),
+    }
+    fatores_por_tipo = {}
+    for f in linha.fatores:
+        fatores_por_tipo.setdefault(f.tipo, []).append({"chave": f.chave, "fator": f.fator})
+    selecao = cc_calc.selecionar_condensador(
+        modelos, fatores_por_tipo, dados_remoto["contexto"], dados_remoto.get("calor_rejeitado"),
+        dados_remoto.get("folga_pct"),
+        filtro_fpi=dados_remoto.get("filtro_fpi"), filtro_polos_rpm=dados_remoto.get("filtro_polos_rpm"),
+        delta_catalogo=linha.dt_catalogo_c, tensao_equipamentos=tensao_eq,
+        quantidade=dados_remoto.get("quantidade", 1))
+    def _ctx_cand(cand):
+        return {
+            "tensao_equipamentos": tensao_eq,
+            "fpi": str(cand["fpi"]) if cand.get("fpi") is not None else None,
+            "tipo_motor": cand.get("tipo_motor"),
+            "num_fileiras": str(cand["num_fileiras"]) if cand.get("num_fileiras") is not None else None,
+            "qtd_ventiladores": str(cand["qtd_ventiladores"]) if cand.get("qtd_ventiladores") is not None else None,
+            "polos_ou_rpm": str(cand["polos_ou_rpm"]) if cand.get("polos_ou_rpm") is not None else None,
+        }
+    if selecao.get("escolhido"):
+        esc = selecao["escolhido"]
+        esc["codigo_comercial"] = cpc.montar_codigo(
+            db, "CondensadorRemoto", linha.id, modelo_base=esc["modelo"],
+            contexto=_ctx_cand(esc), selecoes_manuais=selecoes_manuais)
+    for cand in selecao.get("candidatos", []):
+        cand["codigo_comercial"] = cpc.montar_codigo(
+            db, "CondensadorRemoto", linha.id, modelo_base=cand["modelo"],
+            contexto=_ctx_cand(cand), selecoes_manuais=selecoes_manuais)
+    base["filtros_disponiveis"] = filtros_disponiveis
+    base["dt_catalogo_c"] = linha.dt_catalogo_c
+    base["tensao_equipamentos"] = tensao_eq
+    base["selecao"] = selecao
+    base["linha_id"] = linha.id
+    base["nomenclatura_selecionada"] = selecoes_manuais
+    return base
 
 
 @router.get("/{rack_id}/resumo-compressores")
