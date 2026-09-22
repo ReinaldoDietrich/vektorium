@@ -88,6 +88,10 @@ class Projeto(Base):
     fechada_clima = Column(Boolean, default=False)
     fechada_estrutural = Column(Boolean, default=False)
 
+    # UUID que identifica o projeto na nuvem (Supabase Storage). Gerado no primeiro push;
+    # persiste na máquina destino após o pull. Permite detectar duplicatas entre terminais.
+    cloud_id = Column(String, nullable=True)
+
     sistemas = relationship("SistemaRefrigeracao", back_populates="projeto", cascade="all, delete-orphan")
     estacao_climatologica = relationship("CondicaoClimatica")
 

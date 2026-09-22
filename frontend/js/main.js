@@ -155,7 +155,14 @@ window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
 window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
 async function sairDoApp() {
+  // SE-032 FASE D — push-todos → delete-lock → logout → encerrar
   if (typeof AUTH !== 'undefined' && AUTH.token()) {
+    const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+    const _jwt = AUTH.token();
+    if (_uid && _jwt) {
+      try { await api.post('/api/cloud/push-todos', { user_id: _uid, token: _jwt }); } catch (_) {}
+      try { await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+    }
     await AUTH.logout();
   }
   if (window.vektorium && window.vektorium.sair) {

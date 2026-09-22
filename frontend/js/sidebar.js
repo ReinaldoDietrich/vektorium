@@ -447,6 +447,21 @@ function initLoginUI() {
     try {
       await AUTH.login(email, senha);
       if (minhaTentativa !== _tentativaAtual) return;
+      // SE-032 FASE D — check-lock → create-lock → pull-novos
+      const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+      const _jwt = AUTH.token();
+      if (_uid && _jwt) {
+        btnEntrar.textContent = 'Verificando sessão...';
+        let _lockResp = null;
+        try { _lockResp = await api.post('/api/cloud/check-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+        if (_lockResp && _lockResp.locked) {
+          AUTH.limpar();
+          throw new Error('Você já tem uma sessão ativa em outro computador. Encerre o app lá primeiro.');
+        }
+        try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+        btnEntrar.textContent = 'Sincronizando projetos...';
+        try { await api.post('/api/cloud/pull-novos', { user_id: _uid, token: _jwt }); } catch (_) {}
+      }
       _esconderTelaLogin();
       if (typeof iniciarVerificacaoPeriodicaLicenca === 'function') iniciarVerificacaoPeriodicaLicenca();
     } catch (e) {

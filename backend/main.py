@@ -11,7 +11,7 @@ from .database import engine
 from . import seed
 from .calc_service import definir_token_usuario
 from .admin import registrar
-from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync
+from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync, cloud_projetos
 
 _log = logging.getLogger(__name__)
 
@@ -98,6 +98,17 @@ app.add_middleware(LicencaMiddleware)
 seed.run()
 registrar(app, engine)
 
+def _migrar_schema():
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE projetos ADD COLUMN cloud_id TEXT"))
+            conn.commit()
+        except Exception:
+            pass  # coluna já existe
+
+_migrar_schema()
+
 app.include_router(projetos.router)
 app.include_router(catalogos.router)
 app.include_router(camaras_completo.router)
@@ -125,6 +136,7 @@ app.include_router(luminotecnico.router)
 app.include_router(comparativo_revisoes.router)
 app.include_router(proposta_comercial.router)
 app.include_router(catalogo_sync.router)
+app.include_router(cloud_projetos.router)
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
