@@ -612,6 +612,7 @@ async function t2_confirmarImportacaoValvulas() {
 window.initTela2 = initTela2;
 window.telaShowHandlers[2] = async () => {
   if (!state.projetoId) return;
+  t2_catalogos = null;
   await carregarSistemasDoProjeto();
   popularSelectsSistema([document.getElementById('c2_sistema_id')]);
   t2_carregarLista();

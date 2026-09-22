@@ -9,6 +9,7 @@ from urllib.error import URLError, HTTPError
 from fastapi import APIRouter, Body, Depends
 from fastapi.requests import Request as FastAPIRequest
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models as m
@@ -187,10 +188,27 @@ def _receber_forcadores(db: Session, payload: dict):
             if orig_id:
                 ln_data["id"] = orig_id
             ln_data["fabricante_id"] = fab_id
-            ln = m.LinhaForcador(**ln_data)
-            db.add(ln)
-            db.flush()
-            criados += 1
+            sp = db.begin_nested()
+            try:
+                ln = m.LinhaForcador(**ln_data)
+                db.add(ln)
+                db.flush()
+                sp.commit()
+                criados += 1
+            except IntegrityError:
+                sp.rollback()
+                ln = db.get(m.LinhaForcador, orig_id) if orig_id else None
+                if ln:
+                    for k, v in ln_data.items():
+                        if k != "id":
+                            setattr(ln, k, v)
+                    atualizados += 1
+                else:
+                    ln_data.pop("id", None)
+                    ln = m.LinhaForcador(**ln_data)
+                    db.add(ln)
+                    db.flush()
+                    criados += 1
         for mp in modelos_p:
             caps_p = mp.pop("capacidades", [])
             elet_p = mp.pop("eletricas", [])
@@ -303,10 +321,27 @@ def _receber_condensadores(db: Session, payload: dict):
             if orig_id:
                 ln_data["id"] = orig_id
             ln_data["fabricante_id"] = fab_id
-            ln = m.LinhaCondensadorRemoto(**ln_data)
-            db.add(ln)
-            db.flush()
-            criados += 1
+            sp = db.begin_nested()
+            try:
+                ln = m.LinhaCondensadorRemoto(**ln_data)
+                db.add(ln)
+                db.flush()
+                sp.commit()
+                criados += 1
+            except IntegrityError:
+                sp.rollback()
+                ln = db.get(m.LinhaCondensadorRemoto, orig_id) if orig_id else None
+                if ln:
+                    for k, v in ln_data.items():
+                        if k != "id":
+                            setattr(ln, k, v)
+                    atualizados += 1
+                else:
+                    ln_data.pop("id", None)
+                    ln = m.LinhaCondensadorRemoto(**ln_data)
+                    db.add(ln)
+                    db.flush()
+                    criados += 1
         existing_modelos = {mod.modelo: mod for mod in ln.modelos}
         for mp in modelos_p:
             modelo_nome = mp.get("modelo")

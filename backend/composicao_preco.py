@@ -389,6 +389,7 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             item.custo_unitario = g["soma"]
             item.fabricante = fab
             item.quantidade = 1
+            item.incluir_orcamento = True
             # fator_id NÃO é mais sobrescrito aqui (só sugerido na criação, abaixo) — nessa
             # linha o usuário escolhe livremente o Fator que representa os custos que incidem
             # sobre a comissão recebida (imposto, comissão ao vendedor — ver calcular_item),
@@ -402,11 +403,12 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             ordem_max += 1
 
     # Fabricante que ficou sem item de comissão nenhum (mudou o Fator, apagou o item etc.) —
-    # apaga a linha, nunca deixa lançamento fantasma parado ali (2026-08-05).
+    # suspende a linha (custo=0, fora do orçamento) preservando centro_custo_id definido pelo usuário.
     chaves_atuais = {f"comissao-indicacao::{fab}" for fab in grupos}
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
-            db.delete(item)
+            item.custo_unitario = 0
+            item.incluir_orcamento = False
     db.commit()
 
 

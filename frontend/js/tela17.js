@@ -29,8 +29,10 @@ function initTela17() {
   });
   document.getElementById('t17_btnAddVendedor').addEventListener('click', t17_vincularVendedor);
   document.getElementById('t17_btnImprimir').addEventListener('click', t17_imprimirListaMateriais);
-  document.getElementById('t17_btnExportarExcel').addEventListener('click', () => {
-    if (state.projetoId) api.baixarOuSalvar(`/api/composicao-preco/lista-materiais/exportar/excel?${t17_queryFiltrosAtivos()}`);
+  document.getElementById('t17_btnExportarExcel').addEventListener('click', async () => {
+    if (!state.projetoId) return;
+    try { await api.baixarOuSalvar(`/api/composicao-preco/lista-materiais/exportar/excel?${t17_queryFiltrosAtivos()}`); }
+    catch (e) { alert(`Erro ao exportar Excel:\n${e.message}`); }
   });
   document.getElementById('t17_filtroFab').addEventListener('change', t17_renderBlocosFiltrado);
   document.getElementById('t17_filtroCC').addEventListener('change', t17_renderBlocosFiltrado);

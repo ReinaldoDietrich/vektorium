@@ -387,7 +387,7 @@ def _bloco_condensador(db, sistema):
             "fabricante_linha": f"{rack.fabricante_condensador or '—'} / {rack.linha_condensador or '—'}",
             "temp_ambiente": projeto.temp_ambiente if projeto else None,
             "delta_condensacao": sistema.delta_condensacao,
-            "temp_condensacao": dados.get("temp_condensacao"),
+            "temp_condensacao": dados.get("temp_condensacao") if dados.get("temp_condensacao") is not None else _temp_condensacao(projeto, sistema),
             "qtd_ventiladores": e.get("qtd_ventiladores"),
             "diametro_ventilador_mm": e.get("diametro_ventilador_mm"),
             "tensao": dados.get("tensao_equipamentos"),

@@ -16,6 +16,8 @@ else:
 # usuário) continua exatamente como sempre foi — SQLite local, nada muda.
 _DATABASE_URL = os.environ.get("DATABASE_URL")
 if _DATABASE_URL:
+    if _DATABASE_URL.startswith("postgres://"):
+        _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
     engine = create_engine(_DATABASE_URL, pool_pre_ping=True)
 else:
     engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
