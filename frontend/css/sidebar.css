@@ -112,5 +112,6 @@ body.sem-login .topbar,body.sem-login .shell{visibility:hidden;}
 @media print{
   .topbar,.sidebar{display:none!important;}
   .shell{display:block!important;height:auto!important;}
-  .main-content{overflow:visible!important;}
+  .main-content{overflow:visible!important;height:auto!important;background:white!important;}
+  body{background:white!important;color:black!important;}
 }

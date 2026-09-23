@@ -10,10 +10,14 @@ let t16_arvoreIds = [];
 function initTela16() {
   window.telaShowHandlers[16] = t16_carregar;
   document.getElementById('t16_btnComparar').addEventListener('click', t16_comparar);
-  document.getElementById('t16_btnImprimir').addEventListener('click', () => {
+  document.getElementById('t16_btnImprimir').addEventListener('click', async () => {
     document.body.classList.add('t16-imprimindo');
-    window.print();
-    document.body.classList.remove('t16-imprimindo');
+    try {
+      if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'comparativo-revisoes' });
+      else window.print();
+    } finally {
+      document.body.classList.remove('t16-imprimindo');
+    }
   });
   document.getElementById('t16_btnExportarExcel').addEventListener('click', () => {
     const idA = document.getElementById('t16_revA').value;

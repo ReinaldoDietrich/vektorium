@@ -147,6 +147,22 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
   body.t10-imprimindo .titlebar,
   body.t16-imprimindo .titlebar,
   body.t18-imprimindo .titlebar { display: none !important; }
+  /* Tabelas: reverter overflow-x para expandir até a largura da página sem cortar colunas. */
+  .body-pad > table, table.list {
+    display: table !important;
+    width: 100% !important;
+    overflow: visible !important;
+    table-layout: auto !important;
+  }
+  /* Campos de formulário: sem widget visual, sem borda — exibe texto puro no PDF. */
+  input, select, textarea {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
 }
 
 /* ===== Projeto fechado — modo só-visualização (Tela 1, aprovado 2026-08-12) =====

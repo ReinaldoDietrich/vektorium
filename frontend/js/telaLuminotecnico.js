@@ -4,10 +4,14 @@
 
 function initTelaLuminotecnico() {
   window.telaShowHandlers[18] = t18_carregar;
-  document.getElementById('t18_btnImprimir').addEventListener('click', () => {
+  document.getElementById('t18_btnImprimir').addEventListener('click', async () => {
     document.body.classList.add('t18-imprimindo');
-    window.print();
-    document.body.classList.remove('t18-imprimindo');
+    try {
+      if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'luminotecnico' });
+      else window.print();
+    } finally {
+      document.body.classList.remove('t18-imprimindo');
+    }
   });
   document.getElementById('t18_btnExportarExcel').addEventListener('click', () => {
     if (state.projetoId) api.baixarOuSalvar(`/api/luminotecnico/exportar/excel?projeto_id=${state.projetoId}`);

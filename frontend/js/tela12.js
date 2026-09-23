@@ -70,10 +70,14 @@ const T12_BLOCO_CONDENSADOR = [
 
 function initTela12() {
   document.getElementById('t12_btnAtualizar').addEventListener('click', t12_carregar);
-  document.getElementById('t12_btnImprimir').addEventListener('click', () => {
+  document.getElementById('t12_btnImprimir').addEventListener('click', async () => {
     document.body.classList.add('t12-imprimindo');
-    window.print();
-    document.body.classList.remove('t12-imprimindo');
+    try {
+      if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'compilacao-geral' });
+      else window.print();
+    } finally {
+      document.body.classList.remove('t12-imprimindo');
+    }
   });
   document.getElementById('t12_btnExportarExcel').addEventListener('click', async () => {
     if (!state.projetoId) return;

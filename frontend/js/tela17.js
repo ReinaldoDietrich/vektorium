@@ -160,8 +160,12 @@ async function t17_imprimirListaMateriais() {
     </table>`;
   document.body.classList.add('t17-imprimindo-lista');
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  window.print();
-  document.body.classList.remove('t17-imprimindo-lista');
+  try {
+    if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'lista-materiais' });
+    else window.print();
+  } finally {
+    document.body.classList.remove('t17-imprimindo-lista');
+  }
 }
 
 function t17_passaFiltro(it) {

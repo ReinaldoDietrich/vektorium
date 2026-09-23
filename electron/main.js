@@ -292,6 +292,27 @@ ipcMain.handle('escolher-pasta', async (_event, opcoes) => {
   return result.canceled ? null : result.filePaths[0];
 });
 
+ipcMain.handle('exportar-pdf', async (_event, opcoes) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(janelaPrincipal, {
+    title: 'Salvar PDF',
+    defaultPath: path.join(app.getPath('documents'), (opcoes?.nome || 'vektorium') + '.pdf'),
+    filters: [{ name: 'Arquivo PDF', extensions: ['pdf'] }]
+  });
+  if (canceled || !filePath) return { ok: false };
+  try {
+    const data = await janelaPrincipal.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      landscape: opcoes?.paisagem || false,
+      margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }
+    });
+    fs.writeFileSync(filePath, data);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, erro: err.message };
+  }
+});
+
 process.on('exit', () => { matarBackend(); });
 process.on('SIGTERM', () => { fechandoApp = true; if (processoBackend) processoBackend.removeAllListeners('exit'); matarBackend(); app.quit(); });
 process.on('SIGINT',  () => { fechandoApp = true; if (processoBackend) processoBackend.removeAllListeners('exit'); matarBackend(); app.quit(); });
