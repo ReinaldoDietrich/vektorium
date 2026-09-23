@@ -486,35 +486,6 @@ function initLoginUI() {
   document.getElementById('login_senha').addEventListener('keydown', ev => { if (ev.key === 'Enter') tentarLogin(); });
   document.getElementById('login_email').addEventListener('keydown', ev => { if (ev.key === 'Enter') document.getElementById('login_senha').focus(); });
 
-  document.getElementById('btnEncerrarSessoes').addEventListener('click', async () => {
-    const email = document.getElementById('login_email').value.trim().toLowerCase();
-    const senha = document.getElementById('login_senha').value;
-    if (!email || !senha) {
-      erroEl.style.cssText = 'display:block;';
-      erroEl.textContent = 'Preencha e-mail e senha antes de encerrar as sessões.'; return;
-    }
-    if (!confirm('Encerrar todas as sessões ativas em outros dispositivos?\n\nVocê precisará fazer login normalmente após isso.')) return;
-    const btnE = document.getElementById('btnEncerrarSessoes');
-    btnE.textContent = 'Encerrando...'; btnE.disabled = true;
-    erroEl.style.display = 'none';
-    try {
-      await AUTH.login(email, senha);
-      const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
-      const jwt = AUTH.token();
-      if (uid && jwt) {
-        try { await api.post('/api/cloud/delete-lock', { user_id: uid, token: jwt }); } catch (_) {}
-      }
-      AUTH.limpar();
-      erroEl.style.cssText = 'display:block;color:#27ae60;';
-      erroEl.textContent = '✓ Sessões encerradas. Faça login normalmente.';
-    } catch (e) {
-      erroEl.style.cssText = 'display:block;';
-      erroEl.textContent = e.message || 'Falha ao encerrar sessões.';
-    } finally {
-      btnE.textContent = '⚠ Encerrar sessões ativas em outros dispositivos';
-      btnE.disabled = false;
-    }
-  });
 }
 
 if (document.readyState !== 'loading') initSidebar();
