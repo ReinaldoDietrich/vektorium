@@ -25,13 +25,6 @@ function initTela11() {
   document.getElementById('t11_ri_arquivo').addEventListener('change', t11_previewImportacao);
   document.getElementById('t11_ri_btnCancelar').addEventListener('click', t11_cancelarPreviewImportacao);
   document.getElementById('t11_ri_btnConfirmar').addEventListener('click', t11_confirmarImportacao);
-  document.getElementById('t11_cond_fabricante').addEventListener('change', async () => { t11_cond_repopularLinhas(); await t11_salvarCondensador(); });
-  document.getElementById('t11_cond_linha').addEventListener('change', t11_salvarCondensador);
-  document.getElementById('t11_cond_fpi').addEventListener('change', t11_salvarCondensador);
-  document.getElementById('t11_cond_polos').addEventListener('change', t11_salvarCondensador);
-  document.getElementById('t11_cond_folga').addEventListener('change', t11_salvarCondensador);
-  document.getElementById('t11_cond_qtdCondensadores').addEventListener('change', t11_salvarCondensador);
-  document.getElementById('t11_cond_protecaoAletas').addEventListener('change', t11_salvarCondensador);
   document.getElementById('t11_cond_notas').addEventListener('change', t11_salvarCondensador);
   document.getElementById('t11_cond_btnAdd').addEventListener('click', t11_addOpcaoCondensador);
   document.getElementById('t11_btnAddRack').addEventListener('click', t11_addRack);
@@ -378,17 +371,19 @@ async function t11_comp_salvarPercentual(pct) {
 // ---- Seleção de Condensador Remoto (catálogo da Tela C) ----
 
 let t11_condOpcoes = null;
+let t11_filtrosDisponiveis = null;  // fpis/polos_rpm disponíveis — carregados em t11_carregarCondensador
 
-// Campos da "Seleção de Condensadores" que só fazem sentido quando o Tipo de Condensador (Tela 1)
-// não é "-" nem "Plano Onboard" (Onboard não usa catálogo de condensador remoto) — aprovado 2026-08-08.
-const T11_CAMPOS_CONDENSADOR_SELECAO = ['t11_cond_fabricante', 't11_cond_linha', 't11_cond_polos', 't11_cond_fpi',
-  't11_cond_protecaoAletas', 't11_cond_folga', 't11_cond_qtdCondensadores', 't11_cond_notas'];
+// Campos rack-nível ainda habilitados/desabilitados pelo Tipo Condensador.
+const T11_CAMPOS_CONDENSADOR_SELECAO = ['t11_cond_notas'];
 
 function t11_atualizarDisponibilidadeCondensador(tipoCondensador) {
   const habilitado = !!tipoCondensador && tipoCondensador !== 'Plano Onboard';
   T11_CAMPOS_CONDENSADOR_SELECAO.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !habilitado; });
   const btnAdd = document.getElementById('t11_cond_btnAdd');
   if (btnAdd) btnAdd.disabled = !habilitado;
+  // Habilita/desabilita linha da tabela de opções via CSS
+  const lista = document.getElementById('t11_cond_opcoesLista');
+  if (lista) lista.querySelectorAll('select,input').forEach(el => { el.disabled = !habilitado; });
 }
 
 // Tipo Condensador agora é editável aqui (master) — popula o select com opções da árvore 4.4.1,
@@ -416,32 +411,119 @@ async function t11_carregarOpcoesCondensador() {
   }
   t11_atualizarDisponibilidadeCondensador(tipoCondensador);
   t11_condOpcoes = await api.get(`/api/rack-paralelo/${t11_rackAtual.id}/condensador-opcoes`);
-  const fab = document.getElementById('t11_cond_fabricante');
-  fab.innerHTML = '<option value="">—</option>' + t11_condOpcoes.fabricantes.map(f => `<option>${f}</option>`).join('');
-  fab.value = t11_rackAtual.fabricante_condensador || '';
-  t11_cond_repopularLinhas(t11_rackAtual.linha_condensador);
-  document.getElementById('t11_cond_folga').value = t11_rackAtual.folga_condensador_pct ?? '';
-  document.getElementById('t11_cond_qtdCondensadores').value = t11_rackAtual.quantidade_condensadores ?? 1;
-  document.getElementById('t11_cond_protecaoAletas').value = t11_rackAtual.protecao_aletas_condensador ? 'true' : '';
   t11_renderOpcoesCondensador();
 }
 
-// Lista de opções de condensador do rack. A marcada (rádio) é a considerada — espelhada nas colunas
-// do rack, é ela que o formulário abaixo e o resumo/compilação usam. "+ Adicionar" cria retraída.
+// Tabela de opções de condensador — mesmo layout do forçador (uma linha por opção, inputs inline).
 function t11_renderOpcoesCondensador() {
   const el = document.getElementById('t11_cond_opcoesLista');
   if (!el || !t11_rackAtual) return;
   const ops = t11_rackAtual.condensadores || [];
-  el.innerHTML = ops.map(o => {
-    const resumo = [o.fabricante_condensador, o.linha_condensador].filter(Boolean).join(' / ') || '(sem seleção)';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:4px;${o.considerado ? 'background:#eff6ff;' : ''}">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-        <input type="radio" name="t11_cond_considerado" ${o.considerado ? 'checked' : ''} data-considerar="${o.id}">
-        <span style="font-weight:${o.considerado ? 'bold' : 'normal'};white-space:nowrap;">${resumo}</span>
-      </label>
-      ${ops.length > 1 ? `<span class="btn-text danger" data-excluir-cond="${o.id}" style="margin-left:auto;">Excluir</span>` : ''}
-    </div>`;
+  const fabricantes = (t11_condOpcoes && t11_condOpcoes.fabricantes) || [];
+  const linhasPorFab = (t11_condOpcoes && t11_condOpcoes.linhas_por_fabricante) || {};
+  const fpis = (t11_filtrosDisponiveis && t11_filtrosDisponiveis.fpis) || [];
+  const polosOpts = (t11_filtrosDisponiveis && t11_filtrosDisponiveis.polos_rpm) || [];
+  const rotuloPolos = { AC: 'Qual. AC', EC: 'EC' };
+
+  const thead = `<thead><tr>
+    <th style="width:17%;text-align:left;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Fabricante</th>
+    <th style="width:17%;text-align:left;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Linha</th>
+    <th style="width:8%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">FPI</th>
+    <th style="width:9%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Motor</th>
+    <th style="width:9%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Proteção</th>
+    <th style="width:9%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Folga %</th>
+    <th style="width:8%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Qtd.</th>
+    <th style="width:13%;text-align:center;padding:4px 6px;font-size:10.5px;text-transform:uppercase;color:#1d4ed8;">Considerar</th>
+    <th style="width:10%;text-align:center;padding:4px 6px;"></th>
+  </tr></thead>`;
+
+  const rows = ops.map(o => {
+    const linhas = linhasPorFab[o.fabricante_condensador] || [];
+    return `<tr style="${o.considerado ? 'background:#eff6ff;' : ''}">
+      <td style="padding:4px 6px;">
+        <select data-cond-fab="${o.id}" style="width:100%;">
+          <option value="">—</option>
+          ${fabricantes.map(f => `<option ${f === o.fabricante_condensador ? 'selected' : ''}>${f}</option>`).join('')}
+        </select>
+      </td>
+      <td style="padding:4px 6px;">
+        <select data-cond-linha="${o.id}" style="width:100%;">
+          <option value="">—</option>
+          ${linhas.map(l => `<option ${l === o.linha_condensador ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <select data-cond-fpi="${o.id}" style="width:68px;">
+          <option value="">Qual.</option>
+          ${fpis.map(v => `<option ${String(v) === String(o.filtro_fpi_condensador) ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <select data-cond-polos="${o.id}" style="width:70px;">
+          <option value="">Qual.</option>
+          ${polosOpts.map(v => `<option value="${v}" ${v === o.filtro_polos_rpm_condensador ? 'selected' : ''}>${rotuloPolos[v] || v}</option>`).join('')}
+        </select>
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <select data-cond-prot="${o.id}" style="width:70px;">
+          <option value="">Padrão</option>
+          <option value="true" ${o.protecao_aletas_condensador ? 'selected' : ''}>Prot.</option>
+        </select>
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <input type="text" data-cond-folga="${o.id}" value="${o.folga_condensador_pct ?? ''}" style="width:55px;">
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <input type="number" min="1" data-cond-qty="${o.id}" value="${o.quantidade_condensadores ?? 1}" style="width:50px;">
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        <label style="font-size:11.5px;font-weight:${o.considerado ? 'bold' : 'normal'};color:${o.considerado ? '#15803d' : '#6b7280'};">
+          <input type="radio" name="t11_cond_considerado" ${o.considerado ? 'checked' : ''} data-considerar="${o.id}"> Considerar
+        </label>
+      </td>
+      <td style="text-align:center;padding:4px 6px;">
+        ${ops.length > 1 ? `<span class="btn-text danger" data-excluir-cond="${o.id}">Excluir</span>` : ''}
+      </td>
+    </tr>`;
   }).join('');
+
+  el.innerHTML = `<table class="list" style="width:100%;"><tbody>${thead}${rows}</tbody></table>`;
+
+  el.querySelectorAll('[data-cond-fab]').forEach(sel => sel.addEventListener('change', async () => {
+    const optId = sel.dataset.condFab;
+    await api.put(`/api/rack-paralelo/condensadores/${optId}`, { fabricante_condensador: sel.value || null, linha_condensador: null });
+    // Repopula select de linha para esta opção
+    const linhaSel = el.querySelector(`[data-cond-linha="${optId}"]`);
+    if (linhaSel) {
+      const novasLinhas = linhasPorFab[sel.value] || [];
+      linhaSel.innerHTML = '<option value="">—</option>' + novasLinhas.map(l => `<option>${l}</option>`).join('');
+    }
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-linha]').forEach(sel => sel.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condLinha}`, { linha_condensador: sel.value || null });
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-fpi]').forEach(sel => sel.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condFpi}`, { filtro_fpi_condensador: sel.value ? Number(sel.value) : null });
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-polos]').forEach(sel => sel.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condPolos}`, { filtro_polos_rpm_condensador: sel.value || null });
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-prot]').forEach(sel => sel.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condProt}`, { protecao_aletas_condensador: sel.value === 'true' });
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-folga]').forEach(inp => inp.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condFolga}`, { folga_condensador_pct: parseNumBR(inp.value) });
+    await t11_carregarCondensador();
+  }));
+  el.querySelectorAll('[data-cond-qty]').forEach(inp => inp.addEventListener('change', async () => {
+    await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condQty}`, { quantidade_condensadores: parseInt(inp.value) || 1 });
+    await t11_carregarCondensador();
+  }));
   el.querySelectorAll('[data-considerar]').forEach(r => r.addEventListener('change', async () => {
     await api.put(`/api/rack-paralelo/condensadores/${r.dataset.considerar}/considerar`, {});
     await t11_recarregarRacks(true);
@@ -480,13 +562,6 @@ async function t11_salvarCondensador() {
   if (sist) { sist.selecao_condensador_ar = selCond; sist.delta_condensacao = deltaCond; }
   t11_rackAtual = await api.put(`/api/rack-paralelo/${t11_rackAtual.id}`, {
     tipo_condensador: tipoCondensadorNome || null,
-    fabricante_condensador: document.getElementById('t11_cond_fabricante').value || null,
-    linha_condensador: document.getElementById('t11_cond_linha').value || null,
-    filtro_fpi_condensador: document.getElementById('t11_cond_fpi').value ? Number(document.getElementById('t11_cond_fpi').value) : null,
-    filtro_polos_rpm_condensador: document.getElementById('t11_cond_polos').value || null,
-    folga_condensador_pct: parseNumBR(document.getElementById('t11_cond_folga').value),
-    quantidade_condensadores: parseNumBR(document.getElementById('t11_cond_qtdCondensadores').value) || 1,
-    protecao_aletas_condensador: document.getElementById('t11_cond_protecaoAletas').value === 'true',
     notas_condensador: document.getElementById('t11_cond_notas').value || null,
   });
   await t11_carregarCondensador();
@@ -498,14 +573,11 @@ async function t11_carregarCondensador() {
   document.getElementById('t11_cond_tempAposCondensador').value = d.temp_apos_condensador != null ? fmtNum(d.temp_apos_condensador, 1) : '—';
   document.getElementById('t11_cond_tempCondensacao').value = d.temp_condensacao != null ? fmtNum(d.temp_condensacao, 1) : '—';
   document.getElementById('t11_cond_notas').value = d.notas_condensador || '';
-  // repopula filtros FPI / Polos-RPM preservando a seleção salva
-  const fpiSel = document.getElementById('t11_cond_fpi');
-  fpiSel.innerHTML = '<option value="">Qualquer</option>' + d.filtros_disponiveis.fpis.map(v =>
-    `<option ${String(v) === String(d.filtro_fpi_condensador) ? 'selected' : ''}>${v}</option>`).join('');
-  const polSel = document.getElementById('t11_cond_polos');
-  const rotuloPolosOpcao = { AC: 'Qualquer AC', EC: 'EC' };
-  polSel.innerHTML = '<option value="">Qualquer</option>' + d.filtros_disponiveis.polos_rpm.map(v =>
-    `<option value="${v}" ${v === d.filtro_polos_rpm_condensador ? 'selected' : ''}>${rotuloPolosOpcao[v] || v}</option>`).join('');
+  // Armazena filtros disponíveis globalmente e re-renderiza tabela de opções com eles
+  if (d.filtros_disponiveis) {
+    t11_filtrosDisponiveis = d.filtros_disponiveis;
+    t11_renderOpcoesCondensador();
+  }
 
   const el = document.getElementById('t11_cond_resultado');
   const nomencEl = document.getElementById('t11_cond_nomenclatura');
