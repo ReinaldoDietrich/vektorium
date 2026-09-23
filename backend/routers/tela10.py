@@ -98,6 +98,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                 f'Condensador Remoto a Ar - {_t(rack.tipo_condensador if rack else None)} - '
                 f'{_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)}',
                 (rack.fabricante_condensador if rack else None), cd.get("quantidade_paralelo") or 1,
+                chave=f"Condensador Remoto — Sistema {sistema.nome}",
                 id_comercial=cond_id_com)
 
     # Agrupa por `chave` (identidade estável), não por `descricao` (que pro Rack Paralelo muda a

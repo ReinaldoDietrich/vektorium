@@ -10,7 +10,11 @@ let t16_arvoreIds = [];
 function initTela16() {
   window.telaShowHandlers[16] = t16_carregar;
   document.getElementById('t16_btnComparar').addEventListener('click', t16_comparar);
-  document.getElementById('t16_btnImprimir').addEventListener('click', () => window.print());
+  document.getElementById('t16_btnImprimir').addEventListener('click', () => {
+    document.body.classList.add('t16-imprimindo');
+    window.print();
+    document.body.classList.remove('t16-imprimindo');
+  });
   document.getElementById('t16_btnExportarExcel').addEventListener('click', () => {
     const idA = document.getElementById('t16_revA').value;
     const idB = document.getElementById('t16_revB').value;

@@ -389,7 +389,7 @@ def _bloco_condensador(db, sistema):
             except Exception:
                 pass
             nome_sel = " ".join(str(v) for v in selecoes.values() if v and str(v).strip())
-            codigo = nome_sel or e.get("modelo") or cod_cc or None
+            codigo = nome_sel or None
         modelo_com_qtd = f"{qtd_cond}x {codigo}" if codigo else None
         return {
             "tipo_equipamento": "Condensador Remoto", "fonte": "rack",

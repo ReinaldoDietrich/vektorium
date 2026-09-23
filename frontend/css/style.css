@@ -141,6 +141,12 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
   body.t12-imprimindo #tela12 .body-pad > *:not(#t12_conteudo),
   body.t12-imprimindo #t12_conteudo > *:not(.t12-tabela) { display: none !important; }
   body.t12-imprimindo .t12-tabela { display: block !important; }
+  /* Telas que imprimem conteúdo direto — oculta titlebar para PDF limpo. */
+  body.t5-imprimindo .titlebar,
+  body.t9-imprimindo .titlebar,
+  body.t10-imprimindo .titlebar,
+  body.t16-imprimindo .titlebar,
+  body.t18-imprimindo .titlebar { display: none !important; }
 }
 
 /* ===== Projeto fechado — modo só-visualização (Tela 1, aprovado 2026-08-12) =====

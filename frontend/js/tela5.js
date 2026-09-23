@@ -22,7 +22,11 @@ function initTela5() {
   document.getElementById('btnExportarExcel').addEventListener('click', () => {
     if (state.projetoId) api.baixarOuSalvar(`/api/compilacao/exportar/excel?projeto_id=${state.projetoId}&fator_potencia=${t5_fator()}&colunas=${t5_colunasSelecionadas().join(',')}&colunas_compressao=${t5_colunasCompressaoSelecionadas().join(',')}`);
   });
-  document.getElementById('btnExportarPdf').addEventListener('click', () => window.print());
+  document.getElementById('btnExportarPdf').addEventListener('click', () => {
+    document.body.classList.add('t5-imprimindo');
+    window.print();
+    document.body.classList.remove('t5-imprimindo');
+  });
   document.getElementById('t5_btnSalvarObs').addEventListener('click', t5_salvarObservacao);
   document.getElementById('t5_btnRestaurarObs').addEventListener('click', t5_restaurarObservacao);
   document.getElementById('t5_quadroTensaoFonte').addEventListener('change', t5_salvarQuadroTensaoFonte);

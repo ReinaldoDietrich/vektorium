@@ -599,18 +599,18 @@ async function t17_importarArquivo(inp, bloco) {
 
 function t17_renderResumo(resumo) {
   const el = document.getElementById('t17_resumo');
-  let html = '<table class="list" style="max-width:900px;"><thead><tr><th>Centro de Custo</th><th style="width:110px;">Custo Total</th><th style="width:110px;">Impostos</th><th style="width:110px;">Comissões</th><th style="width:130px;">Vlr. c/ Negociação</th></tr></thead><tbody>';
+  let html = '<table class="list" style="max-width:1000px;"><thead><tr><th>Centro de Custo</th><th style="width:110px;">Custo Total</th><th style="width:110px;">Margem</th><th style="width:110px;">Impostos</th><th style="width:110px;">Comissões</th><th style="width:130px;">Vlr. c/ Negociação</th></tr></thead><tbody>';
   resumo.blocos.forEach(b => {
     if (!b.centros_custo.length) return;
-    html += `<tr style="background:var(--surface-1,#f4f4f4);"><td colspan="5" style="font-weight:bold;">${b.bloco.toUpperCase()}</td></tr>`;
+    html += `<tr style="background:var(--surface-1,#f4f4f4);"><td colspan="6" style="font-weight:bold;">${b.bloco.toUpperCase()}</td></tr>`;
     b.centros_custo.forEach(cc => {
       const rotulo = cc.centro_custo ? `${cc.centro_custo} — ${cc.descricao || ''}` : cc.descricao;
-      html += `<tr><td>${rotulo}</td><td style="text-align:right;">${t17_brl(cc.custo_total)}</td><td style="text-align:right;">${t17_brl(cc.impostos)}</td><td style="text-align:right;">${t17_brl(cc.comissoes)}</td><td style="text-align:right;">${t17_brl(cc.valor_venda_negociacao)}</td></tr>`;
+      html += `<tr><td>${rotulo}</td><td style="text-align:right;">${t17_brl(cc.custo_total)}</td><td style="text-align:right;">${t17_brl(cc.margem_contribuicao)}</td><td style="text-align:right;">${t17_brl(cc.impostos)}</td><td style="text-align:right;">${t17_brl(cc.comissoes)}</td><td style="text-align:right;">${t17_brl(cc.valor_venda_negociacao)}</td></tr>`;
     });
-    html += `<tr><td style="font-weight:bold;">Subtotal ${b.bloco}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.custo_total)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.impostos)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.comissoes)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.valor_venda_negociacao)}</td></tr>`;
+    html += `<tr><td style="font-weight:bold;">Subtotal ${b.bloco}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.custo_total)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.margem_contribuicao)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.impostos)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.comissoes)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(b.subtotal.valor_venda_negociacao)}</td></tr>`;
   });
   const tg = resumo.total_geral;
-  html += `<tr style="border-top:2px solid var(--accent);"><td style="font-weight:bold;">TOTAL GERAL</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.custo_total)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.impostos)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.comissoes)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.valor_venda_negociacao)}</td></tr>`;
+  html += `<tr style="border-top:2px solid var(--accent);"><td style="font-weight:bold;">TOTAL GERAL</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.custo_total)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.margem_contribuicao)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.impostos)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.comissoes)}</td><td style="text-align:right;font-weight:bold;">${t17_brl(tg.valor_venda_negociacao)}</td></tr>`;
   html += '</tbody></table>';
   el.innerHTML = html;
 }
@@ -781,8 +781,9 @@ function t17_renderTabelaOrcamento(composicao) {
       // extraPorCC (comissões por indicação) — incluídos apenas no bloco Próprio para evitar dupla contagem
       const extraPorCC = (!tipoFat || tipoFat === 'Próprio') ? info.extraPorCC : {};
       const totalItens = itens.reduce((s, i) => s + i.valor, 0);
+      const totalExtra = Object.values(extraPorCC).reduce((s, v) => s + v, 0);
       if (!itens.length && !Object.keys(extraPorCC).length) return '';
-      totalSecao += totalItens;
+      totalSecao += totalItens + totalExtra;
       let body = '';
       if (isBlocoCC) {
         const porCC = {};
@@ -796,11 +797,14 @@ function t17_renderTabelaOrcamento(composicao) {
           if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
         });
         body = ordemCC.map(cc => {
+          const ccExtra = extraPorCC[cc] || 0;
           const subtotalItens = porCC[cc].reduce((s, it) => s + it.valor, 0);
-          const subtotal = subtotalItens;
-          const itensHtml = porCC[cc].map(it =>
-            linha(it.descricao, exibir === 'individual' ? t17_brl(it.valor) : '', { u: it.unidade, q: it.quantidade })
-          ).join('');
+          const subtotal = subtotalItens + ccExtra;
+          const itensHtml = porCC[cc].map((it, idx) => {
+            const isLast = idx === porCC[cc].length - 1;
+            const valorDisplay = exibir === 'individual' ? t17_brl(it.valor + (isLast ? ccExtra : 0)) : '';
+            return linha(it.descricao, valorDisplay, { u: it.unidade, q: it.quantidade });
+          }).join('');
           const subtotalHtml = exibir === 'total_bloco'
             ? linha('Subtotal — ' + cc, t17_brl(subtotal), { fs: 12, muted: true })
             : '';
@@ -810,7 +814,7 @@ function t17_renderTabelaOrcamento(composicao) {
       const header = '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px 6px;border-top:1px solid var(--line);">' +
         `<div style="flex:1;min-width:0;font-size:14px;font-weight:bold;">${bloco}</div>` +
         (showQtd ? '<div style="width:52px;flex-shrink:0;"></div><div style="width:64px;flex-shrink:0;"></div>' : '') +
-        `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(totalItens)}</div>` +
+        `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(totalItens + totalExtra)}</div>` +
       '</div>';
       return header + body;
     }).join('');

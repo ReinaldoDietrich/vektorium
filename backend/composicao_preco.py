@@ -33,6 +33,7 @@ DRE do projeto (estrutura padrão de DRE simplificada, nível de projeto):
     (=) Resultado do Projeto
 """
 import datetime
+import json
 import re
 from sqlalchemy.orm import Session
 from . import models as m
@@ -99,41 +100,49 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         valor_total_venda = custo_total
         valor_c_negociacao = custo_total
     elif item.bloco == BLOCO_COMISSOES_INDICACAO:
-        # Fator dessa linha é escolha LIVRE do usuário (ver sincronizar_comissoes_indicacao — só
-        # sugere um Fator na criação, nunca sobrescreve depois) — Custo Total AQUI é a Receita
-        # Bruta real (o que a empresa efetivamente recebeu de comissão do fabricante). Impostos/
-        # Margem/Comissão são DEDUÇÕES de dentro dessa receita (Lei 6.404/76 art. 187 e CPC 26 —
-        # Receita Líquida = Receita Bruta MENOS deduções, nunca receita bruta + tributo em cima).
-        # Valor de Venda = Custo, sempre — não existe markup nem soma aqui, é dinheiro que já
-        # entrou; somar imposto/comissão em cima dele inflava a receita além do que foi realmente
-        # recebido (erro corrigido 2026-08-05, revertendo a "soma" que eu tinha feito antes)."""
-        margem_pct = item.fator.pct_margem or 0 if item.fator else 0
+        # custo_unitario armazena o custo total dos equipamentos do fabricante (equip_cost).
+        # calculo_snapshot_json guarda pct_margem e pct_comissao do FT1 (fator dos itens de
+        # origem). item.fator (FT6 — escolha livre do usuário) fornece pct_impostos (ISS).
+        # VLR = (margem_r + comissao_r) / (1 - impostos_pct).  Custo exibido = R$ 0.
+        _snap = {}
+        if item.calculo_snapshot_json:
+            try:
+                _snap = json.loads(item.calculo_snapshot_json)
+            except Exception:
+                pass
+        ft1_margem_pct = _snap.get("ft1_pct_margem", 0)
+        ft1_comissao_pct = _snap.get("ft1_pct_comissao", 0)
         impostos_pct = item.fator.pct_impostos or 0 if item.fator else 0
-        comissao_pct = item.fator.pct_comissao or 0 if item.fator else 0
+        equip_total = custo_total
+        margem_r = equip_total * ft1_margem_pct
+        comissao_r = equip_total * ft1_comissao_pct
+        net = margem_r + comissao_r
+        denom_c = 1 - impostos_pct
+        vlr = net / denom_c if denom_c > 0 else net
+        impostos_r = vlr * impostos_pct
         fator_venda = 1.0
-        margem_r = custo_total * margem_pct
-        impostos_r = custo_total * impostos_pct
-        comissao_r = 0.0
-        valor_unit_venda = custo_unit
-        valor_total_venda = custo_total
-        valor_c_negociacao = custo_total
+        custo_unit = 0
+        custo_total = 0
+        valor_unit_venda = vlr
+        valor_total_venda = vlr
+        valor_c_negociacao = vlr
     else:
-        impostos_pct, comissao_pct, margem_pct, fator_venda = _fator_percentuais(item.fator)
-        if fator_venda is None:
-            # soma de percentuais >= 100% — configuração inválida do Fator, não dá pra formar preço.
+        impostos_pct, comissao_pct, margem_pct, _ = _fator_percentuais(item.fator)
+        denom = 1 - impostos_pct - comissao_pct
+        if denom <= 0:
+            # impostos + comissao >= 100% — configuração inválida do Fator, não dá pra formar preço.
+            fator_venda = None
             margem_r = impostos_r = comissao_r = valor_unit_venda = valor_total_venda = valor_c_negociacao = None
         else:
-            valor_unit_venda = custo_unit * fator_venda
-            valor_total_venda = custo_total * fator_venda
-            # Base do R$ de cada percentual é o Valor de Venda (M), não o Custo (G) — é assim que
-            # o próprio Fator de Venda (H = 1/(1-total%)) é derivado no método Markup Divisor
-            # (literatura de formação de preço de venda): só bate Custo + Margem + Impostos +
-            # Comissões = Valor de Venda se cada parcela for M x pct (aprovado 2026-08-10, bug real
-            # antes usava G x pct e a soma nunca fechava com o Valor de Venda mostrado).
-            margem_r = valor_total_venda * margem_pct
+            # Mark-up sobre custo: margem é % do custo; impostos e comissões são % do VLR.
+            # VLR = (custo + margem_r) / (1 - impostos% - comissao%)
+            margem_r = custo_total * margem_pct
+            valor_total_venda = (custo_total + margem_r) / denom
+            valor_unit_venda = valor_total_venda / qtd if qtd else 0.0
             impostos_r = valor_total_venda * impostos_pct
             comissao_r = valor_total_venda * comissao_pct
             valor_c_negociacao = valor_total_venda * (1 + (margem_negociacao_pct or 0))
+            fator_venda = valor_total_venda / custo_total if custo_total else (1 + margem_pct) / denom
     return {
         "id": item.id, "bloco": item.bloco, "descricao": item.descricao,
         "fabricante": item.fabricante, "observacao": item.observacao,
@@ -374,16 +383,17 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
              .filter_by(projeto_id=projeto_id)
              .filter(m.ComposicaoPrecoItem.bloco != BLOCO_COMISSOES_INDICACAO)
              .filter(m.ComposicaoPrecoItem.fator_id.isnot(None)).all())
-    grupos = {}  # fabricante -> {"soma": float, "fator_id": int}
+    grupos = {}  # fabricante -> {"soma": float, "fator_id": int, "ft1_margem": float, "ft1_comissao": float}
     for it in itens:
         if not _eh_fator_comissao(it.fator):
             continue
         fab = it.fabricante or "—"
-        custo_total = (it.quantidade or 0) * (it.custo_unitario or 0)
-        comissao = custo_total * (it.fator.pct_comissao or 0)
-        g = grupos.setdefault(fab, {"soma": 0.0, "fator_id": it.fator_id})
-        g["soma"] += comissao
+        custo_total_it = (it.quantidade or 0) * (it.custo_unitario or 0)
+        g = grupos.setdefault(fab, {"soma": 0.0, "fator_id": it.fator_id, "ft1_margem": 0.0, "ft1_comissao": 0.0})
+        g["soma"] += custo_total_it  # acumula custo dos equipamentos (calcular_item usará para derivar VLR)
         g["fator_id"] = it.fator_id
+        g["ft1_margem"] = it.fator.pct_margem or 0
+        g["ft1_comissao"] = it.fator.pct_comissao or 0
 
     existentes = {i.chave_sistema: i for i in
                   db.query(m.ComposicaoPrecoItem)
@@ -397,15 +407,14 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             item.fabricante = fab
             item.quantidade = 1
             item.incluir_orcamento = True
-            # fator_id NÃO é mais sobrescrito aqui (só sugerido na criação, abaixo) — nessa
-            # linha o usuário escolhe livremente o Fator que representa os custos que incidem
-            # sobre a comissão recebida (imposto, comissão ao vendedor — ver calcular_item),
-            # independente do Fator dos itens de origem (2026-08-05).
+            item.calculo_snapshot_json = json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]})
+            # fator_id NÃO é sobrescrito (só sugerido na criação) — ver docstring
         else:
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco=BLOCO_COMISSOES_INDICACAO,
                 descricao=f"Comissão indicação de negócio - {fab}", fabricante=fab,
                 quantidade=1, custo_unitario=g["soma"], fator_id=g["fator_id"],
+                calculo_snapshot_json=json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]}),
                 origem="sistema", chave_sistema=chave, ordem=ordem_max))
             ordem_max += 1
 

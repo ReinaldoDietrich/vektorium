@@ -17,7 +17,11 @@ function initTela10() {
   document.getElementById('t10_btnExportarExcel').addEventListener('click', () => {
     if (state.projetoId) api.baixarOuSalvar(`/api/paineis-portas/resumo/exportar/excel?projeto_id=${state.projetoId}&modo=${t10_modoResumo}`);
   });
-  document.getElementById('t10_btnImprimir').addEventListener('click', () => window.print());
+  document.getElementById('t10_btnImprimir').addEventListener('click', () => {
+    document.body.classList.add('t10-imprimindo');
+    window.print();
+    document.body.classList.remove('t10-imprimindo');
+  });
   document.getElementById('t10_btnLimparTudo').addEventListener('click', t10_limparTudo);
   document.addEventListener('projeto-changed', t10_carregar);
   window.telaShowHandlers[10] = t10_carregar;
