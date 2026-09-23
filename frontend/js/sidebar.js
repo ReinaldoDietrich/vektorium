@@ -424,6 +424,11 @@ function initLoginUI() {
   btnLogin.addEventListener('click', async () => {
     if (AUTH.logado()) {
       if (!confirm(`Sair da conta ${AUTH.email() || ''}?`)) return;
+      const _uid2 = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+      const _jwt2 = AUTH.token();
+      if (_uid2 && _jwt2) {
+        try { await api.post('/api/cloud/delete-lock', { user_id: _uid2, token: _jwt2 }); } catch (_) {}
+      }
       await AUTH.logout();
       if (typeof pararVerificacaoLicenca === 'function') pararVerificacaoLicenca();
       _mostrarTelaLogin();
@@ -455,8 +460,12 @@ function initLoginUI() {
         let _lockResp = null;
         try { _lockResp = await api.post('/api/cloud/check-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         if (_lockResp && _lockResp.locked) {
-          AUTH.limpar();
-          throw new Error('Você já tem uma sessão ativa em outro computador. Encerre o app lá primeiro.');
+          const _host = _lockResp.hostname || 'outro dispositivo';
+          if (!confirm(`Sessão ativa detectada em: ${_host}\n\nForçar entrada aqui? (A sessão anterior será encerrada.)`)) {
+            AUTH.limpar();
+            throw new Error('Login cancelado.');
+          }
+          try { await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         }
         try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         btnEntrar.textContent = 'Sincronizando projetos...';
@@ -476,6 +485,36 @@ function initLoginUI() {
   btnEntrar.addEventListener('click', tentarLogin);
   document.getElementById('login_senha').addEventListener('keydown', ev => { if (ev.key === 'Enter') tentarLogin(); });
   document.getElementById('login_email').addEventListener('keydown', ev => { if (ev.key === 'Enter') document.getElementById('login_senha').focus(); });
+
+  document.getElementById('btnEncerrarSessoes').addEventListener('click', async () => {
+    const email = document.getElementById('login_email').value.trim().toLowerCase();
+    const senha = document.getElementById('login_senha').value;
+    if (!email || !senha) {
+      erroEl.style.cssText = 'display:block;';
+      erroEl.textContent = 'Preencha e-mail e senha antes de encerrar as sessões.'; return;
+    }
+    if (!confirm('Encerrar todas as sessões ativas em outros dispositivos?\n\nVocê precisará fazer login normalmente após isso.')) return;
+    const btnE = document.getElementById('btnEncerrarSessoes');
+    btnE.textContent = 'Encerrando...'; btnE.disabled = true;
+    erroEl.style.display = 'none';
+    try {
+      await AUTH.login(email, senha);
+      const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+      const jwt = AUTH.token();
+      if (uid && jwt) {
+        try { await api.post('/api/cloud/delete-lock', { user_id: uid, token: jwt }); } catch (_) {}
+      }
+      AUTH.limpar();
+      erroEl.style.cssText = 'display:block;color:#27ae60;';
+      erroEl.textContent = '✓ Sessões encerradas. Faça login normalmente.';
+    } catch (e) {
+      erroEl.style.cssText = 'display:block;';
+      erroEl.textContent = e.message || 'Falha ao encerrar sessões.';
+    } finally {
+      btnE.textContent = '⚠ Encerrar sessões ativas em outros dispositivos';
+      btnE.disabled = false;
+    }
+  });
 }
 
 if (document.readyState !== 'loading') initSidebar();

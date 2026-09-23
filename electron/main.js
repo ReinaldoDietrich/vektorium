@@ -221,9 +221,27 @@ async function criarJanela() {
     janelaPrincipal.show();
   });
 
-  janelaPrincipal.on('close', (e) => {
+  janelaPrincipal.on('close', async (e) => {
     if (!fechandoApp) {
       e.preventDefault();
+      try {
+        await janelaPrincipal.webContents.executeJavaScript(`
+          (async () => {
+            if (typeof AUTH !== 'undefined') {
+              const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+              const jwt = AUTH.token ? AUTH.token() : null;
+              if (uid && jwt) {
+                try { await fetch('/api/cloud/delete-lock', {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({user_id: uid, token: jwt})
+                }); } catch(_) {}
+              }
+              AUTH.limpar();
+            }
+          })()
+        `, true);
+      } catch (_) {}
       encerrarApp();
     }
   });
