@@ -212,6 +212,13 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             existentes[chave].descricao = eq["descricao"]
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
+            # Preenche CC/FV se ainda não definidos (existentes criados antes do mapeamento IDC)
+            if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
+                cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
+                if existentes[chave].centro_custo_id is None and cc_id:
+                    existentes[chave].centro_custo_id = cc_id
+                if existentes[chave].fator_id is None and fator_id:
+                    existentes[chave].fator_id = fator_id
         else:
             cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
             db.add(m.ComposicaoPrecoItem(
