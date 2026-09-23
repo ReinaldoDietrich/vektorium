@@ -237,7 +237,7 @@ async function criarJanela() {
                   body: JSON.stringify({user_id: uid, token: jwt})
                 }); } catch(_) {}
               }
-              AUTH.limpar();
+              await AUTH.logout();
             }
           })()
         `, true);
