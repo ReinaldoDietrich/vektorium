@@ -185,7 +185,7 @@ async function t6_carregarLinhas() {
         <td style="font-weight:bold;">${l.nome}</td><td>versão ${l.versao_catalogo || '—'}</td>
         <td>${l.qtd_modelos} modelo(s)</td><td>${l.ativo_comercial ? '' : '<span class="badge badge-pendente">Obsoleto</span>'}</td>
         <td style="color:#6b7280;font-size:11px;">${l.observacao_versao || ''}</td>
-        <td style="text-align:right;"><span class="btn-text danger" data-excluir-linha="${l.id}">Excluir</span></td></tr>`;
+        <td style="text-align:right;"><span class="btn-text danger" data-excluir-linha="${l.id}" data-excluir-nome="${l.nome.replace(/"/g,'&quot;')}">Excluir</span></td></tr>`;
     });
     html += '</tbody></table>';
   });
@@ -196,7 +196,8 @@ async function t6_carregarLinhas() {
   }));
   el.querySelectorAll('[data-excluir-linha]').forEach(b => b.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (!confirm('Excluir esta linha e todos os seus modelos?')) return;
+    const nome = b.dataset.excluirNome || 'esta linha';
+    if (!confirm(`ATENÇÃO — EXCLUSÃO PERMANENTE\n\nLinha: "${nome}"\n\nTodos os modelos desta linha serão removidos e não podem ser recuperados. Só prossiga se tiver um backup do catálogo ou quiser reimportar depois.\n\nConfirmar exclusão?`)) return;
     try {
       await api.del(`/api/forcadores/linhas/${b.dataset.excluirLinha}`);
       if (t6_linhaAtualId === Number(b.dataset.excluirLinha)) t6_fecharLinha();

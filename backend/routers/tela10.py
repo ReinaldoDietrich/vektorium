@@ -60,7 +60,8 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                     tipo_expansao_nome = idc.nome_por_codigo(db, sistema.tipo_expansao) if sistema else None
                     add("Válvula de Expansão",
                         f'Válvula de Expansão {_t(tipo_expansao_nome)} - {_t(f.get("fabricante_valvula"))} - {_t(f.get("modelo_valvula_base"))}',
-                        f.get("fabricante_valvula"), qtd_forcadores * qtd_valv_unit)
+                        f.get("fabricante_valvula"), qtd_forcadores * qtd_valv_unit,
+                        id_comercial=sistema.tipo_expansao if sistema else None)
 
         ru = s["rack_uc"]
         if ru.get("fonte") == "uc":

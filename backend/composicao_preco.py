@@ -445,11 +445,12 @@ def restaurar_padroes(db: Session, projeto_id: int, bloco: str | None = None):
     return criados
 
 
-def montar_composicao(db: Session, projeto_id: int) -> dict:
-    sincronizar_equipamentos(db, projeto_id)
-    sincronizar_paineis_portas(db, projeto_id)
-    sincronizar_luminarias(db, projeto_id)
-    sincronizar_comissoes_indicacao(db, projeto_id)
+def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) -> dict:
+    if sincronizar:
+        sincronizar_equipamentos(db, projeto_id)
+        sincronizar_paineis_portas(db, projeto_id)
+        sincronizar_luminarias(db, projeto_id)
+        sincronizar_comissoes_indicacao(db, projeto_id)
     margem_neg = _margem_negociacao(db, projeto_id)
     itens = (db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id)
              .order_by(m.ComposicaoPrecoItem.bloco, m.ComposicaoPrecoItem.ordem, m.ComposicaoPrecoItem.id).all())
@@ -643,13 +644,14 @@ def dre_projeto(db: Session, projeto_id: int, dados: dict | None = None,
     }
 
 
-def obter_tudo(db: Session, projeto_id: int) -> dict:
+def obter_tudo(db: Session, projeto_id: int, sincronizar: bool = True) -> dict:
     """Composição + Resumo + Comissionamento + DRE numa passada só — a Tela 10 batia 4 endpoints
     separados a cada campo editado (composição, resumo, comissionamento, dre), cada um rodando
     as 3 sincronizações (Equipamentos/Painéis/Comissões, todas pesadas) e o resumo por bloco de
     novo do zero — travava a tela por segundos a cada campo (bug real reportado 2026-08-05).
-    Agora tudo reaproveita o mesmo cálculo já feito."""
-    dados = montar_composicao(db, projeto_id)
+    Agora tudo reaproveita o mesmo cálculo já feito. Com sincronizar=False pula as 4 sincronizações
+    pesadas (para edições de campos que não alteram equipamentos nem comissões)."""
+    dados = montar_composicao(db, projeto_id, sincronizar=sincronizar)
     resumo = resumo_por_bloco(db, projeto_id, dados=dados)
     com = comissionamento(db, projeto_id, dados=dados, resumo=resumo)
     dre = dre_projeto(db, projeto_id, dados=dados, resumo=resumo, com=com)

@@ -52,18 +52,34 @@ def listar_projetos(db: Session = Depends(get_db)):
 
 @router.post("/projetos/escolher-pasta")
 def escolher_pasta(payload: dict = Body(default={})):
-    """Abre a janela nativa do Windows pra escolher pasta — só funciona porque o backend roda
-    localmente na máquina do usuário (não faria sentido num servidor remoto). Síncrono e bloqueante
-    de propósito: FastAPI roda endpoints `def` (não `async def`) numa threadpool, então isso não
-    trava o resto do app enquanto a janela está aberta."""
-    import tkinter
-    from tkinter import filedialog
-    root = tkinter.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    pasta = filedialog.askdirectory(title="Escolher pasta de salvamento do projeto",
-                                     initialdir=payload.get("inicial") or None)
-    root.destroy()
+    """Abre a janela nativa do Windows pra escolher pasta via PowerShell FolderBrowserDialog —
+    substitui tkinter que falhava silenciosamente dentro do processo Electron (sem display X11 /
+    COM STA não inicializado). Síncrono e bloqueante de propósito: FastAPI roda endpoints `def`
+    (não `async def`) numa threadpool, então isso não trava o resto do app."""
+    import subprocess, re
+    inicial = str(payload.get("inicial") or "")
+    # Sanitiza o path: só aceita caminhos válidos Windows (evita injeção no script PS)
+    if not re.match(r'^[A-Za-z]:\\[\w\s\\().,-]*$', inicial):
+        from pathlib import Path
+        inicial = str(Path.home())
+    inicial_ps = inicial.replace("'", "")   # remove aspas simples residuais
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+        f"$d.SelectedPath = '{inicial_ps}'; "
+        "$d.Description = 'Escolher pasta de salvamento do projeto'; "
+        "$d.ShowNewFolderButton = $true; "
+        "[void]$d.ShowDialog(); "
+        "Write-Output $d.SelectedPath"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120
+        )
+        pasta = result.stdout.strip() or None
+    except Exception:
+        pasta = None
     return {"pasta": pasta or None}
 
 

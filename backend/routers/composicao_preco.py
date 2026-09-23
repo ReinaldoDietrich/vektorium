@@ -28,12 +28,13 @@ def obter_composicao(projeto_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tudo")
-def obter_tudo(projeto_id: int, db: Session = Depends(get_db)):
+def obter_tudo(projeto_id: int, sincronizar: bool = True, db: Session = Depends(get_db)):
     """Composição + Resumo + Comissionamento + DRE numa passada só (ver composicao_preco.obter_tudo)
-    — usado pela Tela 10 pra não bater 4 endpoints separados a cada campo editado."""
+    — usado pela Tela 10 pra não bater 4 endpoints separados a cada campo editado.
+    sincronizar=false pula as 4 sincronizações pesadas ao editar campos simples."""
     if not db.get(m.Projeto, projeto_id):
         raise HTTPException(404, "Projeto não encontrado")
-    return cp.obter_tudo(db, projeto_id)
+    return cp.obter_tudo(db, projeto_id, sincronizar=sincronizar)
 
 
 @router.post("/item")

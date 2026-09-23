@@ -36,8 +36,16 @@ def fabricantes(tipo: str = "", db: Session = Depends(get_db)):
     if not tipo:
         return {"tipo": tipo, "fabricantes": []}
     tipo_nome = idc.nome_por_codigo(db, tipo) or tipo
+    # O catálogo externo pode gravar o tipo com ou sem o prefixo "Válvula" (ex: importado como
+    # "Válvula Termostática" enquanto a árvore resolve p/ "Termostática") — busca ambas as grafias.
+    tipo_nomes = [tipo_nome]
+    for prefixo in ("Válvula ", "Valvula "):
+        if tipo_nome.startswith(prefixo):
+            tipo_nomes.append(tipo_nome[len(prefixo):])
+        else:
+            tipo_nomes.append(prefixo + tipo_nome)
     q = (db.query(m.TabelaValvulaExpansao.fabricante)
-         .filter(m.TabelaValvulaExpansao.tipo_expansao == tipo_nome,
+         .filter(m.TabelaValvulaExpansao.tipo_expansao.in_(tipo_nomes),
                  m.TabelaValvulaExpansao.fabricante.isnot(None),
                  m.TabelaValvulaExpansao.fabricante != "")
          .distinct())
@@ -55,9 +63,16 @@ def opcoes(sistema_id: int, db: Session = Depends(get_db)):
     fabricante = (sistema.fabricante_valvula or "").strip()
     gas = (sistema.gas_refrigerante or "").strip()
 
-    q = db.query(m.TabelaValvulaExpansao)
+    tipo_nomes_op = [tipo] if tipo else []
     if tipo:
-        q = q.filter(m.TabelaValvulaExpansao.tipo_expansao == tipo)
+        for prefixo in ("Válvula ", "Valvula "):
+            if tipo.startswith(prefixo):
+                tipo_nomes_op.append(tipo[len(prefixo):])
+            else:
+                tipo_nomes_op.append(prefixo + tipo)
+    q = db.query(m.TabelaValvulaExpansao)
+    if tipo_nomes_op:
+        q = q.filter(m.TabelaValvulaExpansao.tipo_expansao.in_(tipo_nomes_op))
     if fabricante:
         q = q.filter(m.TabelaValvulaExpansao.fabricante == fabricante)
     valvulas = q.order_by(m.TabelaValvulaExpansao.modelo).all()

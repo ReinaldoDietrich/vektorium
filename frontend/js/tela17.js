@@ -85,8 +85,9 @@ async function t17_carregar() {
 // cada um desses 4 era um GET separado, e cada GET rodava as 3 sincronizações pesadas
 // (Equipamentos/Painéis/Comissões) do zero, travando a tela por segundos a cada campo editado
 // (bug real reportado 2026-08-05: "a porra da tela leva uma eternidade pra atualizar").
-async function t17_carregarTudo() {
-  const tudo = await api.get(`/api/composicao-preco/tudo?projeto_id=${state.projetoId}`);
+async function t17_carregarTudo(sincronizar = true) {
+  const qs = sincronizar ? '' : '&sincronizar=false';
+  const tudo = await api.get(`/api/composicao-preco/tudo?projeto_id=${state.projetoId}${qs}`);
   t17_composicaoAtual = tudo.composicao;
   t17_popularFiltroFab();
   t17_itemPorId = new Map();
@@ -307,6 +308,7 @@ function t17_ordenarPorOrdemDoBackend(itens) {
 // redesenho da tabela inteira a cada edição de campo (ver t17_renderBlocos), senão o bloco que o
 // usuário retraiu voltava a expandir sozinho a cada salvamento.
 const t17_blocosRetraidos = new Set();
+let t17_primeiroRender = true;   // auto-colapsa blocos vazios só na primeira renderização
 
 // Estado de ordenação por bloco: { [bloco]: { col, dir } | null }
 // null = ordem padrão (CC+descrição para a maioria; backend para Painéis Térmicos).
@@ -338,6 +340,12 @@ function t17_thSort(bloco, col, label) {
 
 function t17_renderBlocos(composicao) {
   t17_composicaoAtual = composicao;
+  // Na primeira renderização da sessão, colapsa automaticamente os blocos sem itens para não
+  // poluir a tela com tabelas vazias. O usuário pode expandir qualquer um manualmente depois.
+  if (t17_primeiroRender) {
+    T17_BLOCOS.forEach(b => { if (!(composicao.blocos[b]?.length)) t17_blocosRetraidos.add(b); });
+    t17_primeiroRender = false;
+  }
   const el = document.getElementById('t17_blocos');
   el.innerHTML = T17_BLOCOS.map(bloco => {
     const itens = composicao.blocos[bloco] || [];
@@ -428,7 +436,7 @@ async function t17_aplicarCCBloco(bloco) {
   const itens = (t17_composicaoAtual?.blocos[bloco] || []);
   if (!itens.length) return;
   for (const it of itens) await api.put(`/api/composicao-preco/item/${it.id}`, { centro_custo_id: ccId });
-  const tudo = await t17_carregarTudo();
+  const tudo = await t17_carregarTudo(false);
   t17_renderBlocos(tudo.composicao);
   t17_renderResumo(tudo.resumo);
   t17_renderTabelaOrcamento(tudo.composicao);
@@ -443,7 +451,7 @@ async function t17_aplicarFVBloco(bloco) {
   const itens = (t17_composicaoAtual?.blocos[bloco] || []);
   if (!itens.length) return;
   for (const it of itens) await api.put(`/api/composicao-preco/item/${it.id}`, { fator_id: fvId });
-  const tudo = await t17_carregarTudo();
+  const tudo = await t17_carregarTudo(false);
   t17_renderBlocos(tudo.composicao);
   t17_renderResumo(tudo.resumo);
   t17_renderTabelaOrcamento(tudo.composicao);
@@ -505,10 +513,9 @@ async function t17_salvarItem(itemId, inp) {
   if (campo === 'custo_unitario' && valor != null) {
     inp.value = valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  // 1 chamada só (composição + resumo + comissionamento + dre já calculados juntos no backend —
-  // ver /tudo) em vez de 3-4 GETs separados, cada um recomputando tudo do zero (bug real de
-  // lentidão reportado 2026-08-05: "a porra da tela leva uma eternidade pra atualizar").
-  const tudo = await t17_carregarTudo();
+  // Sem sincronizar: editar custo/quantidade/fator/cc de um item não altera equipamentos nem
+  // comissões automáticas — as 4 sincronizações pesadas são desnecessárias aqui.
+  const tudo = await t17_carregarTudo(false);
   t17_atualizarLinhaCalculada(Number(itemId), tudo.composicao);
   // "Comissões por Indicação de Negócio" é 100% derivado (agregado por fabricante) — editar
   // custo/quantidade/fator de QUALQUER item com Fator tipo Comissão recalcula esse bloco inteiro,
@@ -626,14 +633,14 @@ function t17_renderComissionamento(com) {
     const tr = e.target.closest('tr');
     await api.put(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}`,
       { percentual: parseNumBR(inp.value) / 100 });
-    const tudo = await t17_carregarTudo();
+    const tudo = await t17_carregarTudo(false);
     t17_renderComissionamento(tudo.comissionamento);
     t17_renderDre(tudo.dre);
   }));
   tbody.querySelectorAll('[data-del-vinc]').forEach(b => b.addEventListener('click', async (e) => {
     const tr = e.target.closest('tr');
     await api.del(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}`);
-    const tudo = await t17_carregarTudo();
+    const tudo = await t17_carregarTudo(false);
     t17_renderComissionamento(tudo.comissionamento);
     t17_renderDre(tudo.dre);
   }));
@@ -643,7 +650,7 @@ async function t17_vincularVendedor() {
   const sel = document.getElementById('t17_selVendedor');
   if (!sel.value) return;
   await api.post(`/api/composicao-preco/comissionamento?projeto_id=${state.projetoId}`, { vendedor_id: Number(sel.value) });
-  const tudo = await t17_carregarTudo();
+  const tudo = await t17_carregarTudo(false);
   t17_renderComissionamento(tudo.comissionamento);
   t17_renderDre(tudo.dre);
 }
@@ -707,7 +714,10 @@ function t17_calcularTabelaOrcamento(composicao) {
   const blocoPorCC = {};
   ordem.forEach(bloco => {
     (composicao.blocos[bloco] || []).forEach(it => {
-      if (it.centro_custo_id && !(it.centro_custo_id in blocoPorCC)) blocoPorCC[it.centro_custo_id] = bloco;
+      // Só itens efetivamente incluídos no orçamento definem o bloco alvo das comissões — itens
+      // ocultos (incluir_orcamento=false) não aparecem no orçamento e não devem atrair comissões.
+      if (it.centro_custo_id && it.incluir_orcamento !== false && !(it.centro_custo_id in blocoPorCC))
+        blocoPorCC[it.centro_custo_id] = bloco;
     });
   });
 

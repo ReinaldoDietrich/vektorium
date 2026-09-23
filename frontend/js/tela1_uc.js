@@ -14,9 +14,11 @@ const T1UC_CASCATA = [
 ];
 
 // Campos a limpar quando um campo anterior da cadeia muda.
+// catalogo_id também reseta fabricante_uc porque alguns catálogos (ex: ES+) não pertencem ao
+// fabricante previamente selecionado — manter o fab causava resultado vazio na seleção.
 const T1UC_CASCATA_LIMPAR = {
   fabricante_uc: ['catalogo_id', 'tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
-  catalogo_id: ['tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
+  catalogo_id: ['fabricante_uc', 'tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
   tipo_compressor: ['fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
   fabricante_compressor: ['numero_compressores', 'faixa_operacao'],
   numero_compressores: ['faixa_operacao'],

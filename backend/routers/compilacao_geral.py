@@ -376,7 +376,20 @@ def _bloco_condensador(db, sistema):
         projeto = sistema.projeto
         qtd_cond = sel.get("quantidade_condensadores") or 1
         n_paralelo = dados.get("quantidade_paralelo") or 1   # N racks em paralelo
-        codigo = e.get("codigo_comercial") or e.get("modelo")
+        cod_cc = e.get("codigo_comercial") or ""
+        # codigo_comercial pode conter wildcards ('*') vindos da nomenclatura não resolvida — usa
+        # nomenclatura_condensador_selecionada do rack (valores escolhidos pelo usuário) como fallback.
+        if cod_cc and '*' not in cod_cc:
+            codigo = cod_cc
+        else:
+            selecoes = {}
+            try:
+                import json as _json
+                selecoes = _json.loads(rack.nomenclatura_condensador_selecionada or "{}") if rack else {}
+            except Exception:
+                pass
+            nome_sel = " ".join(str(v) for v in selecoes.values() if v and str(v).strip())
+            codigo = nome_sel or e.get("modelo") or cod_cc or None
         modelo_com_qtd = f"{qtd_cond}x {codigo}" if codigo else None
         return {
             "tipo_equipamento": "Condensador Remoto", "fonte": "rack",
