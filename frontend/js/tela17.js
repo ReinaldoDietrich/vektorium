@@ -308,6 +308,34 @@ function t17_ordenarPorOrdemDoBackend(itens) {
 // usuário retraiu voltava a expandir sozinho a cada salvamento.
 const t17_blocosRetraidos = new Set();
 
+// Estado de ordenação por bloco: { [bloco]: { col, dir } | null }
+// null = ordem padrão (CC+descrição para a maioria; backend para Painéis Térmicos).
+const t17_sortEstado = {};
+
+function t17_ordenarItensComEstado(itens, bloco) {
+  const est = t17_sortEstado[bloco];
+  if (!est) {
+    return bloco === 'Painéis Térmicos'
+      ? t17_ordenarPorOrdemDoBackend(itens)
+      : t17_ordenarItens(itens);
+  }
+  const dir = est.dir === 'desc' ? -1 : 1;
+  return [...itens].sort((a, b) => {
+    const va = a[est.col] ?? '';
+    const vb = b[est.col] ?? '';
+    if (typeof va === 'number' || typeof vb === 'number')
+      return dir * ((Number(va) || 0) - (Number(vb) || 0));
+    return dir * String(va).localeCompare(String(vb), 'pt-BR', { numeric: true });
+  });
+}
+
+function t17_thSort(bloco, col, label) {
+  const est = t17_sortEstado[bloco];
+  const ativo = est && est.col === col;
+  const icone = ativo ? (est.dir === 'asc' ? ' ▲' : ' ▼') : ' ⬦';
+  return `<th style="text-align:center;cursor:pointer;user-select:none;" data-sort-bloco="${bloco}" data-sort-col="${col}" title="Ordenar por ${label}">${label}${icone}</th>`;
+}
+
 function t17_renderBlocos(composicao) {
   t17_composicaoAtual = composicao;
   const el = document.getElementById('t17_blocos');
@@ -336,15 +364,15 @@ function t17_renderBlocos(composicao) {
         ${t17_colgroup()}
         <thead><tr style="text-align:center;">
           <th style="text-align:center;" title="Considerar no orçamento">✓</th>
-          <th style="text-align:center;">Descrição</th><th style="text-align:center;">Fabricante</th><th style="text-align:center;">${bloco === T17_BLOCO_COMISSOES ? 'Agrupar valor em' : 'Centro de Custo'}</th><th style="text-align:center;">Fator de venda</th>
-          <th style="text-align:center;">Quantidade</th><th style="text-align:center;">Custo Unit. (R$)</th><th style="text-align:center;">Custo Total (R$)</th>
-          <th style="text-align:center;">Margem Contribuição (R$)</th><th style="text-align:center;">Impostos (R$)</th><th style="text-align:center;">Comissões (R$)</th>
-          <th style="text-align:center;">Valor unit. venda S/ Contribuição (R$)</th>
-          <th style="text-align:center;">Valor total venda S/ Contribuição (R$)</th>
-          <th style="text-align:center;">Valor Venda c/ Margem Contribuição e Negociação (R$)</th><th></th>
+          ${t17_thSort(bloco,'descricao','Descrição')}${t17_thSort(bloco,'fabricante','Fabricante')}${t17_thSort(bloco,'centro_custo_codigo',bloco === T17_BLOCO_COMISSOES ? 'Agrupar valor em' : 'Centro de Custo')}${t17_thSort(bloco,'fator_nome','Fator de venda')}
+          ${t17_thSort(bloco,'quantidade','Quantidade')}${t17_thSort(bloco,'custo_unit','Custo Unit. (R$)')}${t17_thSort(bloco,'custo_total','Custo Total (R$)')}
+          ${t17_thSort(bloco,'margem_r','Margem Contribuição (R$)')}${t17_thSort(bloco,'impostos_r','Impostos (R$)')}${t17_thSort(bloco,'comissao_r','Comissões (R$)')}
+          ${t17_thSort(bloco,'valor_unit_venda','Valor unit. venda S/ Contribuição (R$)')}
+          ${t17_thSort(bloco,'valor_total_venda','Valor total venda S/ Contribuição (R$)')}
+          ${t17_thSort(bloco,'valor_c_negociacao','Valor Venda c/ Margem Contribuição e Negociação (R$)')}<th></th>
         </tr></thead>
         <tbody>
-          ${(bloco === 'Painéis Térmicos' ? t17_ordenarPorOrdemDoBackend(itens) : t17_ordenarItens(itens)).map(it => t17_linhaItem(it, bloco)).join('')}
+          ${t17_ordenarItensComEstado(itens, bloco).map(it => t17_linhaItem(it, bloco)).join('')}
         </tbody>
       </table>
       </div>
@@ -375,6 +403,15 @@ function t17_renderBlocos(composicao) {
   });
   el.querySelectorAll('[data-aplicar-cc-bloco]').forEach(b => b.addEventListener('click', () => t17_aplicarCCBloco(b.dataset.aplicarCcBloco)));
   el.querySelectorAll('[data-aplicar-fv-bloco]').forEach(b => b.addEventListener('click', () => t17_aplicarFVBloco(b.dataset.aplicarFvBloco)));
+  el.querySelectorAll('[data-sort-col]').forEach(th => th.addEventListener('click', () => {
+    const bloco = th.dataset.sortBloco;
+    const col = th.dataset.sortCol;
+    const est = t17_sortEstado[bloco];
+    t17_sortEstado[bloco] = (est && est.col === col && est.dir === 'asc')
+      ? { col, dir: 'desc' }
+      : { col, dir: 'asc' };
+    t17_renderBlocos(t17_composicaoAtual);
+  }));
   el.querySelectorAll('[data-item-id]').forEach(tr => {
     tr.querySelectorAll('[data-campo]').forEach(inp =>
       inp.addEventListener('change', () => t17_salvarItem(tr.dataset.itemId, inp)));
