@@ -49,21 +49,8 @@
           "__pycache__/**",
           "calculos/__pycache__/**",
           "!scripts/**",
-          "!main_calc.py",
           "!calc_remoto_client.py",
-          "!routers/calc_remoto.py",
-          "!calc_service.py",
-          "!calc_puro_uc_rack.py",
-          "!calc_paineis_portas.py",
-          "!calc_polinomio_compressor.py",
-          "!calculos/camara_completo.py",
-          "!calculos/camara_simples.py",
-          "!calculos/condensador.py",
-          "!calculos/forcador.py",
-          "!calculos/infiltracao.py",
-          "!calculos/luminotecnico.py",
-          "!calculos/valvula.py",
-          "!calculos/comum.py"
+          "!routers/calc_remoto.py"
         ]
       },
       {
