@@ -113,7 +113,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         fator_venda = 1.0
         margem_r = custo_total * margem_pct
         impostos_r = custo_total * impostos_pct
-        comissao_r = custo_total * comissao_pct
+        comissao_r = 0.0
         valor_unit_venda = custo_unit
         valor_total_venda = custo_total
         valor_c_negociacao = custo_total
