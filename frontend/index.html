@@ -1273,6 +1273,7 @@ CP/SP — com / sem supervisão</pre>
       <div style="overflow-x:auto;">
       <table class="list" style="min-width:700px;">
         <thead><tr><th style="width:80px;">Código</th><th style="width:110px;">Tipo</th><th>Descrição</th>
+          <th style="width:110px;">Tipo Faturamento</th>
           <th style="width:90px;">Impostos %</th><th style="width:90px;">Comissão %</th><th style="width:90px;">Margem %</th><th style="width:30px;"></th></tr></thead>
         <tbody id="t13_fatores"></tbody>
       </table>
@@ -1474,6 +1475,14 @@ CP/SP — com / sem supervisão</pre>
             <div id="t17_orcWrapOcultar" style="display:flex;align-items:center;gap:6px;height:32px;">
               <input type="checkbox" id="t17_orcOcultarQtd">
               <label for="t17_orcOcultarQtd" class="small">Ocultar Unidade e Quantidade</label>
+            </div>
+            <div>
+              <label class="lbl">Faturamento</label>
+              <select id="t17_orcFaturamento">
+                <option value="completo">Completo (Próprio + Direto)</option>
+                <option value="proprio">Apenas Próprio</option>
+                <option value="direto">Apenas Direto</option>
+              </select>
             </div>
           </div>
           <div id="t17_tabelaOrcamento"></div>

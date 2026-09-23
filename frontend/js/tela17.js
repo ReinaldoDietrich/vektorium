@@ -47,6 +47,9 @@ function initTela17() {
   document.getElementById('t17_orcOcultarQtd').addEventListener('change', () => {
     if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
   });
+  document.getElementById('t17_orcFaturamento').addEventListener('change', () => {
+    if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
+  });
   t17_atualizarVisibilidadeFiltrosOrcamento();
   document.getElementById('t17_cpBtnGerar').addEventListener('click', t17_atualizarAgendaPagamento);
 }
@@ -703,6 +706,7 @@ function t17_calcularTabelaOrcamento(composicao) {
       quantidade: it.quantidade,
       cc: it.centro_custo_descricao || null,
       valor: it.valor_venda_negociacao || 0,
+      tipo_faturamento: (t17_fatores.find(f => f.id === it.fator_id) || {}).tipo_faturamento || 'Próprio',
     }));
     resultado[bloco] = { itens, total: itens.reduce((s, i) => s + i.valor, 0), extraPorCC: {} };
     ordem.push(bloco);
@@ -740,6 +744,7 @@ function t17_renderTabelaOrcamento(composicao) {
   const dados = t17_calcularTabelaOrcamento(composicao);
   const agrupar = document.getElementById('t17_orcAgrupar').value;
   const exibir = document.getElementById('t17_orcExibir').value;
+  const filtroFat = document.getElementById('t17_orcFaturamento').value; // 'completo'|'proprio'|'direto'
   const isBlocoCC = agrupar === 'bloco_cc';
   const showQtd = isBlocoCC && !document.getElementById('t17_orcOcultarQtd').checked;
 
@@ -766,46 +771,86 @@ function t17_renderTabelaOrcamento(composicao) {
     '</div>';
   }
 
-  let totalProposta = 0;
-  const blocosHtml = dados.ordem.map(bloco => {
-    const info = dados.blocos[bloco];
-    totalProposta += info.total;
-    let body = '';
+  // Renderiza os blocos filtrando por tipo_faturamento
+  // tipoFat: 'Próprio' | 'Direto' | null (todos, sem filtro)
+  function renderBlocos(tipoFat) {
+    let totalSecao = 0;
+    const html = dados.ordem.map(bloco => {
+      const info = dados.blocos[bloco];
+      const itens = tipoFat ? info.itens.filter(it => (it.tipo_faturamento || 'Próprio') === tipoFat) : info.itens;
+      // extraPorCC (comissões por indicação) — incluídos apenas no bloco Próprio para evitar dupla contagem
+      const extraPorCC = (!tipoFat || tipoFat === 'Próprio') ? info.extraPorCC : {};
+      const totalItens = itens.reduce((s, i) => s + i.valor, 0);
+      if (!itens.length && !Object.keys(extraPorCC).length) return '';
+      totalSecao += totalItens;
+      let body = '';
+      if (isBlocoCC) {
+        const porCC = {};
+        const ordemCC = [];
+        itens.forEach(it => {
+          const cc = it.cc || 'Sem Centro de Custo';
+          if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
+          porCC[cc].push(it);
+        });
+        Object.keys(extraPorCC).forEach(cc => {
+          if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
+        });
+        body = ordemCC.map(cc => {
+          const subtotalItens = porCC[cc].reduce((s, it) => s + it.valor, 0);
+          const subtotal = subtotalItens;
+          const itensHtml = porCC[cc].map(it =>
+            linha(it.descricao, exibir === 'individual' ? t17_brl(it.valor) : '', { u: it.unidade, q: it.quantidade })
+          ).join('');
+          const subtotalHtml = exibir === 'total_bloco'
+            ? linha('Subtotal — ' + cc, t17_brl(subtotal), { fs: 12, muted: true })
+            : '';
+          return `<div style="padding:6px 4px 0;font-size:12px;color:var(--muted,#888);">${cc}</div>` + itensHtml + subtotalHtml;
+        }).join('');
+      }
+      const header = '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px 6px;border-top:1px solid var(--line);">' +
+        `<div style="flex:1;min-width:0;font-size:14px;font-weight:bold;">${bloco}</div>` +
+        (showQtd ? '<div style="width:52px;flex-shrink:0;"></div><div style="width:64px;flex-shrink:0;"></div>' : '') +
+        `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(totalItens)}</div>` +
+      '</div>';
+      return header + body;
+    }).join('');
+    return { html, total: totalSecao };
+  }
 
-    if (isBlocoCC) {
-      const porCC = {};
-      const ordemCC = [];
-      info.itens.forEach(it => {
-        const cc = it.cc || 'Sem Centro de Custo';
-        if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
-        porCC[cc].push(it);
-      });
-      Object.keys(info.extraPorCC).forEach(cc => {
-        if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
-      });
+  function tituloSecao(titulo) {
+    return `<div style="font-weight:bold;font-size:13px;margin:12px 0 2px;padding:6px 8px;background:var(--surface-3,#f3f4f6);border-radius:4px;border-left:3px solid var(--accent,#2563eb);">${titulo}</div>`;
+  }
 
-      body = ordemCC.map(cc => {
-        const subtotalItens = porCC[cc].reduce((s, it) => s + it.valor, 0);
-        const comissaoCC = info.extraPorCC[cc] || 0;
-        const subtotal = subtotalItens;
-        const itensHtml = porCC[cc].map(it =>
-          linha(it.descricao, exibir === 'individual' ? t17_brl(it.valor) : '', { u: it.unidade, q: it.quantidade })
-        ).join('');
-        const subtotalHtml = exibir === 'total_bloco'
-          ? linha('Subtotal — ' + cc, t17_brl(subtotal), { fs: 12, muted: true })
-          : '';
-        return `<div style="padding:6px 4px 0;font-size:12px;color:var(--muted,#888);">${cc}</div>` + itensHtml + subtotalHtml;
-      }).join('');
-    }
-
-    const header = '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px 6px;border-top:1px solid var(--line);">' +
-      `<div style="flex:1;min-width:0;font-size:14px;font-weight:bold;">${bloco}</div>` +
+  function subtotalSecao(label, valor) {
+    return '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px;border-top:1px solid var(--line);margin-bottom:4px;">' +
+      `<div style="flex:1;min-width:0;font-size:13px;font-weight:bold;color:var(--muted,#888);">${label}</div>` +
       (showQtd ? '<div style="width:52px;flex-shrink:0;"></div><div style="width:64px;flex-shrink:0;"></div>' : '') +
-      `<div style="width:110px;flex-shrink:0;text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;">${t17_brl(info.total)}</div>` +
+      `<div style="width:110px;flex-shrink:0;text-align:right;font-size:13px;font-weight:bold;color:var(--muted,#888);white-space:nowrap;">${t17_brl(valor)}</div>` +
     '</div>';
+  }
 
-    return header + body;
-  }).join('');
+  let htmlSecoes = '';
+  let totalProposta = 0;
+
+  if (filtroFat === 'proprio') {
+    const secao = renderBlocos('Próprio');
+    htmlSecoes = secao.html;
+    totalProposta = secao.total;
+  } else if (filtroFat === 'direto') {
+    const secao = renderBlocos('Direto');
+    htmlSecoes = secao.html;
+    totalProposta = secao.total;
+  } else { // completo
+    const proprio = renderBlocos('Próprio');
+    const direto = renderBlocos('Direto');
+    htmlSecoes = tituloSecao('TABELA ORÇAMENTO — FATURAMENTO PRÓPRIO') + proprio.html +
+      subtotalSecao('Subtotal Faturamento Próprio', proprio.total);
+    if (direto.html) {
+      htmlSecoes += tituloSecao('TABELA ORÇAMENTO — FATURAMENTO DIRETO') + direto.html +
+        subtotalSecao('Subtotal Faturamento Direto', direto.total);
+    }
+    totalProposta = proprio.total + direto.total;
+  }
 
   const rodape = '<div style="display:flex;align-items:baseline;gap:10px;padding:14px 4px;margin-top:8px;border-top:2px solid var(--line);">' +
     '<div style="flex:1;min-width:0;font-size:15px;font-weight:bold;">Valor total da proposta</div>' +
@@ -813,7 +858,7 @@ function t17_renderTabelaOrcamento(composicao) {
     `<div style="width:110px;flex-shrink:0;text-align:right;font-size:15px;font-weight:bold;white-space:nowrap;">${t17_brl(totalProposta)}</div>` +
   '</div>';
 
-  document.getElementById('t17_tabelaOrcamento').innerHTML = head + blocosHtml + rodape;
+  document.getElementById('t17_tabelaOrcamento').innerHTML = head + htmlSecoes + rodape;
 }
 
 function t17_atualizarVisibilidadeFiltrosOrcamento() {

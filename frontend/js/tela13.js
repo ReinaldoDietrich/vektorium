@@ -190,6 +190,10 @@ async function t13_carregarFatores() {
       <td><input data-campo="codigo" value="${f.codigo}" style="width:70px;"></td>
       <td><input data-campo="tipo" value="${f.tipo || ''}" style="width:100px;"></td>
       <td><input data-campo="descricao" value="${f.descricao}" style="width:100%;"></td>
+      <td><select data-campo="tipo_faturamento" style="width:100px;">
+        <option value="Próprio" ${(f.tipo_faturamento || 'Próprio') === 'Próprio' ? 'selected' : ''}>Próprio</option>
+        <option value="Direto" ${f.tipo_faturamento === 'Direto' ? 'selected' : ''}>Direto</option>
+      </select></td>
       <td><input data-campo="pct_impostos" value="${(f.pct_impostos * 100).toFixed(1)}" style="width:70px;"></td>
       <td><input data-campo="pct_comissao" value="${(f.pct_comissao * 100).toFixed(1)}" style="width:70px;"></td>
       <td><input data-campo="pct_margem" value="${(f.pct_margem * 100).toFixed(1)}" style="width:70px;"></td>

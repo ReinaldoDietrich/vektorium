@@ -1714,6 +1714,7 @@ class FatorVenda(Base):
     pct_impostos = Column(Float, default=0)
     pct_comissao = Column(Float, default=0)
     pct_margem = Column(Float, default=0)
+    tipo_faturamento = Column(String, default='Próprio')  # 'Próprio' | 'Direto'
     ordem = Column(Integer, default=0)
 
 
