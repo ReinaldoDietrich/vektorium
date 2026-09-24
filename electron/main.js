@@ -237,7 +237,19 @@ async function criarJanela() {
                   body: JSON.stringify({user_id: uid, token: jwt})
                 }); } catch(_) {}
               }
-              await AUTH.logout();
+              let logoutOk = false;
+              while (!logoutOk) {
+                try {
+                  logoutOk = await AUTH.logout();
+                } catch (e) {
+                  console.error('[ENCERRAR] AUTH.logout erro:', e);
+                }
+                if (!logoutOk) {
+                  console.log('[ENCERRAR] Logout não confirmado, tentando novamente...');
+                  await new Promise(r => setTimeout(r, 1000));
+                }
+              }
+              console.log('[ENCERRAR] Logout Supabase confirmado');
             }
           })()
         `, true);
@@ -252,9 +264,21 @@ async function encerrarApp() {
   fechandoApp = true;
   if (processoBackend) processoBackend.removeAllListeners('exit');
 
-  matarBackend();
-  matarOrfaoNaPorta();
+  let portaLivre = matarBackend();
+  while (!portaLivre) {
+    console.log(`[ENCERRAR] Porta ${PORTA} ainda ocupada, tentando novamente...`);
+    matarOrfaoNaPorta();
+    portaLivre = !portaOcupada();
+    if (!portaLivre) {
+      await new Promise(r => setTimeout(r, 1000));
+      portaLivre = matarBackend();
+    }
+  }
+  console.log('[ENCERRAR] Processos backend encerrados confirmado');
 
+  if (janelaPrincipal && !janelaPrincipal.isDestroyed()) {
+    janelaPrincipal.destroy();
+  }
   app.quit();
 }
 
@@ -277,18 +301,22 @@ function matarBackend() {
       }
     }
   } catch (_) {}
+  return !portaOcupada();
 }
 
 ipcMain.handle('app-sair', async () => {
-  encerrarApp();
+  await encerrarApp();
 });
 
 ipcMain.handle('escolher-pasta', async (_event, opcoes) => {
-  const result = await dialog.showOpenDialog(janelaPrincipal, {
+  const opts = {
     title: opcoes?.titulo || 'Escolher pasta',
-    defaultPath: opcoes?.inicial || undefined,
-    properties: ['openDirectory']
-  });
+    properties: ['openDirectory', 'dontAddToRecent']
+  };
+  if (opcoes?.inicial && fs.existsSync(opcoes.inicial)) {
+    opts.defaultPath = opcoes.inicial;
+  }
+  const result = await dialog.showOpenDialog(janelaPrincipal, opts);
   return result.canceled ? null : result.filePaths[0];
 });
 
@@ -299,16 +327,26 @@ ipcMain.handle('exportar-pdf', async (_event, opcoes) => {
     filters: [{ name: 'Arquivo PDF', extensions: ['pdf'] }]
   });
   if (canceled || !filePath) return { ok: false };
+  const wc = janelaPrincipal.webContents;
   try {
-    const data = await janelaPrincipal.webContents.printToPDF({
+    try { wc.debugger.attach('1.3'); } catch (_) {}
+    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: 'print' });
+
+    const data = await wc.printToPDF({
       printBackground: true,
       pageSize: 'A4',
       landscape: opcoes?.paisagem || false,
       margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }
     });
+
+    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: '' });
+    try { wc.debugger.detach(); } catch (_) {}
+
     fs.writeFileSync(filePath, data);
     return { ok: true };
   } catch (err) {
+    try { await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: '' }); } catch (_) {}
+    try { wc.debugger.detach(); } catch (_) {}
     return { ok: false, erro: err.message };
   }
 });

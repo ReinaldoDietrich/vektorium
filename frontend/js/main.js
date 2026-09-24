@@ -155,21 +155,69 @@ window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
 window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
 async function sairDoApp() {
-  // SE-032 FASE D — push-todos → delete-lock → logout → encerrar
-  if (typeof AUTH !== 'undefined' && AUTH.token()) {
-    const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
-    const _jwt = AUTH.token();
-    if (_uid && _jwt) {
-      try { await api.post('/api/cloud/push-todos', { user_id: _uid, token: _jwt }); } catch (_) {}
-      try { await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+  try {
+    if (typeof AUTH !== 'undefined') {
+      const _uid =
+        AUTH._sessao &&
+        AUTH._sessao.user
+          ? AUTH._sessao.user.id
+          : null;
+
+      const _jwt =
+        typeof AUTH.token === 'function'
+          ? AUTH.token()
+          : null;
+
+      if (_uid && _jwt) {
+        try {
+          await api.post('/api/cloud/push-todos', {
+            user_id: _uid,
+            token: _jwt
+          });
+        } catch (e) {
+          console.error('[SAIR] push-todos:', e);
+        }
+
+        try {
+          await api.post('/api/cloud/delete-lock', {
+            user_id: _uid,
+            token: _jwt
+          });
+        } catch (e) {
+          console.error('[SAIR] delete-lock:', e);
+        }
+      }
+
+      let logoutOk = false;
+      while (!logoutOk) {
+        try {
+          logoutOk = await AUTH.logout();
+        } catch (e) {
+          console.error('[SAIR] AUTH.logout:', e);
+        }
+        if (!logoutOk) {
+          console.log('[SAIR] Logout não confirmado, tentando novamente...');
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+      console.log('[SAIR] Logout Supabase confirmado');
     }
-    await AUTH.logout();
-  }
-  if (window.vektorium && window.vektorium.sair) {
-    document.getElementById('overlaySaida').style.display = 'flex';
-    window.vektorium.sair();
-  } else {
-    location.reload();
+
+  } finally {
+    const overlay = document.getElementById('overlaySaida');
+
+    if (overlay) {
+      overlay.style.display = 'flex';
+    }
+
+    if (
+      window.vektorium &&
+      typeof window.vektorium.sair === 'function'
+    ) {
+      await window.vektorium.sair();
+    } else {
+      location.reload();
+    }
   }
 }
 

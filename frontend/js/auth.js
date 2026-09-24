@@ -129,18 +129,52 @@ const AUTH = {
 
   async logout() {
     const token = this.token();
-    this.limpar();
-    if (token) {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 3000);
-      try {
-        await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+
+    if (!token) {
+      this.limpar();
+      return true;
+    }
+
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/auth/v1/logout`,
+        {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
-          signal: ctrl.signal,
-        });
-      } catch (e) { /* silencioso — a sessão local já foi limpa de qualquer forma */ }
-      finally { clearTimeout(t); }
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'apikey': SUPABASE_ANON_KEY
+          },
+          signal: ctrl.signal
+        }
+      );
+
+      if (!response.ok) {
+        const texto = await response.text().catch(() => '');
+        console.error(
+          '[AUTH.logout] Supabase recusou o logout:',
+          response.status,
+          texto
+        );
+        return false;
+      }
+      console.log(
+        '[AUTH.logout] Logout Supabase realizado:',
+        response.status
+      );
+      this.limpar();
+      return true;
+
+    } catch (e) {
+      console.error(
+        '[AUTH.logout] Erro ao comunicar com Supabase:',
+        e
+      );
+      return false;
+    } finally {
+      clearTimeout(t);
     }
   },
 };

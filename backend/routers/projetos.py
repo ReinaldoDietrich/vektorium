@@ -64,6 +64,7 @@ def escolher_pasta(payload: dict = Body(default={})):
         inicial = str(Path.home())
     inicial_ps = inicial.replace("'", "")   # remove aspas simples residuais
     script = (
+        "[System.Windows.Forms.Application]::EnableVisualStyles(); "
         "Add-Type -AssemblyName System.Windows.Forms; "
         "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
         f"$d.SelectedPath = '{inicial_ps}'; "
@@ -74,7 +75,7 @@ def escolher_pasta(payload: dict = Body(default={})):
     )
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            ["powershell", "-NoProfile", "-NonInteractive", "-STA", "-Command", script],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120
         )
         pasta = result.stdout.strip() or None
