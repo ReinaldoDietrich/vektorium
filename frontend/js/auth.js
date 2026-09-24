@@ -131,12 +131,16 @@ const AUTH = {
     const token = this.token();
     this.limpar();
     if (token) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 3000);
       try {
         await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
+          signal: ctrl.signal,
         });
       } catch (e) { /* silencioso — a sessão local já foi limpa de qualquer forma */ }
+      finally { clearTimeout(t); }
     }
   },
 };
