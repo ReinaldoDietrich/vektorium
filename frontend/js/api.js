@@ -26,34 +26,15 @@ function _authHeader() {
 const REMOTE_API = 'https://vektorium-calc.fly.dev';
 
 const _PREFIXOS_REMOTOS = [
-  '/api/polinomios',
-  '/api/calc', '/api/catalogo-comercial', '/api/valvulas-expansao',
-  '/api/importacao',
   '/api/admin',
-  '/api/luminotecnico/lampadas',
-  '/api/uc/catalogos-detalhe', '/api/uc/unidades', '/api/uc/eletricas',
-  '/api/uc/template', '/api/uc/documento', '/api/uc/preview',
-  '/api/uc/confirmar', '/api/uc/confirmar-editado', '/api/uc/exportar-bd', '/api/uc/opcoes',
 ];
 
 const _ESCRITA_SEM_FALLBACK = [
   '/api/admin',
-  '/api/uc/confirmar', '/api/uc/confirmar-editado',
-  '/api/forcadores/importar', '/api/forcadores/confirmar',
-  '/api/condensadores/importar', '/api/condensadores/confirmar',
-  '/api/importacao',
-  '/api/catalogo-comercial',
-  '/api/valvulas-expansao',
 ];
 
 const _LEITURA_SEM_FALLBACK = [
   '/api/admin',
-  '/api/polinomios',
-  '/api/valvulas-expansao',
-  '/api/luminotecnico/lampadas',
-  '/api/uc/catalogos-detalhe', '/api/uc/unidades', '/api/uc/eletricas',
-  '/api/uc/template', '/api/uc/documento', '/api/uc/preview',
-  '/api/uc/opcoes',
 ];
 
 async function _base(path) {
