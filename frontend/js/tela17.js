@@ -22,9 +22,28 @@ function t17_pct(v) {
 function initTela17() {
   window.telaShowHandlers[17] = t17_carregar;
   document.getElementById('t17_margemNegociacao').addEventListener('change', t17_salvarMargemNegociacao);
+  document.getElementById('t17_btnAtualizarCcFv').addEventListener('click', async () => {
+    if (!state.projetoId) return;
+    const btn = document.getElementById('t17_btnAtualizarCcFv');
+    btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5';
+    try {
+      const r = await api.post(`/api/composicao-preco/atualizar-cc-fv-arvore?projeto_id=${state.projetoId}`, {});
+      const total = r.equipamentos + r.paineis_portas + r.luminarias + r.itens_default;
+      alert(`CC/FV atualizados: ${total} itens\n  Equipamentos: ${r.equipamentos}\n  Painéis/Portas: ${r.paineis_portas}\n  Luminárias: ${r.luminarias}\n  Itens Default: ${r.itens_default}`);
+      const tudo = await t17_carregarTudo(false);
+      t17_renderBlocos(tudo.composicao);
+      t17_renderResumo(tudo.resumo);
+      t17_renderTabelaOrcamento(tudo.composicao);
+      t17_renderComissionamento(tudo.comissionamento);
+      t17_renderDre(tudo.dre);
+    } catch (e) { alert('Erro ao atualizar CC/FV: ' + (e.message || e)); }
+    finally { btn.style.pointerEvents = ''; btn.style.opacity = ''; }
+  });
   document.getElementById('t17_btnRestaurarPadroes').addEventListener('click', async () => {
     const r = await api.post(`/api/composicao-preco/restaurar-padroes?projeto_id=${state.projetoId}`, {});
     alert(`${r.itens_criados} item(ns) restaurado(s).`);
+    t17_blocosRetraidos.clear();
+    t17_primeiroRender = true;
     t17_carregar();
   });
   document.getElementById('t17_btnAddVendedor').addEventListener('click', t17_vincularVendedor);
@@ -158,14 +177,7 @@ async function t17_imprimirListaMateriais() {
         <td>${l.centro_custo || '—'}</td><td>${l.unidade || '—'}</td><td>${l.quantidade ?? '—'}</td>
       </tr>`).join('')}</tbody>
     </table>`;
-  document.body.classList.add('t17-imprimindo-lista');
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  try {
-    if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'lista-materiais' });
-    else window.print();
-  } finally {
-    document.body.classList.remove('t17-imprimindo-lista');
-  }
+  abrirImpressao(el.innerHTML);
 }
 
 function t17_passaFiltro(it) {

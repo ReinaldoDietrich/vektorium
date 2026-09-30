@@ -66,6 +66,11 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
 .btn-text{background:#fff;border:1px solid var(--line);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;cursor:pointer;}
 .btn-text:hover{border-color:var(--ink);color:var(--ink);}
 .btn-text.danger{color:#b91c1c;border-color:#b91c1c;}
+.btn-text.ok{color:#15803d;border-color:#15803d;}
+.badge{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:3px;}
+.badge.active{background:#dcfce7;color:#15803d;}
+.badge.trial{background:#fef9c3;color:#a16207;}
+.badge.canceled{background:#fee2e2;color:#b91c1c;}
 .btn-wide{background:var(--dark);color:#fff;border:none;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:9px 16px;cursor:pointer;}
 .btn-wide:hover{background:#374151;}
 .layout2{display:grid;grid-template-columns:1fr 230px;gap:0;}
@@ -117,12 +122,14 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
 .t16-tabela .sistema-nome{font-weight:bold;padding-top:10px;}
 
 @media print {
+  html { zoom: 0.75; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   /* Botões nunca aparecem num relatório PDF — regra global por classe (não depende de marcar cada
      botão com no-print, que sempre acaba esquecendo algum). Vale pra todas as telas que imprimem. */
   .tabs, #btnSair, .no-print, .btn, .btn-text, .btn-wide, .subtab-btn, button { display: none !important; }
   .wrap { max-width: none !important; }
   .screen.active { border: none; box-shadow: none; }
+  table th, table td { white-space: nowrap !important; padding: 2pt 4pt !important; font-size: 8pt !important; }
   .t12-tabela table, .t12-tabela th, .t12-tabela td { border: 1px solid #999 !important; }
   /* Elementos de UI adicionados após o baseline — não devem aparecer em PDF/impressão. */
   #avisoLicencaInativa, .c-barra-fechada, .c-barra-desatualizada,
@@ -183,12 +190,20 @@ body.projeto-bloqueado :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18
   pointer-events:auto !important;
   opacity:1 !important;
 }
+body.projeto-bloqueado #acoesProjetoAtivo .btn-text{
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
 
 body.modo-visualizacao :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
   pointer-events:none !important;
   opacity:.55;
 }
 body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
+body.modo-visualizacao #acoesProjetoAtivo .btn-text{
   pointer-events:auto !important;
   opacity:1 !important;
 }
@@ -199,6 +214,10 @@ body.licenca-inativa :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#te
   opacity:.55;
 }
 body.licenca-inativa :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+  pointer-events:auto !important;
+  opacity:1 !important;
+}
+body.licenca-inativa #acoesProjetoAtivo .btn-text{
   pointer-events:auto !important;
   opacity:1 !important;
 }

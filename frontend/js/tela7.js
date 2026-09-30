@@ -25,6 +25,15 @@ function initTela7() {
   document.getElementById('cfg_btnAddEquipamento').addEventListener('click', () => t7_tabelaGenerica.equipamentos.add());
   document.getElementById('cfg_btnAddProduto').addEventListener('click', () => t7_tabelaGenerica.produtos.add());
   document.getElementById('cfg_btnAddIdComercial').addEventListener('click', () => t7_arvoreIdsComerciais.addNivel1());
+  document.getElementById('cfg_btnAtualizarCampos').addEventListener('click', async () => {
+    const btn = document.getElementById('cfg_btnAtualizarCampos');
+    btn.style.pointerEvents = 'none'; btn.style.opacity = '0.5';
+    try {
+      const n = await atualizarCamposPorArvore();
+      alert(`${n} campo(s) atualizado(s) com base na árvore.`);
+    } catch (e) { alert('Erro: ' + (e.message || e)); }
+    finally { btn.style.pointerEvents = ''; btn.style.opacity = ''; }
+  });
   document.getElementById('cfg_btnAddClassificacaoSistema').addEventListener('click', () => t7_tabelaGenerica.classificacaoSistema.add());
   document.getElementById('cfg_btnAddLubrificanteCompressor').addEventListener('click', () => t7_tabelaGenerica.lubrificanteCompressor.add());
   document.getElementById('cfg_btnAddDadosFisicosBitzer').addEventListener('click', () => t7_tabelaGenerica.dadosFisicosBitzer.add());

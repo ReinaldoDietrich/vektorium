@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -224,36 +224,47 @@ async function criarJanela() {
   janelaPrincipal.on('close', async (e) => {
     if (!fechandoApp) {
       e.preventDefault();
-      try {
-        await janelaPrincipal.webContents.executeJavaScript(`
-          (async () => {
-            if (typeof AUTH !== 'undefined') {
-              const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
-              const jwt = AUTH.token ? AUTH.token() : null;
-              if (uid && jwt) {
-                try { await fetch('/api/cloud/delete-lock', {
-                  method: 'POST',
-                  headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({user_id: uid, token: jwt})
-                }); } catch(_) {}
-              }
-              let logoutOk = false;
-              while (!logoutOk) {
-                try {
-                  logoutOk = await AUTH.logout();
-                } catch (e) {
-                  console.error('[ENCERRAR] AUTH.logout erro:', e);
-                }
-                if (!logoutOk) {
-                  console.log('[ENCERRAR] Logout não confirmado, tentando novamente...');
-                  await new Promise(r => setTimeout(r, 1000));
-                }
-              }
-              console.log('[ENCERRAR] Logout Supabase confirmado');
+      const fecharTodos = janelaPrincipal.webContents.executeJavaScript(`
+        (async () => {
+          const ac = new AbortController();
+          setTimeout(() => ac.abort(), 10000);
+          for (let tentativa = 0; tentativa < 3; tentativa++) {
+            try {
+              const r = await fetch('/api/workspace/fechar-todos', {
+                method: 'POST', signal: ac.signal
+              });
+              const j = await r.json();
+              if (j.ok) return true;
+            } catch (_) {}
+          }
+          return false;
+        })()
+      `, true).catch(() => false);
+      const timeoutSalvar = new Promise(r => setTimeout(() => r(false), 12000));
+      await Promise.race([fecharTodos, timeoutSalvar]);
+
+      const timeout = new Promise(r => setTimeout(r, 5000));
+      const logout = janelaPrincipal.webContents.executeJavaScript(`
+        (async () => {
+          if (typeof AUTH !== 'undefined') {
+            const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+            const jwt = AUTH.token ? AUTH.token() : null;
+            if (uid && jwt) {
+              const ac = new AbortController();
+              setTimeout(() => ac.abort(), 3000);
+              try { await fetch('/api/cloud/delete-lock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: uid, token: jwt}),
+                signal: ac.signal
+              }); } catch(_) {}
             }
-          })()
-        `, true);
-      } catch (_) {}
+            try { await AUTH.logout(); } catch (_) {}
+            AUTH.limpar();
+          }
+        })()
+      `, true).catch(() => {});
+      await Promise.race([logout, timeout]);
       encerrarApp();
     }
   });
@@ -265,8 +276,8 @@ async function encerrarApp() {
   if (processoBackend) processoBackend.removeAllListeners('exit');
 
   let portaLivre = matarBackend();
-  while (!portaLivre) {
-    console.log(`[ENCERRAR] Porta ${PORTA} ainda ocupada, tentando novamente...`);
+  for (let i = 0; i < 3 && !portaLivre; i++) {
+    console.log(`[ENCERRAR] Porta ${PORTA} ainda ocupada, tentativa ${i + 1}/3...`);
     matarOrfaoNaPorta();
     portaLivre = !portaOcupada();
     if (!portaLivre) {
@@ -308,6 +319,38 @@ ipcMain.handle('app-sair', async () => {
   await encerrarApp();
 });
 
+ipcMain.handle('abrir-impressao', async (_event, html) => {
+  const tmpHtml = path.join(app.getPath('temp'), `vektorium-print-${Date.now()}.html`);
+  fs.writeFileSync(tmpHtml, html, 'utf8');
+  const printWin = new BrowserWindow({
+    show: false, width: 1024, height: 768,
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  });
+  printWin.loadFile(tmpHtml);
+  return new Promise((resolve) => {
+    printWin.webContents.on('did-finish-load', async () => {
+      try {
+        const pdfBuf = await printWin.webContents.printToPDF({
+          landscape: false,
+          pageSize: 'A4',
+          printBackground: true,
+          preferCSSPageSize: true,
+          margins: { top: 0, bottom: 0, left: 0, right: 0 }
+        });
+        const tmpPdf = path.join(app.getPath('temp'), `vektorium-print-${Date.now()}.pdf`);
+        fs.writeFileSync(tmpPdf, pdfBuf);
+        shell.openPath(tmpPdf);
+        resolve({ ok: true });
+      } catch (e) {
+        resolve({ ok: false, erro: e.message });
+      } finally {
+        if (!printWin.isDestroyed()) printWin.close();
+        try { fs.unlinkSync(tmpHtml); } catch (_) {}
+      }
+    });
+  });
+});
+
 ipcMain.handle('escolher-pasta', async (_event, opcoes) => {
   const opts = {
     title: opcoes?.titulo || 'Escolher pasta',
@@ -320,35 +363,23 @@ ipcMain.handle('escolher-pasta', async (_event, opcoes) => {
   return result.canceled ? null : result.filePaths[0];
 });
 
-ipcMain.handle('exportar-pdf', async (_event, opcoes) => {
-  const { canceled, filePath } = await dialog.showSaveDialog(janelaPrincipal, {
-    title: 'Salvar PDF',
-    defaultPath: path.join(app.getPath('documents'), (opcoes?.nome || 'vektorium') + '.pdf'),
-    filters: [{ name: 'Arquivo PDF', extensions: ['pdf'] }]
+ipcMain.handle('abrir-arquivo', async () => {
+  const result = await dialog.showOpenDialog(janelaPrincipal, {
+    title: 'Abrir Projeto (.vek)',
+    filters: [{ name: 'Projeto Vektorium', extensions: ['vek'] }],
+    properties: ['openFile', 'dontAddToRecent']
   });
-  if (canceled || !filePath) return { ok: false };
-  const wc = janelaPrincipal.webContents;
-  try {
-    try { wc.debugger.attach('1.3'); } catch (_) {}
-    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: 'print' });
+  return result.canceled ? null : result.filePaths[0];
+});
 
-    const data = await wc.printToPDF({
-      printBackground: true,
-      pageSize: 'A4',
-      landscape: opcoes?.paisagem || false,
-      margins: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }
-    });
-
-    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: '' });
-    try { wc.debugger.detach(); } catch (_) {}
-
-    fs.writeFileSync(filePath, data);
-    return { ok: true };
-  } catch (err) {
-    try { await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: '' }); } catch (_) {}
-    try { wc.debugger.detach(); } catch (_) {}
-    return { ok: false, erro: err.message };
-  }
+ipcMain.handle('salvar-arquivo-como', async (_event, opcoes) => {
+  const opts = {
+    title: opcoes?.titulo || 'Salvar Projeto Como...',
+    filters: [{ name: 'Projeto Vektorium', extensions: ['vek'] }],
+  };
+  if (opcoes?.nomeDefault) opts.defaultPath = opcoes.nomeDefault;
+  const result = await dialog.showSaveDialog(janelaPrincipal, opts);
+  return result.canceled ? null : result.filePath;
 });
 
 process.on('exit', () => { matarBackend(); });

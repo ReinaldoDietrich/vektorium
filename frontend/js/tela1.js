@@ -21,11 +21,18 @@ async function t1_renderAcoesProjetoAtivo() {
   try { p = await api.get(`/api/projetos/${id}`); } catch (e) { el.style.display = 'none'; return; }
   const rev = 'R' + String(p.revisao ?? 0).padStart(2, '0');
   el.style.display = 'flex';
+  let pathVek = null;
+  try {
+    const abertos = await api.get('/api/workspace/abertos');
+    const entry = (abertos || []).find(a => (a.projeto_ids || []).includes(id));
+    if (entry) pathVek = entry.path;
+  } catch (_) {}
   el.innerHTML =
     `<span class="info"><b>${p.codigo_projeto || '(sem código)'}</b> ${rev}${p.fechado ? ' · FECHADO' : ''}</span>` +
     `<span class="btn-text" id="apaRevisar">+ Revisão</span>` +
     `<span class="btn-text" id="apaExportar">Exportar Tudo</span>` +
     `<span class="btn-text" id="apaFechar">${p.fechado ? 'Reabrir Projeto' : 'Fechar Projeto'}</span>` +
+    (pathVek ? `<span class="btn-text" id="apaDescarregar">Descarregar Arquivo</span>` : '') +
     `<span class="btn-text danger" id="apaExcluir">Excluir</span>`;
   document.getElementById('apaRevisar').addEventListener('click', async () => {
     if (!confirm('Gerar uma nova revisão (cópia editável) deste projeto? A revisão anterior é preservada e continua editável.')) return;
@@ -57,6 +64,17 @@ async function t1_renderAcoesProjetoAtivo() {
       alert(`Erro ao ${acao === 'fechar' ? 'fechar' : 'reabrir'} o projeto: ${e.message}`);
     }
   });
+  const btnDescarregar = document.getElementById('apaDescarregar');
+  if (btnDescarregar && pathVek) {
+    btnDescarregar.addEventListener('click', async () => {
+      const nome = pathVek.replace(/\\/g, '/').split('/').pop();
+      if (!confirm(`Descarregar o arquivo "${nome}"?\nOs dados serão salvos antes de fechar.`)) return;
+      try {
+        await api.post('/api/workspace/fechar', { path: pathVek });
+        await t1_fecharProjetoAtivo();
+      } catch (e) { alert('Erro ao descarregar: ' + (e.message || e)); }
+    });
+  }
   document.getElementById('apaExcluir').addEventListener('click', async () => {
     if (!confirm('EXCLUIR este projeto/revisão em definitivo? Todos os dados dele (sistemas, câmaras, seleções) serão apagados. Esta ação não pode ser desfeita.')) return;
     try {
@@ -613,11 +631,15 @@ async function t1_salvarProjeto() {
     condicao_salao: document.getElementById('p_condicao_salao').value,
     considerar_iluminacao_ambiente: document.getElementById('p_considerar_iluminacao_ambiente').value === '1',
   };
+  if (!payload.pasta_salvamento) {
+    alert('A Pasta de Salvamento é obrigatória. Defina a pasta antes de salvar.');
+    return;
+  }
   let p;
   if (t1_editandoProjetoId) {
     p = await api.put(`/api/projetos/${t1_editandoProjetoId}`, payload);
   } else {
-    p = await api.post('/api/projetos', payload);
+    p = await api.post('/api/workspace/novo', payload);
   }
   t1_editandoProjetoId = p.id;
   document.getElementById('blocoSistemas').style.display = 'block';

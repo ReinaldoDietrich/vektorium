@@ -8,6 +8,7 @@ from ..database import get_db, DB_PATH
 from ..utils import model_to_dict, list_to_dict, chave_ordem_camara
 from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
+from ..workspace import workspace
 
 router = APIRouter(prefix="/api", tags=["projetos"])
 
@@ -124,6 +125,10 @@ def atualizar_projeto(projeto_id: int, payload: dict = Body(...), db: Session = 
             setattr(obj, k, v)
     db.commit()
     db.refresh(obj)
+    path_vek = workspace.projeto_pertence_a(obj.id)
+    if path_vek:
+        workspace.marcar_modificado(obj.id)
+        workspace.salvar_arquivo(path_vek)
     return model_to_dict(obj)
 
 
@@ -133,8 +138,12 @@ def excluir_projeto(projeto_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise HTTPException(404, "Projeto não encontrado")
     bp.verificar_projeto_da(obj)
+    path_vek = workspace.projeto_pertence_a(projeto_id)
     db.delete(obj)
     db.commit()
+    workspace.desregistrar_projeto(projeto_id)
+    if path_vek:
+        workspace.salvar_arquivo(path_vek)
     return {"ok": True}
 
 
@@ -401,6 +410,10 @@ def gerar_revisao(projeto_id: int, db: Session = Depends(get_db)):
             camara_simples_id=map_cs.get(pf.camara_simples_id)))
     db.commit()
     db.refresh(novo)
+    workspace.registrar_revisao(novo.id, orig.id)
+    path_vek = workspace.projeto_pertence_a(novo.id)
+    if path_vek:
+        workspace.salvar_arquivo(path_vek)
     return model_to_dict(novo)
 
 

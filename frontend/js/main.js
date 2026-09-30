@@ -104,6 +104,8 @@ async function definirProjetoAtivo(projetoId) {
 // explicitamente um projeto de novo. Nunca reabre sozinho ao abrir o app (sem localStorage).
 async function fecharProjetoAtivo() {
   await definirProjetoAtivo(null);
+  const form = document.getElementById('formProjetoWrap');
+  if (form) form.style.display = 'none';
 }
 
 // Projeto fechado (Tela 1) = as telas DESSE projeto ficam só para visualização. Esta função liga/
@@ -155,7 +157,14 @@ window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
 window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
 async function sairDoApp() {
+  if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
   try {
+    for (let t = 0; t < 3; t++) {
+      try {
+        const r = await api.post('/api/workspace/salvar-todos');
+        if (r.ok) break;
+      } catch (_) {}
+    }
     if (typeof AUTH !== 'undefined') {
       const _uid =
         AUTH._sessao &&
@@ -188,20 +197,11 @@ async function sairDoApp() {
         }
       }
 
-      let logoutOk = false;
-      while (!logoutOk) {
-        try {
-          logoutOk = await AUTH.logout();
-        } catch (e) {
-          console.error('[SAIR] AUTH.logout:', e);
-        }
-        if (!logoutOk) {
-          console.log('[SAIR] Logout não confirmado, tentando novamente...');
-          await new Promise(r => setTimeout(r, 1000));
-        }
-      }
-      console.log('[SAIR] Logout Supabase confirmado');
+      try { await AUTH.logout(); } catch (_) {}
+      AUTH.limpar();
     }
+
+    try { await api.post('/api/workspace/fechar-todos'); } catch (_) {}
 
   } finally {
     const overlay = document.getElementById('overlaySaida');
@@ -221,12 +221,38 @@ async function sairDoApp() {
   }
 }
 
+setInterval(async () => {
+  try { await api.post('/api/workspace/salvar-todos'); } catch (_) {}
+}, 2 * 60 * 1000);
+
 async function _carregarPerfilRemoto() {
   if (typeof AUTH === 'undefined' || !AUTH.logado()) return;
   try {
     const dados = await api.get('/api/admin/meu-perfil');
     state.isMaster = dados.usuario.papel === 'master';
   } catch (_) {}
+}
+
+async function atualizarCamposPorArvore() {
+  const arvore = await api.get('/api/catalogos/ids-comerciais');
+  const porCampo = {};
+  for (const no of arvore) {
+    if (!no.campo_id) continue;
+    if (!porCampo[no.campo_id]) porCampo[no.campo_id] = [];
+    porCampo[no.campo_id].push(no);
+  }
+  let atualizados = 0;
+  for (const [campoId, nodes] of Object.entries(porCampo)) {
+    const sel = document.querySelector(`select[data-id-campo="${campoId}"]`);
+    if (!sel) continue;
+    const valorAtual = sel.value;
+    const primeiraOpcao = sel.options.length ? sel.options[0].outerHTML : '<option value="">—</option>';
+    nodes.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
+    sel.innerHTML = primeiraOpcao + nodes.map(n => `<option value="${n.codigo}">${n.nome}</option>`).join('');
+    sel.value = valorAtual;
+    atualizados++;
+  }
+  return atualizados;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

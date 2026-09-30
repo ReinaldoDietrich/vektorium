@@ -99,7 +99,7 @@ function initTela2() {
 }
 
 async function t2_carregarCatalogos() {
-  if (t2_catalogos) return t2_catalogos;
+  // Sem cache — recarrega sempre para capturar catálogos recém-adicionados
   const [produtos, embalagens, paredeTeto, piso, equipamentos, fabricantes, ambientesLumino, arvoreIds] = await Promise.all([
     api.get('/api/catalogos/produtos'), api.get('/api/catalogos/tipos-embalagem'),
     api.get('/api/catalogos/isolamento-parede-teto'), api.get('/api/catalogos/isolamento-piso'),

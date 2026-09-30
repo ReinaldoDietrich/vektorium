@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/cloud", tags=["cloud"])
 SUPABASE_URL = "https://luzvgsgxutggnbyrhswg.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_BreZGIXnU6_rdBi8n3bF5w_N3HZ56-S"
 BUCKET = "vektorium-projetos"
-LOCK_TTL_SECONDS = 8 * 3600  # 8 horas
+LOCK_TTL_SECONDS = 90  # 90s — renovado por heartbeat a cada 30s (SE-063)
 
 
 # ---- Schemas ----
@@ -95,7 +95,7 @@ def _storage_list(token: str, prefix: str) -> list:
 def _storage_delete(token: str, path: str) -> bool:
     r = httpx.delete(
         f"{SUPABASE_URL}/storage/v1/object/{BUCKET}",
-        json=[path],
+        json={"prefixes": [path]},
         headers={**_headers(token), "Content-Type": "application/json"},
         timeout=10,
     )

@@ -81,7 +81,7 @@ function initTela3() {
 }
 
 async function t3_carregarCatalogos() {
-  if (t3_catalogos) return t3_catalogos;
+  // Sem cache — recarrega sempre para capturar catálogos recém-adicionados
   const [tabela02, fabricantes, fatorAltura, ambientesLumino, arvoreIds] = await Promise.all([
     api.get('/api/catalogos/tabela-tipo02'), carregarFabricantes(), api.get('/api/catalogos/fator-altura'),
     api.get('/api/catalogos/ambientes-luminotecnico'), api.get('/api/catalogos/ids-comerciais'),

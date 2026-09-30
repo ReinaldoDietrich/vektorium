@@ -1,9 +1,11 @@
-// Tela 20 — Administração (papéis dinâmicos)
+// Tela 20 — Administração (papéis dinâmicos, CRUD usuários, logs)
 (function () {
   let carregou = false;
   let _papeis = [];
   let _usuarios = [];
   let _permissoes = [];
+  let _logsOffset = 0;
+  const _LOGS_PAGE = 20;
 
   const MODULOS = [
     'cadastro', 'camara_completo', 'camara_simples', 'expositor',
@@ -22,6 +24,7 @@
     if (!state.isMaster) { document.getElementById('t20_corpo').innerHTML = '<p>Acesso restrito a administradores.</p>'; return; }
     document.getElementById('t20_painelMaster').style.display = 'block';
     await carregarPapeis();
+    _popularSelectNovoUsuario();
     await Promise.all([carregarUsuarios(), carregarDispositivos(), carregarPermissoes()]);
   };
 
@@ -60,11 +63,11 @@
     if (!_papeis.length) { tbody.innerHTML = '<tr><td colspan="4">Nenhum tipo cadastrado.</td></tr>'; return; }
     tbody.innerHTML = _papeis.map(p => {
       const protegido = p.nome === 'master';
-      const btnEdit = `<button class="btn-sm" onclick="window._t20_editarPapel(${p.id})">Editar</button>`;
-      const btnDel = protegido ? '' : ` <button class="btn-sm btn-danger" onclick="window._t20_excluirPapel(${p.id},'${p.nome}')">Excluir</button>`;
+      const btnEdit = `<button class="btn-text" onclick="window._t20_editarPapel(${p.id})">Editar</button>`;
+      const btnDel = protegido ? '' : ` <button class="btn-text danger" onclick="window._t20_excluirPapel(${p.id},'${p.nome}')">Excluir</button>`;
       return `<tr data-papel-id="${p.id}">
-        <td><span class="t20-papel-nome">${p.nome}</span></td>
-        <td><span class="t20-papel-desc">${p.descricao}</span></td>
+        <td>${p.nome}</td>
+        <td>${p.descricao}</td>
         <td style="text-align:center">${p.is_admin ? 'Sim' : 'Não'}</td>
         <td>${btnEdit}${btnDel}</td>
       </tr>`;
@@ -86,6 +89,7 @@
       msg.textContent = 'Tipo criado.';
       setTimeout(() => { msg.textContent = ''; }, 3000);
       await carregarPapeis();
+      _popularSelectNovoUsuario();
       renderUsuarios();
       renderPermHead();
       renderPermissoes();
@@ -104,6 +108,7 @@
       try {
         await api.put(`/api/admin/papeis/${id}`, { nome: v.nome.trim(), descricao: v.descricao || '', is_admin: v.is_admin });
         await carregarPapeis();
+        _popularSelectNovoUsuario();
         await carregarUsuarios();
         renderPermHead();
         await carregarPermissoes();
@@ -116,70 +121,136 @@
     try {
       await api.del(`/api/admin/papeis/${id}`);
       await carregarPapeis();
+      _popularSelectNovoUsuario();
       renderPermHead();
       await carregarPermissoes();
     } catch (e) { alert('Erro: ' + e.message); }
   };
 
   // --- USUARIOS ---
+  function _popularSelectNovoUsuario() {
+    const sel = document.getElementById('t20_novoUsuPapel');
+    if (!sel) return;
+    sel.innerHTML = _papeis.map(p => `<option value="${p.nome}"${p.nome !== 'master' ? ' selected' : ''}>${p.nome}</option>`).join('');
+  }
+
   async function carregarUsuarios() {
     const tbody = document.getElementById('t20_tbUsuarios');
-    tbody.innerHTML = '<tr><td colspan="8">Carregando…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Carregando…</td></tr>';
     try {
       _usuarios = await api.get('/api/admin/usuarios');
       renderUsuarios();
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="8">Erro: ${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">Erro: ${e.message}</td></tr>`;
     }
+  }
+
+  function _badgeStatus(status) {
+    if (!status) return '<span class="badge">—</span>';
+    const s = status.toLowerCase();
+    let cls = '';
+    if (s === 'active' || s === 'ativa' || s === 'ativo') cls = 'active';
+    else if (s === 'trial' || s === 'teste') cls = 'trial';
+    else if (s === 'canceled' || s === 'cancelada' || s === 'cancelado' || s === 'inactive' || s === 'inativa') cls = 'canceled';
+    return `<span class="badge ${cls}">${status.toUpperCase()}</span>`;
+  }
+
+  function _selectTipo(uid, papelAtual) {
+    const opts = _papeis.map(p =>
+      `<option value="${p.nome}"${p.nome === papelAtual ? ' selected' : ''}>${p.nome}</option>`
+    ).join('');
+    return `<select onchange="window._t20_trocarTipo('${uid}',this.value)" style="font-size:12px;padding:2px 4px">${opts}</select>`;
   }
 
   function renderUsuarios() {
     const tbody = document.getElementById('t20_tbUsuarios');
-    if (!_usuarios.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhum usuário.</td></tr>'; return; }
-    const opcoes = _papeis.map(p => p.nome);
+    if (!_usuarios.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhum usuário.</td></tr>'; return; }
     tbody.innerHTML = _usuarios.map(u => {
-      const select = `<select onchange="window._t20_alterarPapel('${u.id}', this.value)">${
-        opcoes.map(o => `<option value="${o}"${o === u.papel ? ' selected' : ''}>${o}</option>`).join('')
-      }</select>`;
-      const btnVit = u.assinatura_plano === 'vitalicio' && u.assinatura_status === 'active'
-        ? `<button class="btn-sm btn-danger" onclick="window._t20_revogar('${u.id}')">Revogar</button>`
-        : `<button class="btn-sm btn-ok" onclick="window._t20_concederVitalicia('${u.id}')">Conceder vitalícia</button>`;
+      const status = u.assinatura_status || '—';
+      const plano = u.assinatura_plano || '—';
+      const vence = u.assinatura_vence_em || '—';
+      const isTrial = status.toLowerCase() === 'trial' || status.toLowerCase() === 'teste';
+
+      let acoes = `<button class="btn-text" onclick="window._t20_editarUsuario('${u.id}','${(u.email||'').replace(/'/g,"\\'")}','${(u.nome||'').replace(/'/g,"\\'")}','${u.papel}')">Editar</button>`;
+      if (isTrial) {
+        acoes += ` <button class="btn-text ok" onclick="window._t20_concederVitalicia('${u.id}','${(u.email||'').replace(/'/g,"\\'")}')">Vitalícia</button>`;
+      }
+      acoes += ` <button class="btn-text danger" onclick="window._t20_excluirUsuario('${u.id}','${(u.email||'').replace(/'/g,"\\'")}')">Excluir</button>`;
+
       return `<tr>
         <td>${u.email}</td>
         <td>${u.nome || '—'}</td>
-        <td>${u.papel}</td>
-        <td>${select}</td>
-        <td>${u.assinatura_status || '—'}</td>
-        <td>${u.assinatura_plano || '—'}</td>
-        <td>${u.assinatura_vence_em || '—'}</td>
-        <td>${btnVit}</td>
+        <td>${_selectTipo(u.id, u.papel)}</td>
+        <td style="text-align:center">${_badgeStatus(status)}</td>
+        <td style="text-align:center">${plano.toUpperCase()}</td>
+        <td>${vence}</td>
+        <td style="white-space:nowrap">${acoes}</td>
       </tr>`;
     }).join('');
   }
 
-  window._t20_alterarPapel = async function (uid, novoPapel) {
-    if (!confirm(`Alterar tipo para "${novoPapel}"?`)) {
-      renderUsuarios();
-      return;
-    }
+  window._t20_trocarTipo = async function (uid, novoPapel) {
     try {
-      await api.put(`/api/admin/usuarios/${uid}/papel`, { papel: novoPapel });
+      await api.put(`/api/admin/usuarios/${uid}`, { papel: novoPapel });
       await carregarUsuarios();
-    } catch (e) { alert('Erro: ' + e.message); renderUsuarios(); }
+    } catch (e) { alert('Erro: ' + e.message); }
   };
 
-  window._t20_concederVitalicia = async function (uid) {
-    if (!confirm('Conceder assinatura vitalícia?')) return;
+  window._t20_novoUsuarioInline = function () {
+    const email = (document.getElementById('t20_novoUsuEmail').value || '').trim().toLowerCase();
+    const nome = (document.getElementById('t20_novoUsuNome').value || '').trim();
+    const papel = document.getElementById('t20_novoUsuPapel').value;
+    const msg = document.getElementById('t20_usuarioMsg');
+
+    if (!email) { msg.textContent = 'Informe o email.'; return; }
+
+    vkPrompt('Senha do novo usuário', [
+      {label: 'Senha (mín. 6 caracteres)', name: 'senha', tipo: 'password'}
+    ], async (v) => {
+      const senha = (v.senha || '').trim();
+      if (!senha || senha.length < 6) { alert('Senha deve ter no mínimo 6 caracteres.'); return; }
+      msg.textContent = 'Criando…';
+      try {
+        await api.post('/api/admin/usuarios', { email, senha, nome, papel });
+        document.getElementById('t20_novoUsuEmail').value = '';
+        document.getElementById('t20_novoUsuNome').value = '';
+        msg.textContent = 'Usuário criado.';
+        setTimeout(() => { msg.textContent = ''; }, 3000);
+        await carregarUsuarios();
+      } catch (e) {
+        msg.textContent = '';
+        alert('Erro: ' + e.message);
+      }
+    });
+  };
+
+  window._t20_editarUsuario = function (uid, email, nome, papel) {
+    vkPrompt('Editar Usuário — ' + email, [
+      {label: 'Nome', name: 'nome', valor: nome},
+      {label: 'Tipo', name: 'papel', valor: papel}
+    ], async (v) => {
+      const novoNome = (v.nome || '').trim();
+      const novoPapel = (v.papel || '').trim();
+      if (!novoNome && !novoPapel) return;
+      try {
+        await api.put(`/api/admin/usuarios/${uid}`, { nome: novoNome, papel: novoPapel });
+        await carregarUsuarios();
+      } catch (e) { alert('Erro: ' + e.message); }
+    });
+  };
+
+  window._t20_concederVitalicia = async function (uid, email) {
+    if (!confirm(`Conceder assinatura VITALÍCIA para "${email}"?`)) return;
     try {
       await api.post(`/api/admin/assinaturas/${uid}/conceder-vitalicia`);
       await carregarUsuarios();
     } catch (e) { alert('Erro: ' + e.message); }
   };
 
-  window._t20_revogar = async function (uid) {
-    if (!confirm('Revogar assinatura deste usuário?')) return;
+  window._t20_excluirUsuario = async function (uid, email) {
+    if (!confirm(`Excluir o usuário "${email}"?\n\nIsso removerá PERMANENTEMENTE do Supabase Auth e de todas as tabelas.`)) return;
     try {
-      await api.post(`/api/admin/assinaturas/${uid}/revogar`);
+      await api.del(`/api/admin/usuarios/${uid}`);
       await carregarUsuarios();
     } catch (e) { alert('Erro: ' + e.message); }
   };
@@ -193,13 +264,13 @@
       if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5">Nenhum dispositivo registrado.</td></tr>'; return; }
       tbody.innerHTML = lista.map(d => {
         const btnAtivo = d.ativo
-          ? `<button class="btn-sm btn-danger" onclick="window._t20_toggleDisp(${d.id}, false)">Desativar</button>`
-          : `<button class="btn-sm btn-ok" onclick="window._t20_toggleDisp(${d.id}, true)">Ativar</button>`;
+          ? `<button class="btn-text danger" onclick="window._t20_toggleDisp(${d.id}, false)">Desativar</button>`
+          : `<button class="btn-text" onclick="window._t20_toggleDisp(${d.id}, true)">Ativar</button>`;
         return `<tr>
           <td>${d.email}</td>
           <td title="${d.fingerprint}">${(d.fingerprint || '—').substring(0, 16)}…</td>
           <td>${d.ultimo_acesso || '—'}</td>
-          <td>${d.ativo ? 'Sim' : 'Não'}</td>
+          <td style="text-align:center">${d.ativo ? 'Sim' : 'Não'}</td>
           <td>${btnAtivo}</td>
         </tr>`;
       }).join('');
@@ -221,10 +292,10 @@
     const thead = document.getElementById('t20_permHead');
     const nomes = _papeis.map(p => p.nome);
     thead.innerHTML = `<tr>
-      <th rowspan="2">Módulo</th>
-      ${nomes.map(n => `<th colspan="2" style="text-align:center">${n}</th>`).join('')}
+      <th rowspan="2" style="border-right:2px solid var(--line)">Módulo</th>
+      ${nomes.map((n, i) => `<th colspan="2" style="text-align:center;font-size:11.5px;color:var(--ink);font-weight:700${i > 0 ? ';border-left:2px solid var(--line)' : ''}">${n.toUpperCase()}</th>`).join('')}
     </tr><tr>
-      ${nomes.map(() => '<th style="text-align:center">Ver</th><th style="text-align:center">Editar</th>').join('')}
+      ${nomes.map((_, i) => `<th style="text-align:center${i > 0 ? ';border-left:2px solid var(--line)' : ''}">Ver</th><th style="text-align:center">Editar</th>`).join('')}
     </tr>`;
   }
 
@@ -246,13 +317,14 @@
     const tbody = document.getElementById('t20_tbPermissoes');
     const nomes = _papeis.map(p => p.nome);
     tbody.innerHTML = MODULOS.map(mod => {
-      const cells = nomes.map(papel => {
+      const cells = nomes.map((papel, i) => {
         const ver = _perm(papel, mod, 'ver');
         const editar = _perm(papel, mod, 'editar');
-        return `<td style="text-align:center"><input type="checkbox" data-papel="${papel}" data-modulo="${mod}" data-campo="ver" ${ver ? 'checked' : ''}></td>` +
-               `<td style="text-align:center"><input type="checkbox" data-papel="${papel}" data-modulo="${mod}" data-campo="editar" ${editar ? 'checked' : ''}></td>`;
+        const bL = i > 0 ? 'border-left:2px solid var(--line);' : '';
+        return `<td style="text-align:center;${bL}"><input type="checkbox" data-papel="${papel}" data-modulo="${mod}" data-campo="ver" ${ver ? 'checked' : ''} style="width:14px;height:14px"></td>` +
+               `<td style="text-align:center"><input type="checkbox" data-papel="${papel}" data-modulo="${mod}" data-campo="editar" ${editar ? 'checked' : ''} style="width:14px;height:14px"></td>`;
       }).join('');
-      return `<tr><td>${mod}</td>${cells}</tr>`;
+      return `<tr><td style="border-right:2px solid var(--line)">${mod.toUpperCase()}</td>${cells}</tr>`;
     }).join('');
   }
 
@@ -276,6 +348,74 @@
       msg.textContent = 'Erro: ' + e.message;
     }
   };
+
+  // --- LOGS ---
+  let _allLogs = [];
+
+  window._t20_carregarLogs = async function () {
+    const container = document.getElementById('t20_logsContainer');
+    const msg = document.getElementById('t20_logsMsg');
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Carregando…</div>';
+    msg.textContent = '';
+    _logsOffset = 0;
+    try {
+      _allLogs = await api.get('/api/admin/logs');
+      _renderLogs();
+    } catch (e) {
+      container.innerHTML = `<div style="font-size:12px;color:#b91c1c;padding:8px 0">Erro: ${e.message}</div>`;
+    }
+  };
+
+  function _filtrarLogs() {
+    const texto = (document.getElementById('t20_logsFiltro').value || '').trim().toLowerCase();
+    const tipo = (document.getElementById('t20_logsTipo').value || '').toLowerCase();
+    return _allLogs.filter(l => {
+      if (texto && !(l.email || '').toLowerCase().includes(texto) && !(l.acao || '').toLowerCase().includes(texto) && !(l.detalhes || '').toLowerCase().includes(texto)) return false;
+      if (tipo === 'login' && !(l.acao || '').toLowerCase().includes('login')) return false;
+      if (tipo === 'logout' && !(l.acao || '').toLowerCase().includes('logout')) return false;
+      if (tipo === 'admin' && (l.acao || '').toLowerCase().includes('login')) return false;
+      return true;
+    });
+  }
+
+  function _renderLogs() {
+    const container = document.getElementById('t20_logsContainer');
+    const btnMais = document.getElementById('t20_logsMais');
+    const filtrados = _filtrarLogs();
+    const mostrar = filtrados.slice(0, _logsOffset + _LOGS_PAGE);
+
+    if (!filtrados.length) {
+      container.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Nenhum log encontrado.</div>';
+      btnMais.style.display = 'none';
+      return;
+    }
+
+    container.innerHTML = mostrar.map(l => {
+      const data = l.criado_em || '—';
+      const email = l.email || '—';
+      const acao = l.acao + (l.detalhes ? ' — ' + l.detalhes : '');
+      return `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px;align-items:baseline">
+        <span style="font-size:11px;color:var(--muted);min-width:130px;flex-shrink:0">${data}</span>
+        <span style="font-size:11px;color:var(--accent,#2563eb);min-width:160px;flex-shrink:0">${email}</span>
+        <span style="font-size:12px">${acao}</span>
+      </div>`;
+    }).join('');
+
+    btnMais.style.display = mostrar.length < filtrados.length ? '' : 'none';
+  }
+
+  window._t20_carregarMaisLogs = function () {
+    _logsOffset += _LOGS_PAGE;
+    _renderLogs();
+  };
+
+  // filtros: re-renderizar ao digitar/selecionar
+  document.addEventListener('DOMContentLoaded', () => {
+    const filtro = document.getElementById('t20_logsFiltro');
+    const tipo = document.getElementById('t20_logsTipo');
+    if (filtro) filtro.addEventListener('input', () => { _logsOffset = 0; _renderLogs(); });
+    if (tipo) tipo.addEventListener('change', () => { _logsOffset = 0; _renderLogs(); });
+  });
 
   // --- VISIBILIDADE da aba Admin no sidebar ---
   function _atualizarVisibilidadeAdmin() {

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from .database import get_db
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 _JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else None
 _jwks_client = jwt.PyJWKClient(_JWKS_URL) if _JWKS_URL else None
 

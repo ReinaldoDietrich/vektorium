@@ -618,69 +618,23 @@ def condensador_opcoes(rack_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/{rack_id}/condensador")
-def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
-    rack = db.get(m.RackParalelo, rack_id)
-    if not rack:
-        raise HTTPException(404, "Rack não encontrado")
-    sistema = rack.sistema
-    projeto = sistema.projeto if sistema else None
-
-    calor_rejeitado = resumo_compressores(rack_id, db)["resumo"]["calor_rejeitado_total_kcal_h"]
-
-    base = {
-        "fabricante_condensador": rack.fabricante_condensador,
-        "linha_condensador": rack.linha_condensador,
-        "tipo_condensador": rack.tipo_condensador,
-        "filtro_fpi_condensador": rack.filtro_fpi_condensador,
-        "filtro_polos_rpm_condensador": rack.filtro_polos_rpm_condensador,
-        "folga_condensador_pct": rack.folga_condensador_pct,
-        "protecao_aletas_condensador": rack.protecao_aletas_condensador,
-        "notas_condensador": rack.notas_condensador,
-        "quantidade_paralelo": _n_paralelo(rack),
-        "quantidade_condensadores_total": (rack.quantidade_condensadores or 1) * _n_paralelo(rack),
-        "calor_rejeitado_kcal_h": calor_rejeitado,
-        "contexto": {
-            "delta_condensacao": sistema.delta_condensacao, "gas": sistema.gas_refrigerante,
-            "aleta": "Protegida" if rack.protecao_aletas_condensador else "Padrão",
-            "altitude": projeto.altitude_m if projeto else None,
-            "temp_entrada_ar": projeto.temp_ambiente if projeto else None,
-        },
-        "filtros_disponiveis": {"fpis": [], "polos_rpm": []},
-        "selecao": None,
-    }
-    if sistema.delta_condensacao is not None and projeto and projeto.temp_ambiente is not None:
-        base["temp_condensacao"] = sistema.delta_condensacao + projeto.temp_ambiente
-        base["temp_apos_condensador"] = base["temp_condensacao"] - 3
-    else:
-        base["temp_condensacao"] = None
-        base["temp_apos_condensador"] = None
-
-    if not rack.fabricante_condensador or not rack.linha_condensador:
-        base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
-        return base
-
-    tensao_eq = projeto.tensao_equipamentos if projeto else None
-    selecoes_manuais = json.loads(rack.nomenclatura_condensador_selecionada) if rack.nomenclatura_condensador_selecionada else {}
-    dados_remoto = {
-        "fabricante": rack.fabricante_condensador, "linha": rack.linha_condensador,
-        "tipo": rack.tipo_condensador,
-        "filtro_fpi": rack.filtro_fpi_condensador, "filtro_polos_rpm": rack.filtro_polos_rpm_condensador,
-        "contexto": base["contexto"], "calor_rejeitado": calor_rejeitado,
-        "folga_pct": rack.folga_condensador_pct, "quantidade": rack.quantidade_condensadores or 1,
-        "tensao_equipamentos": tensao_eq, "nomenclatura_selecionada": selecoes_manuais,
-    }
+def _calcular_opcao_condensador(db, opt, contexto_base, calor_rejeitado, tipo_condensador, tensao_eq):
+    """Calcula a seleção de condensador para UMA opção (RackCondensadorSelecao)."""
+    if not opt.fabricante_condensador or not opt.linha_condensador:
+        return {"aviso": "Escolha Fabricante e Linha.", "selecao": None, "linha_id": None,
+                "dt_catalogo_c": None, "filtros_disponiveis": {"fpis": [], "polos_rpm": []}}
+    ctx = {**contexto_base, "aleta": "Protegida" if opt.protecao_aletas_condensador else "Padrão"}
     q = (db.query(m.LinhaCondensadorRemoto)
          .join(m.Fabricante, m.LinhaCondensadorRemoto.fabricante_id == m.Fabricante.id)
-         .filter(m.Fabricante.nome == rack.fabricante_condensador,
-                 m.LinhaCondensadorRemoto.nome == rack.linha_condensador))
+         .filter(m.Fabricante.nome == opt.fabricante_condensador,
+                 m.LinhaCondensadorRemoto.nome == opt.linha_condensador))
     linhas_cond = q.all()
-    if rack.tipo_condensador:
-        linhas_cond = [l for l in linhas_cond if (l.tipo_estrutura or "") == rack.tipo_condensador]
+    if tipo_condensador:
+        linhas_cond = [l for l in linhas_cond if (l.tipo_estrutura or "") == tipo_condensador]
     linha = max(linhas_cond, key=lambda l: l.id) if linhas_cond else None
     if not linha:
-        base["aviso"] = "Escolha Tipo Condensador, Fabricante e Linha do condensador."
-        return base
+        return {"aviso": "Linha não encontrada no catálogo.", "selecao": None, "linha_id": None,
+                "dt_catalogo_c": None, "filtros_disponiveis": {"fpis": [], "polos_rpm": []}}
     modelos = linha.modelos
     polos_ac = sorted({str(int(md.polos_ou_rpm)) for md in modelos
                        if (md.tipo_motor or "").upper() == "AC" and md.polos_ou_rpm not in (None, "")},
@@ -693,12 +647,12 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
     fatores_por_tipo = {}
     for f in linha.fatores:
         fatores_por_tipo.setdefault(f.tipo, []).append({"chave": f.chave, "fator": f.fator})
+    selecoes_manuais = json.loads(opt.nomenclatura_condensador_selecionada) if opt.nomenclatura_condensador_selecionada else {}
     selecao = cc_calc.selecionar_condensador(
-        modelos, fatores_por_tipo, dados_remoto["contexto"], dados_remoto.get("calor_rejeitado"),
-        dados_remoto.get("folga_pct"),
-        filtro_fpi=dados_remoto.get("filtro_fpi"), filtro_polos_rpm=dados_remoto.get("filtro_polos_rpm"),
+        modelos, fatores_por_tipo, ctx, calor_rejeitado, opt.folga_condensador_pct,
+        filtro_fpi=opt.filtro_fpi_condensador, filtro_polos_rpm=opt.filtro_polos_rpm_condensador,
         delta_catalogo=linha.dt_catalogo_c, tensao_equipamentos=tensao_eq,
-        quantidade=dados_remoto.get("quantidade", 1))
+        quantidade=opt.quantidade_condensadores or 1)
     def _ctx_cand(cand):
         return {
             "tensao_equipamentos": tensao_eq,
@@ -717,12 +671,77 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         cand["codigo_comercial"] = cpc.montar_codigo(
             db, "CondensadorRemoto", linha.id, modelo_base=cand["modelo"],
             contexto=_ctx_cand(cand), selecoes_manuais=selecoes_manuais)
-    base["filtros_disponiveis"] = filtros_disponiveis
-    base["dt_catalogo_c"] = linha.dt_catalogo_c
-    base["tensao_equipamentos"] = tensao_eq
-    base["selecao"] = selecao
-    base["linha_id"] = linha.id
-    base["nomenclatura_selecionada"] = selecoes_manuais
+    return {"selecao": selecao, "linha_id": linha.id, "dt_catalogo_c": linha.dt_catalogo_c,
+            "filtros_disponiveis": filtros_disponiveis, "nomenclatura_selecionada": selecoes_manuais}
+
+
+@router.get("/{rack_id}/condensador")
+def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
+    rack = db.get(m.RackParalelo, rack_id)
+    if not rack:
+        raise HTTPException(404, "Rack não encontrado")
+    sistema = rack.sistema
+    projeto = sistema.projeto if sistema else None
+
+    calor_rejeitado = resumo_compressores(rack_id, db)["resumo"]["calor_rejeitado_total_kcal_h"]
+    n_paralelo = _n_paralelo(rack)
+    tensao_eq = projeto.tensao_equipamentos if projeto else None
+    contexto_base = {
+        "delta_condensacao": sistema.delta_condensacao, "gas": sistema.gas_refrigerante,
+        "altitude": projeto.altitude_m if projeto else None,
+        "temp_entrada_ar": projeto.temp_ambiente if projeto else None,
+    }
+    tipo_condensador = rack.tipo_condensador
+
+    base = {
+        "fabricante_condensador": rack.fabricante_condensador,
+        "linha_condensador": rack.linha_condensador,
+        "tipo_condensador": tipo_condensador,
+        "filtro_fpi_condensador": rack.filtro_fpi_condensador,
+        "filtro_polos_rpm_condensador": rack.filtro_polos_rpm_condensador,
+        "folga_condensador_pct": rack.folga_condensador_pct,
+        "protecao_aletas_condensador": rack.protecao_aletas_condensador,
+        "notas_condensador": rack.notas_condensador,
+        "quantidade_paralelo": n_paralelo,
+        "quantidade_condensadores_total": (rack.quantidade_condensadores or 1) * n_paralelo,
+        "calor_rejeitado_kcal_h": calor_rejeitado,
+        "contexto": {**contexto_base, "aleta": "Protegida" if rack.protecao_aletas_condensador else "Padrão"},
+        "filtros_disponiveis": {"fpis": [], "polos_rpm": []},
+        "selecao": None,
+        "tensao_equipamentos": tensao_eq,
+    }
+    if sistema.delta_condensacao is not None and projeto and projeto.temp_ambiente is not None:
+        base["temp_condensacao"] = sistema.delta_condensacao + projeto.temp_ambiente
+        base["temp_apos_condensador"] = base["temp_condensacao"] - 3
+    else:
+        base["temp_condensacao"] = None
+        base["temp_apos_condensador"] = None
+
+    _garantir_condensador(db, rack)
+    opcoes_resultado = {}
+    filtros_merge = {"fpis": set(), "polos_rpm": []}
+    for opt in rack.condensadores:
+        res = _calcular_opcao_condensador(db, opt, contexto_base, calor_rejeitado, tipo_condensador, tensao_eq)
+        opcoes_resultado[str(opt.id)] = res
+        if res.get("filtros_disponiveis"):
+            filtros_merge["fpis"].update(res["filtros_disponiveis"].get("fpis", []))
+            for p in res["filtros_disponiveis"].get("polos_rpm", []):
+                if p not in filtros_merge["polos_rpm"]:
+                    filtros_merge["polos_rpm"].append(p)
+        if opt.considerado:
+            base["selecao"] = res.get("selecao")
+            base["linha_id"] = res.get("linha_id")
+            base["dt_catalogo_c"] = res.get("dt_catalogo_c")
+            base["nomenclatura_selecionada"] = res.get("nomenclatura_selecionada")
+            if res.get("selecao"):
+                base["filtros_disponiveis"] = res["filtros_disponiveis"]
+            if res.get("aviso") and not base.get("aviso"):
+                base["aviso"] = res["aviso"]
+    base["filtros_disponiveis"] = {
+        "fpis": sorted(filtros_merge["fpis"]),
+        "polos_rpm": filtros_merge["polos_rpm"],
+    }
+    base["opcoes_resultado"] = opcoes_resultado
     return base
 
 

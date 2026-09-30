@@ -114,6 +114,14 @@ def restaurar_padroes(projeto_id: int, bloco: str | None = None, db: Session = D
     return {"itens_criados": criados}
 
 
+@router.post("/atualizar-cc-fv-arvore")
+def atualizar_cc_fv_arvore(projeto_id: int, db: Session = Depends(get_db)):
+    if not db.get(m.Projeto, projeto_id):
+        raise HTTPException(404, "Projeto não encontrado")
+    bp.verificar_projeto_aberto(db, projeto_id)
+    return cp.atualizar_cc_fv_arvore(db, projeto_id)
+
+
 # ---------------- Resumo / Comissionamento / DRE ----------------
 
 @router.get("/resumo")

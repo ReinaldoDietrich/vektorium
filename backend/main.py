@@ -11,7 +11,7 @@ from .database import engine
 from . import seed
 from .calc_service import definir_token_usuario
 from .admin import registrar
-from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync, cloud_projetos
+from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync, cloud_projetos, workspace
 
 _log = logging.getLogger(__name__)
 
@@ -91,9 +91,25 @@ class LicencaMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class WorkspaceSaveMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.method in ("POST", "PUT", "DELETE") and response.status_code < 400:
+            path = request.url.path
+            if (any(path.startswith(p) for p in _ROTAS_ESCRITA)
+                    and not path.startswith("/api/workspace/")):
+                try:
+                    from .workspace import workspace as _ws
+                    _ws.salvar_todos()
+                except Exception:
+                    pass
+        return response
+
+
 app.add_middleware(SemCacheMiddleware)
 app.add_middleware(TokenMiddleware)
 app.add_middleware(LicencaMiddleware)
+app.add_middleware(WorkspaceSaveMiddleware)
 
 seed.run()
 registrar(app, engine)
@@ -108,6 +124,16 @@ def _migrar_schema():
             pass  # coluna já existe
 
 _migrar_schema()
+
+from .workspace import migrar_projetos_legado, limpar_tabelas_projeto
+
+
+@app.on_event("startup")
+def _startup_limpar_projetos():
+    migrar_projetos_legado()
+    limpar_tabelas_projeto()
+    _log.info("Workspace: tabelas de projeto limpas no startup.")
+
 
 app.include_router(projetos.router)
 app.include_router(catalogos.router)
@@ -137,6 +163,7 @@ app.include_router(comparativo_revisoes.router)
 app.include_router(proposta_comercial.router)
 app.include_router(catalogo_sync.router)
 app.include_router(cloud_projetos.router)
+app.include_router(workspace.router)
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")

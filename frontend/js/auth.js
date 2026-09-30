@@ -164,7 +164,6 @@ const AUTH = {
         '[AUTH.logout] Logout Supabase realizado:',
         response.status
       );
-      this.limpar();
       return true;
 
     } catch (e) {
@@ -175,6 +174,7 @@ const AUTH = {
       return false;
     } finally {
       clearTimeout(t);
+      this.limpar();
     }
   },
 };

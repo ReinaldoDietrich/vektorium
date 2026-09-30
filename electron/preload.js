@@ -1,9 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('vektorium', {
-  versao: require('./package.json').version,
   electron: true,
   escolherPasta: (opcoes) => ipcRenderer.invoke('escolher-pasta', opcoes),
-  exportarPdf: (opcoes) => ipcRenderer.invoke('exportar-pdf', opcoes),
+  abrirImpressao: (html) => ipcRenderer.invoke('abrir-impressao', html),
+  abrirArquivo: () => ipcRenderer.invoke('abrir-arquivo'),
+  salvarArquivoComo: (opcoes) => ipcRenderer.invoke('salvar-arquivo-como', opcoes),
   sair: () => ipcRenderer.invoke('app-sair')
 });

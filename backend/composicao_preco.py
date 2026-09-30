@@ -313,6 +313,12 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["quantidade"]
             existentes[chave].unidade = linha["unidade"]
             existentes[chave].ordem = idx
+            if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
+                cc_id, fator_id = _cc_fator_painel_porta(db, linha)
+                if existentes[chave].centro_custo_id is None and cc_id:
+                    existentes[chave].centro_custo_id = cc_id
+                if existentes[chave].fator_id is None and fator_id:
+                    existentes[chave].fator_id = fator_id
         else:
             cc_id, fator_id = _cc_fator_painel_porta(db, linha)
             db.add(m.ComposicaoPrecoItem(
@@ -355,11 +361,24 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["qtd_total"]
             existentes[chave].fabricante = linha["fabricante"]
             existentes[chave].ordem = idx
+            if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
+                lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
+                if lampada and lampada.id_comercial:
+                    cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
+                    if existentes[chave].centro_custo_id is None and cc_id:
+                        existentes[chave].centro_custo_id = cc_id
+                    if existentes[chave].fator_id is None and fator_id:
+                        existentes[chave].fator_id = fator_id
         else:
+            lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
+            cc_id, fator_id = (None, None)
+            if lampada and lampada.id_comercial:
+                cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Outros Serviços/ Materiais", descricao=chave,
                 fabricante=linha["fabricante"], unidade="un", quantidade=linha["qtd_total"],
-                custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx))
+                custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx,
+                centro_custo_id=cc_id, fator_id=fator_id))
     for chave, item in existentes.items():
         if chave not in chaves_atuais and not item.custo_unitario:
             db.delete(item)
@@ -459,6 +478,120 @@ def restaurar_padroes(db: Session, projeto_id: int, bloco: str | None = None):
         criados += 1
     db.commit()
     return criados
+
+
+def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
+    """Force-update CC/FV de todos os itens sistema+default do projeto, re-derivando da árvore
+    (equipamentos, painéis/portas, luminárias) ou do mestre (itens default). Ação explícita do
+    usuário via botão na Tela 17 — sobrescreve CC/FV atuais."""
+    contadores = {"equipamentos": 0, "paineis_portas": 0, "luminarias": 0, "itens_default": 0}
+
+    # --- 1. EQUIPAMENTOS ---
+    from .routers.tela10 import _gerar_equipamentos
+    projeto, equips = _gerar_equipamentos(db, projeto_id)
+    mapa_eq = {}
+    for eq in equips:
+        chave = eq.get("chave")
+        idc = eq.get("id_comercial")
+        if chave and idc:
+            mapa_eq[chave] = idc
+    items_eq = (db.query(m.ComposicaoPrecoItem)
+                .filter_by(projeto_id=projeto_id, origem="sistema")
+                .filter(m.ComposicaoPrecoItem.bloco != "Outros Serviços/ Materiais")
+                .filter(m.ComposicaoPrecoItem.bloco != BLOCO_COMISSOES_INDICACAO)
+                .all())
+    for item in items_eq:
+        idc_code = mapa_eq.get(item.chave_sistema)
+        if idc_code:
+            cc_id, fator_id = _cc_fator_de_idc(db, idc_code)
+            alterou = False
+            if cc_id is not None:
+                item.centro_custo_id = cc_id
+                alterou = True
+            if fator_id is not None:
+                item.fator_id = fator_id
+                alterou = True
+            if alterou:
+                contadores["equipamentos"] += 1
+
+    # --- 2. PAINÉIS / PORTAS ---
+    from .routers.paineis_portas import montar_resumo
+    resumo_pp = montar_resumo(db, projeto, "total")
+    linhas_pp = resumo_pp["paineis_parede_teto"] + resumo_pp["isolamento_piso"] + resumo_pp["portas"]
+    mapa_pp = {}
+    for linha in linhas_pp:
+        if "item" in linha:
+            chave = linha["item"]
+        else:
+            partes = [linha["id_porta"], linha["descricao"]]
+            if linha.get("tensao"):
+                partes.append(linha["tensao"])
+            if linha.get("observacoes"):
+                partes.append(f"({linha['observacoes']})")
+            chave = " - ".join(partes)
+        cc_id, fator_id = _cc_fator_painel_porta(db, linha)
+        mapa_pp[chave] = (cc_id, fator_id)
+    items_pp = (db.query(m.ComposicaoPrecoItem)
+                .filter_by(projeto_id=projeto_id, bloco="Painéis Térmicos", origem="sistema")
+                .all())
+    for item in items_pp:
+        par = mapa_pp.get(item.chave_sistema)
+        if par:
+            cc_id, fator_id = par
+            alterou = False
+            if cc_id is not None:
+                item.centro_custo_id = cc_id
+                alterou = True
+            if fator_id is not None:
+                item.fator_id = fator_id
+                alterou = True
+            if alterou:
+                contadores["paineis_portas"] += 1
+
+    # --- 3. LUMINÁRIAS ---
+    items_lum = (db.query(m.ComposicaoPrecoItem)
+                 .filter_by(projeto_id=projeto_id, bloco="Outros Serviços/ Materiais",
+                            origem="sistema")
+                 .all())
+    for item in items_lum:
+        lampada = db.query(m.LookupLampada).filter_by(modelo=item.chave_sistema).first()
+        if lampada and lampada.id_comercial:
+            cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
+            alterou = False
+            if cc_id is not None:
+                item.centro_custo_id = cc_id
+                alterou = True
+            if fator_id is not None:
+                item.fator_id = fator_id
+                alterou = True
+            if alterou:
+                contadores["luminarias"] += 1
+
+    # --- 4. ITENS DEFAULT ---
+    items_def = (db.query(m.ComposicaoPrecoItem)
+                 .filter_by(projeto_id=projeto_id, origem="default")
+                 .all())
+    for item in items_def:
+        mestre = (db.query(m.ItemComposicaoMestre)
+                  .filter_by(descricao=item.descricao, bloco=item.bloco)
+                  .first())
+        if mestre:
+            cc_id = mestre.centro_custo_id
+            if not cc_id and mestre.centro_custo_codigo:
+                cc = db.query(m.CentroCusto).filter_by(codigo=mestre.centro_custo_codigo).first()
+                cc_id = cc.id if cc else None
+            alterou = False
+            if cc_id is not None:
+                item.centro_custo_id = cc_id
+                alterou = True
+            if mestre.fator_id is not None:
+                item.fator_id = mestre.fator_id
+                alterou = True
+            if alterou:
+                contadores["itens_default"] += 1
+
+    db.commit()
+    return contadores
 
 
 def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) -> dict:

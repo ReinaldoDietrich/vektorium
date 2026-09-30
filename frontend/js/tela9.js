@@ -3,14 +3,8 @@
 function initTela9() {
   document.getElementById('t9_btnSalvarObs').addEventListener('click', t9_salvarObservacao);
   document.getElementById('t9_btnRestaurarObs').addEventListener('click', t9_restaurarObservacao);
-  document.getElementById('t9_btnImprimir').addEventListener('click', async () => {
-    document.body.classList.add('t9-imprimindo');
-    try {
-      if (window.vektorium?.exportarPdf) await window.vektorium.exportarPdf({ nome: 'consumo-eletrico' });
-      else window.print();
-    } finally {
-      document.body.classList.remove('t9-imprimindo');
-    }
+  document.getElementById('t9_btnImprimir').addEventListener('click', () => {
+    abrirImpressao(['t9_conteudo']);
   });
   document.getElementById('t9_btnExportarExcel').addEventListener('click', () => {
     if (state.projetoId) api.baixarOuSalvar(`/api/consumo/exportar/excel?projeto_id=${state.projetoId}`);
