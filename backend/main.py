@@ -15,7 +15,9 @@ from .routers import projetos, catalogos, camaras_completo, camaras_simples, exp
 
 _log = logging.getLogger(__name__)
 
+from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 _APPDATA = os.environ.get("VEKTORIUM_APPDATA")
 FRONTEND_DIR = BASE_DIR / "frontend"
