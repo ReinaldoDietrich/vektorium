@@ -326,8 +326,28 @@ ipcMain.handle('abrir-impressao', async (_event, html) => {
     show: false, width: 1024, height: 768,
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   });
-  printWin.loadFile(tmpHtml);
+
   return new Promise((resolve) => {
+    let resolvido = false;
+    function resolver(val) {
+      if (resolvido) return;
+      resolvido = true;
+      if (timer) clearTimeout(timer);
+      resolve(val);
+      setTimeout(() => {
+        if (!printWin.isDestroyed()) printWin.close();
+        try { fs.unlinkSync(tmpHtml); } catch (_) {}
+      }, 500);
+    }
+
+    const timer = setTimeout(() => {
+      resolver({ ok: false, erro: 'Tempo limite excedido ao gerar PDF.' });
+    }, 15000);
+
+    printWin.webContents.on('did-fail-load', (_e, code, desc) => {
+      resolver({ ok: false, erro: `Falha ao carregar HTML: ${desc} (${code})` });
+    });
+
     printWin.webContents.on('did-finish-load', async () => {
       try {
         const pdfBuf = await printWin.webContents.printToPDF({
@@ -339,15 +359,18 @@ ipcMain.handle('abrir-impressao', async (_event, html) => {
         });
         const tmpPdf = path.join(app.getPath('temp'), `vektorium-print-${Date.now()}.pdf`);
         fs.writeFileSync(tmpPdf, pdfBuf);
-        shell.openPath(tmpPdf);
-        resolve({ ok: true });
+        const openErr = await shell.openPath(tmpPdf);
+        if (openErr) {
+          resolver({ ok: false, erro: `PDF gerado mas não abriu: ${openErr}` });
+        } else {
+          resolver({ ok: true });
+        }
       } catch (e) {
-        resolve({ ok: false, erro: e.message });
-      } finally {
-        if (!printWin.isDestroyed()) printWin.close();
-        try { fs.unlinkSync(tmpHtml); } catch (_) {}
+        resolver({ ok: false, erro: e.message });
       }
     });
+
+    printWin.loadFile(tmpHtml);
   });
 });
 

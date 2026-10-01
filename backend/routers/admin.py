@@ -165,8 +165,7 @@ def criar_usuario(payload_body: dict = Body(...),
         "ON CONFLICT (id) DO UPDATE SET email=EXCLUDED.email, nome=EXCLUDED.nome, papel=EXCLUDED.papel"
     ), {"id": uid, "email": email, "nome": nome, "papel": papel})
     db.execute(text(
-        "INSERT INTO assinaturas (usuario_id, status, plano) VALUES (:uid, 'active', 'vitalicio') "
-        "ON CONFLICT (usuario_id) DO NOTHING"
+        "INSERT INTO assinaturas (usuario_id, status, plano) VALUES (:uid, 'active', 'vitalicio')"
     ), {"uid": uid})
     db.commit()
     _log_admin(db, _uid(payload), "criar_usuario", f"{email} (papel={papel})")
@@ -210,14 +209,15 @@ def excluir_usuario(uid: str, payload: dict = Depends(_exigir_master),
     if not u:
         raise HTTPException(404, "Usuário não encontrado")
     email = u[0]
-    if SUPABASE_SERVICE_ROLE_KEY:
-        r = httpx.delete(
-            f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
-            headers=_admin_headers(),
-            timeout=15,
-        )
-        if r.status_code not in (200, 204):
-            raise HTTPException(r.status_code, f"Erro ao excluir do Auth: {r.text}")
+    if not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(500, "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")
+    r = httpx.delete(
+        f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+        headers=_admin_headers(),
+        timeout=15,
+    )
+    if r.status_code not in (200, 204):
+        raise HTTPException(r.status_code, f"Erro ao excluir do Auth: {r.text}")
     db.execute(text("DELETE FROM assinaturas WHERE usuario_id = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM dispositivos WHERE usuario_id = :uid"), {"uid": uid})
     db.execute(text("DELETE FROM usuarios WHERE id = :uid"), {"uid": uid})

@@ -77,7 +77,10 @@ async function abrirImpressao(conteudo) {
   }
   var doc = montarHtmlImpressao(html);
   if (window.vektorium && typeof window.vektorium.abrirImpressao === 'function') {
-    await window.vektorium.abrirImpressao(doc);
+    var resultado = await window.vektorium.abrirImpressao(doc);
+    if (resultado && !resultado.ok) {
+      alert('Erro ao gerar PDF: ' + (resultado.erro || 'desconhecido'));
+    }
   } else {
     var w = window.open('', '_blank');
     w.document.write(doc);

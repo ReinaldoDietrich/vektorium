@@ -143,7 +143,10 @@ def create_lock(req: LockRequest):
 def delete_lock(req: LockRequest):
     """Remove o session lock (chamado no Sair)."""
     lock_path = f"{req.user_id}/.session_lock"
-    ok = _storage_delete(req.token, lock_path)
+    try:
+        ok = _storage_delete(req.token, lock_path)
+    except Exception:
+        ok = False
     return {"ok": ok}
 
 

@@ -24,6 +24,7 @@
     if (!state.isMaster) { document.getElementById('t20_corpo').innerHTML = '<p>Acesso restrito a administradores.</p>'; return; }
     document.getElementById('t20_painelMaster').style.display = 'block';
     await carregarPapeis();
+    renderPermHead();
     _popularSelectNovoUsuario();
     await Promise.all([carregarUsuarios(), carregarDispositivos(), carregarPermissoes()]);
   };
