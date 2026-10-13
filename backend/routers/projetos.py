@@ -113,6 +113,22 @@ def obter_projeto(projeto_id: int, db: Session = Depends(get_db)):
     return model_to_dict(obj)
 
 
+@router.put("/projetos/{projeto_id}/pasta-salvamento")
+def atualizar_pasta_salvamento(projeto_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    obj = db.get(m.Projeto, projeto_id)
+    if not obj:
+        raise HTTPException(404, "Projeto não encontrado")
+    bp.verificar_projeto_da(obj)
+    obj.pasta_salvamento = payload.get("pasta_salvamento") or None
+    db.commit()
+    db.refresh(obj)
+    path_vek = workspace.projeto_pertence_a(obj.id)
+    if path_vek:
+        workspace.marcar_modificado(obj.id)
+        workspace.salvar_arquivo(path_vek)
+    return {"pasta_salvamento": obj.pasta_salvamento}
+
+
 @router.put("/projetos/{projeto_id}")
 def atualizar_projeto(projeto_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
     obj = db.get(m.Projeto, projeto_id)
@@ -437,7 +453,9 @@ def _unidades_por_tipo(db: Session, projeto_id: int):
         if ops:
             uc.append({"opcoes": ops, "rack": None})
         for rack in s.racks:   # condensador por rack (todos os racks, não só o considerado)
-            ops = [(c.fabricante_condensador, c) for c in rack.condensadores if c.fabricante_condensador]
+            ops = [((c.fabricante_condensador or (c.fabricante_rel.nome if c.fabricante_rel else None)), c)
+                   for c in rack.condensadores
+                   if c.fabricante_condensador or c.fabricante_id_condensador]
             if ops:
                 condensador.append({"opcoes": ops, "rack": rack})
     return {"forcador": forcador, "uc": uc, "condensador": condensador}

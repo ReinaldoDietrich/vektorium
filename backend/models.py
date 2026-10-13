@@ -1454,6 +1454,8 @@ class RackParalelo(Base):
     # capacidade corrigida são calculados na leitura (ver /condensador), igual à seleção de compressor.
     fabricante_condensador = Column(String)
     linha_condensador = Column(String)
+    fabricante_id_condensador = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=True, index=True)
+    linha_id_condensador = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True, index=True)
     # Estrutura do condensador (Plano (Fluxo Vertical) | Plano Onboard | V (Fluxo Horizontal) |
     # Onboard) — editável aqui na Tela 6 (antes vinha só-leitura do Sistema/Tela 1); casa em
     # comparação EXATA com LinhaCondensadorRemoto.tipo_estrutura.
@@ -1491,6 +1493,8 @@ class RackCondensadorSelecao(Base):
     considerado = Column(Boolean, default=False)
     fabricante_condensador = Column(String)
     linha_condensador = Column(String)
+    fabricante_id_condensador = Column(Integer, ForeignKey("cat_fabricantes.id"), nullable=True, index=True)
+    linha_id_condensador = Column(Integer, ForeignKey("condensador_linhas.id"), nullable=True, index=True)
     tipo_condensador = Column(String)
     filtro_fpi_condensador = Column(Integer)
     filtro_polos_rpm_condensador = Column(String)
@@ -1501,11 +1505,14 @@ class RackCondensadorSelecao(Base):
     notas_condensador = Column(Text)
 
     rack = relationship("RackParalelo", back_populates="condensadores")
+    fabricante_rel = relationship("Fabricante", foreign_keys=[fabricante_id_condensador])
+    linha_rel = relationship("LinhaCondensadorRemoto", foreign_keys=[linha_id_condensador])
 
 
 # Campos de condensador espelhados entre RackParalelo e RackCondensadorSelecao (fonte única).
 CAMPOS_CONDENSADOR = [
-    "fabricante_condensador", "linha_condensador", "tipo_condensador", "filtro_fpi_condensador",
+    "fabricante_condensador", "linha_condensador", "fabricante_id_condensador", "linha_id_condensador",
+    "tipo_condensador", "filtro_fpi_condensador",
     "filtro_polos_rpm_condensador", "folga_condensador_pct", "protecao_aletas_condensador",
     "quantidade_condensadores", "nomenclatura_condensador_selecionada", "notas_condensador",
 ]

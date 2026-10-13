@@ -4,8 +4,54 @@
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-function clickTab(tabId) {
-  if (typeof window.showTab === 'function') window.showTab(Number(tabId));
+const _revisoesCachadas = new Set();
+let _carregandoProjetoId = null;
+let _ativarGen = 0;
+
+function clickTab(tabId, skipHandler) {
+  if (typeof window.showTab === 'function') window.showTab(Number(tabId), skipHandler);
+}
+
+function _mostrarOverlay(msg) {
+  const el = document.getElementById('overlayCarregamento');
+  if (!el) return;
+  el.classList.remove('fade-out');
+  el.classList.add('ativo');
+  const m = document.getElementById('overlayCarregamentoMsg');
+  if (m) m.textContent = msg || 'Carregando...';
+}
+
+function _esconderOverlay() {
+  const el = document.getElementById('overlayCarregamento');
+  if (!el || !el.classList.contains('ativo')) return;
+  el.classList.add('fade-out');
+  setTimeout(() => { el.classList.remove('ativo', 'fade-out'); }, 320);
+}
+
+async function _preCarregarTelasProjeto() {
+  if (!state.projetoId) return;
+  [['t2_aviso_sem_projeto','none'],['t2_conteudo','block'],
+   ['t3_aviso_sem_projeto','none'],['t3_conteudo','block'],
+   ['t4_aviso_sem_projeto','none'],['t4_conteudo','block'],
+   ['t5_aviso_sem_projeto','none'],['t5_conteudo','block'],
+   ['t11_semProjeto','none'],['t11_importacao','block'],
+   ['t12_semProjeto','none'],['t12_conteudo','block'],
+  ].forEach(([id,d]) => { const e = document.getElementById(id); if (e) e.style.display = d; });
+  if (typeof t1_atualizarStatusProjeto === 'function') t1_atualizarStatusProjeto();
+  const telas = [
+    [2, 'Câmaras completas'], [3, 'Câmaras simples'], [4, 'Expositores'],
+    [5, 'Compilação de linhas'], [9, 'Consumo elétrico'], [10, 'Painéis e portas'],
+    [11, 'Rack paralelo'], [12, 'Compilação geral'], [14, 'Memorial descritivo'],
+    [16, 'Comparativo de revisões'], [17, 'Resumo de materiais'],
+    [18, 'Estudo luminotécnico'], [19, 'Proposta comercial']
+  ];
+  const msg = document.getElementById('overlayCarregamentoMsg');
+  for (const [t, nome] of telas) {
+    if (msg) msg.textContent = 'Carregando ' + nome + '...';
+    if (window.telaShowHandlers[t]) {
+      try { await window.telaShowHandlers[t](); } catch (_) {}
+    }
+  }
 }
 
 function setCrumbs(parts) {
@@ -104,14 +150,34 @@ async function loadSistemas(proj, kids) {
 }
 
 async function ativarProjetoNaTela(proj) {
-  if (window.t1_abrirProjeto) {
+  if (!window.t1_abrirProjeto) return;
+  if (_carregandoProjetoId === proj.id) return;
+  const idMudou = state.projetoId !== proj.id;
+  const jaCachado = _revisoesCachadas.has(proj.id);
+  const meuGen = ++_ativarGen;
+
+  if (idMudou && !jaCachado) {
+    _carregandoProjetoId = proj.id;
+    mostrarLoading('Carregando projeto...');
     try {
-      await window.t1_abrirProjeto(proj.id, window.__projetosCache || [proj]);
-      // t1_abrirProjeto (tela1.js) retrai todos os accordions ao carregar — sem isso, os dados
-      // do projeto clicado na árvore carregam mas ficam invisíveis (parece que "não abriu nada").
+      await window.t1_abrirProjeto(proj.id, window.__projetosCache || [proj], true);
+      if (meuGen !== _ativarGen) return;
       const acc = document.getElementById('accDadosCliente');
       if (acc) acc.open = true;
+      await _preCarregarTelasProjeto();
+      if (meuGen !== _ativarGen) return;
+      _revisoesCachadas.add(proj.id);
     } catch (e) { console.warn('abrirProjeto', e); }
+    finally { _carregandoProjetoId = null; esconderLoading(); }
+  } else if (idMudou && jaCachado) {
+    _carregandoProjetoId = proj.id;
+    mostrarLoading('Carregando projeto...');
+    try {
+      await window.t1_abrirProjeto(proj.id, window.__projetosCache || [proj]);
+      if (meuGen !== _ativarGen) return;
+      const acc = document.getElementById('accDadosCliente');
+      if (acc) acc.open = true;
+    } finally { _carregandoProjetoId = null; esconderLoading(); }
   }
 }
 
@@ -159,7 +225,7 @@ function mkRevisaoBox(proj, isMaisRecente) {
     selectRow(rrow);
     setCrumbs([proj.codigo_projeto || ('Projeto ' + proj.id), rev]);
     ativarProjetoNaTela(proj);   // roda em paralelo — não trava a árvore esperando a Tela 1 carregar
-    clickTab('1');
+    clickTab('1', true);
     if (box.classList.contains('open')) { box.classList.remove('open'); return; }
     box._abrir();
   });
@@ -258,6 +324,7 @@ async function loadProjetosArvore() {
           if (!confirm(`Descarregar o arquivo "${nomeArquivo}"?\nOs dados serão salvos antes de fechar.`)) return;
           try {
             await api.post('/api/workspace/fechar', { path: vekPath });
+            (projetos || []).forEach(pp => _revisoesCachadas.delete(pp.id));
             if (state.projetoId && idParaVek[state.projetoId] === vekPath) {
               await fecharProjetoAtivo();
             }
@@ -291,7 +358,7 @@ async function loadProjetosArvore() {
           selectRow(prow);
           setCrumbs([nomeArquivo, pai.codigo_projeto || ('Projeto ' + pai.id)]);
           ativarProjetoNaTela(pai);
-          clickTab('1');
+          clickTab('1', true);
           if (box.classList.contains('open')) { box.classList.remove('open'); return; }
           box._abrir();
         });
@@ -366,17 +433,22 @@ function initSidebar() {
     }
     const caminho = await window.vektorium.abrirArquivo();
     if (!caminho) return;
+    _mostrarOverlay('Abrindo projeto...');
     try {
       const r = await api.post('/api/workspace/abrir', { path: caminho });
       if (r.ok || r.ja_aberto) {
         await loadProjetosArvore();
         if (r.projeto_ids && r.projeto_ids.length) {
-          await definirProjetoAtivo(r.projeto_ids[0]);
+          await definirProjetoAtivo(r.projeto_ids[0], true);
           clickTab('1');
+          await _preCarregarTelasProjeto();
+          _revisoesCachadas.add(r.projeto_ids[0]);
         }
       }
     } catch (e) {
       alert('Erro ao abrir arquivo: ' + (e.message || e));
+    } finally {
+      _esconderOverlay();
     }
   }
   window.abrirArquivoVek = abrirArquivoVek;
@@ -407,7 +479,7 @@ function initSidebar() {
 
   initLoginUI();
   if (AUTH.logado()) {
-    _aplicarPermissoesTelas();
+    _aplicarPermissoesDoCacheLocal();
     if (typeof iniciarVerificacaoPeriodicaLicenca === 'function') iniciarVerificacaoPeriodicaLicenca();
   }
 
@@ -435,25 +507,43 @@ const _MODULO_TAB = {
   compilacao_linhas: '5', catalogo_forcadores: '6', configuracoes: '7',
   catalogo_uc: '8', consumo_eletrico: '9', paineis_portas: '10',
   rack_paralelo: '11', compilacao_geral: '12', catalogo_comercial: '13',
-  catalogo_condensadores: '15', comparativo_revisoes: '16',
-  resumo_materiais: '17', luminotecnico: '18', proposta_comercial: '19'
+  memorial_descritivo: '14', catalogo_condensadores: '15', comparativo_revisoes: '16',
+  resumo_materiais: '17', luminotecnico: '18', proposta_comercial: '19',
+  administracao: '20'
 };
 
-async function _aplicarPermissoesTelas() {
+function _aplicarPermissoesDados(dados) {
+  if (!dados || dados.is_admin) return;
+  const permitidos = new Set();
+  (dados.permissoes || []).forEach(p => {
+    if (p.ver && _MODULO_TAB[p.modulo]) permitidos.add(_MODULO_TAB[p.modulo]);
+  });
+  Object.values(_MODULO_TAB).forEach(tab => {
+    const show = permitidos.has(tab);
+    const cat = document.querySelector(`.sidebar-cat[data-tab="${tab}"]`);
+    if (cat) cat.style.display = show ? '' : 'none';
+    const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+    if (btn) btn.style.display = show ? '' : 'none';
+  });
+  const head = document.querySelector('.sidebar-cat-head');
+  if (head) {
+    const algumVisivel = [...document.querySelectorAll('.sidebar-cat')].some(c => c.style.display !== 'none');
+    head.style.display = algumVisivel ? '' : 'none';
+  }
+}
+
+async function _buscarECachearPermissoes() {
   try {
     const dados = await api.get('/api/admin/minhas-permissoes');
-    if (dados.is_admin) return;
-    const permitidos = new Set();
-    (dados.permissoes || []).forEach(p => {
-      if (p.ver && _MODULO_TAB[p.modulo]) permitidos.add(_MODULO_TAB[p.modulo]);
-    });
-    Object.values(_MODULO_TAB).forEach(tab => {
-      const show = permitidos.has(tab);
-      const cat = document.querySelector(`.sidebar-cat[data-tab="${tab}"]`);
-      if (cat) cat.style.display = show ? '' : 'none';
-      const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
-      if (btn) btn.style.display = show ? '' : 'none';
-    });
+    try { localStorage.setItem('vektorium_permissoes', JSON.stringify(dados)); } catch (_) {}
+    _aplicarPermissoesDados(dados);
+  } catch (_) {}
+}
+
+function _aplicarPermissoesDoCacheLocal() {
+  try {
+    const raw = localStorage.getItem('vektorium_permissoes');
+    if (raw) _aplicarPermissoesDados(JSON.parse(raw));
   } catch (_) {}
 }
 
@@ -538,7 +628,7 @@ function initLoginUI() {
   btnLogin.addEventListener('click', async () => {
     if (AUTH.logado()) {
       if (!confirm(`Sair da conta ${AUTH.email() || ''}?`)) return;
-      sairDoApp();
+      await sairDoApp();
       return;
     }
     _mostrarTelaLogin();
@@ -551,12 +641,7 @@ function initLoginUI() {
   let _heartbeatInterval = null;
 
   function _iniciarHeartbeat(uid, jwt) {
-    _pararHeartbeat();
-    _heartbeatInterval = setInterval(() => {
-      var t = AUTH.token();
-      if (!t) { _pararHeartbeat(); return; }
-      api.post('/api/cloud/create-lock', { user_id: uid, token: t }).catch(function () {});
-    }, 30000);
+    // SE-074: heartbeat desativado — nenhuma comunicação com Supabase após login
   }
 
   function _pararHeartbeat() {
@@ -590,15 +675,18 @@ function initLoginUI() {
             throw new Error('Login cancelado.');
           }
           try { await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+          try { await AUTH.logoutOutros(); } catch (_) {}
         }
         try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         _iniciarHeartbeat(_uid, _jwt);
         btnEntrar.textContent = 'Sincronizando projetos...';
         try { await api.post('/api/cloud/pull-novos', { user_id: _uid, token: _jwt }); } catch (_) {}
       }
+      _mostrarOverlay('Preparando o sistema...');
       _esconderTelaLogin();
-      _aplicarPermissoesTelas();
+      await _buscarECachearPermissoes();
       if (typeof iniciarVerificacaoPeriodicaLicenca === 'function') iniciarVerificacaoPeriodicaLicenca();
+      _esconderOverlay();
     } catch (e) {
       if (minhaTentativa !== _tentativaAtual) return;
       erroEl.textContent = e.message || 'Falha no login.';

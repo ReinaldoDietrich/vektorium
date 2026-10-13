@@ -87,7 +87,8 @@ CAMPOS_RACK = {
     "quantidade_compressores", "quantidade_paralelo", "folga_tecnica_pct", "filtro_motor_compressor", "linha_compressor", "fabricante_compressor",
     "corrente_maxima_trabalho_a", "carga_oleo_l", "conexao_descarga", "conexao_succao", "hp_total",
     "tanque_liquido_l", "carga_gas_estimada_kg",
-    "fabricante_condensador", "linha_condensador", "tipo_condensador", "filtro_fpi_condensador",
+    "fabricante_condensador", "linha_condensador", "fabricante_id_condensador", "linha_id_condensador",
+    "tipo_condensador", "filtro_fpi_condensador",
     "filtro_polos_rpm_condensador", "folga_condensador_pct", "protecao_aletas_condensador",
     "quantidade_condensadores", "notas_condensador",
 }
@@ -120,14 +121,6 @@ def _sync_rack_do_considerado(rack: "m.RackParalelo"):
         for campo in m.CAMPOS_CONDENSADOR:
             setattr(rack, campo, getattr(c, campo))
 
-
-def _garantir_condensador(db: Session, rack: "m.RackParalelo"):
-    """Todo rack tem >=1 opção. Rack pré-migração/novo: cria uma considerada a partir das colunas
-    atuais do rack (espelho)."""
-    if not rack.condensadores:
-        db.add(m.RackCondensadorSelecao(rack_id=rack.id, considerado=True,
-                                        **{c: getattr(rack, c) for c in m.CAMPOS_CONDENSADOR}))
-        db.flush()
 
 
 def _modelo_comercial_rack(rack: "m.RackParalelo", sistema: "m.SistemaRefrigeracao",
@@ -251,16 +244,12 @@ def _get_or_create(db: Session, sistema_id: int) -> m.RackParalelo:
         raise HTTPException(404, "Sistema não encontrado")
     if sistema.rack_paralelo:
         rack = sistema.rack_paralelo
-        if not rack.condensadores:            # rack pré-migração: garante a opção considerada
-            _garantir_condensador(db, rack)
-            db.commit()
         return rack
     rack = m.RackParalelo(sistema_id=sistema_id)
     db.add(rack)
     db.flush()
     for categoria, descricao, modelo in MATERIAIS_PADRAO:
         db.add(m.MaterialRack(rack_id=rack.id, categoria=categoria, descricao=descricao, modelo=modelo))
-    _garantir_condensador(db, rack)           # rack novo nasce com 1 opção de condensador considerada
     db.commit()
     db.refresh(rack)
     return rack
@@ -293,7 +282,6 @@ def criar_rack(sistema_id: int, db: Session = Depends(get_db)):
     db.flush()
     for categoria, descricao, modelo in MATERIAIS_PADRAO:
         db.add(m.MaterialRack(rack_id=rack.id, categoria=categoria, descricao=descricao, modelo=modelo))
-    _garantir_condensador(db, rack)
     db.commit()
     db.refresh(rack)
     return _serializar(db, rack)
@@ -366,7 +354,6 @@ def atualizar(rack_id: int, payload: dict = Body(...), db: Session = Depends(get
         rack.nomenclatura_condensador_selecionada = json.dumps(payload["nomenclatura_condensador_selecionada"] or {})
     # Se o PUT mexeu em campos de condensador, propaga pra opção CONSIDERADA (mantém espelho ↔ opção).
     if any(k in payload for k in m.CAMPOS_CONDENSADOR):
-        _garantir_condensador(db, rack)
         c = _condensador_considerado(rack)
         if c:
             for campo in m.CAMPOS_CONDENSADOR:
@@ -378,14 +365,28 @@ def atualizar(rack_id: int, payload: dict = Body(...), db: Session = Depends(get
 # ---------- CRUD das opções de condensador (N por rack) ----------
 
 @router.post("/{rack_id}/condensadores")
-def add_condensador(rack_id: int, db: Session = Depends(get_db)):
-    """Nova opção de condensador (vazia, NÃO considerada) — na tela nasce retraída."""
+def add_condensador(rack_id: int, payload: dict = Body(default={}), db: Session = Depends(get_db)):
+    """Nova opção de condensador (NÃO considerada). Aceita fabricante_id_condensador e
+    linha_id_condensador no body para já nascer com fabricante/linha definidos."""
     rack = db.get(m.RackParalelo, rack_id)
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     bp.verificar_projeto_da(rack)
     bf.verificar_pai_aberto(rack)
-    opt = m.RackCondensadorSelecao(rack_id=rack_id, considerado=False)
+    kwargs = {"rack_id": rack_id, "considerado": False}
+    fab_id = payload.get("fabricante_id_condensador")
+    linha_id = payload.get("linha_id_condensador")
+    if fab_id:
+        kwargs["fabricante_id_condensador"] = fab_id
+        fab = db.get(m.Fabricante, fab_id)
+        if fab:
+            kwargs["fabricante_condensador"] = fab.nome
+    if linha_id:
+        kwargs["linha_id_condensador"] = linha_id
+        ln = db.get(m.LinhaCondensadorRemoto, linha_id)
+        if ln:
+            kwargs["linha_condensador"] = ln.nome
+    opt = m.RackCondensadorSelecao(**kwargs)
     db.add(opt)
     db.commit()
     db.refresh(opt)
@@ -404,6 +405,12 @@ def atualizar_condensador(opt_id: int, payload: dict = Body(...), db: Session = 
             opt.nomenclatura_condensador_selecionada = json.dumps(v or {})
         elif k in m.CAMPOS_CONDENSADOR:
             setattr(opt, k, v)
+    if "fabricante_id_condensador" in payload:
+        fab = db.get(m.Fabricante, payload["fabricante_id_condensador"]) if payload["fabricante_id_condensador"] else None
+        opt.fabricante_condensador = fab.nome if fab else None
+    if "linha_id_condensador" in payload:
+        ln = db.get(m.LinhaCondensadorRemoto, payload["linha_id_condensador"]) if payload["linha_id_condensador"] else None
+        opt.linha_condensador = ln.nome if ln else None
     if opt.considerado:                       # editou a considerada -> atualiza o espelho do rack
         _sync_rack_do_considerado(opt.rack)
     db.commit()
@@ -601,37 +608,51 @@ def atualizar_posicao(rack_id: int, posicao: int, payload: dict = Body(...), db:
 @router.get("/{rack_id}/condensador-opcoes")
 def condensador_opcoes(rack_id: int, db: Session = Depends(get_db)):
     """Fabricantes e linhas de condensador disponíveis pro rack, já filtrados pelo Tipo Condensador
-    (Plano/V/Onboard) escolhido aqui na Tela 6."""
+    (Plano/V/Onboard) escolhido aqui na Tela 6. Retorna IDs numéricos (padrão forçador)."""
     rack = db.get(m.RackParalelo, rack_id)
     if not rack:
         raise HTTPException(404, "Rack não encontrado")
     linhas = db.query(m.LinhaCondensadorRemoto).filter(m.LinhaCondensadorRemoto.ativo_comercial.is_(True)).all()
     if rack.tipo_condensador:
         linhas = [l for l in linhas if (l.tipo_estrutura or "") == rack.tipo_condensador]
-    por_fabricante = {}
+    fab_ids_com_linha = set()
+    linhas_por_fab_id = {}
     for l in linhas:
-        fab = l.fabricante.nome if l.fabricante else "(sem fabricante)"
-        por_fabricante.setdefault(fab, set()).add(l.nome)
+        if not l.fabricante:
+            continue
+        fab_ids_com_linha.add(l.fabricante_id)
+        linhas_por_fab_id.setdefault(l.fabricante_id, []).append({"id": l.id, "nome": l.nome})
+    fabs_all = db.query(m.Fabricante).filter(m.Fabricante.id.in_(fab_ids_com_linha)).order_by(m.Fabricante.nome).all()
+    fabricantes = [{"id": f.id, "nome": f.nome} for f in fabs_all]
+    for k in linhas_por_fab_id:
+        linhas_por_fab_id[k] = sorted(linhas_por_fab_id[k], key=lambda x: x["nome"])
     return {
-        "fabricantes": sorted(por_fabricante.keys()),
-        "linhas_por_fabricante": {k: sorted(v) for k, v in por_fabricante.items()},
+        "fabricantes": fabricantes,
+        "linhas_por_fabricante": linhas_por_fab_id,
     }
 
 
 def _calcular_opcao_condensador(db, opt, contexto_base, calor_rejeitado, tipo_condensador, tensao_eq):
     """Calcula a seleção de condensador para UMA opção (RackCondensadorSelecao)."""
-    if not opt.fabricante_condensador or not opt.linha_condensador:
-        return {"aviso": "Escolha Fabricante e Linha.", "selecao": None, "linha_id": None,
-                "dt_catalogo_c": None, "filtros_disponiveis": {"fpis": [], "polos_rpm": []}}
-    ctx = {**contexto_base, "aleta": "Protegida" if opt.protecao_aletas_condensador else "Padrão"}
-    q = (db.query(m.LinhaCondensadorRemoto)
-         .join(m.Fabricante, m.LinhaCondensadorRemoto.fabricante_id == m.Fabricante.id)
-         .filter(m.Fabricante.nome == opt.fabricante_condensador,
-                 m.LinhaCondensadorRemoto.nome == opt.linha_condensador))
-    linhas_cond = q.all()
-    if tipo_condensador:
-        linhas_cond = [l for l in linhas_cond if (l.tipo_estrutura or "") == tipo_condensador]
-    linha = max(linhas_cond, key=lambda l: l.id) if linhas_cond else None
+    rack = opt.rack
+    filtro_fpi = rack.filtro_fpi_condensador if rack else opt.filtro_fpi_condensador
+    filtro_polos = rack.filtro_polos_rpm_condensador if rack else opt.filtro_polos_rpm_condensador
+    protecao = rack.protecao_aletas_condensador if rack else opt.protecao_aletas_condensador
+    if opt.linha_id_condensador:
+        linha = db.get(m.LinhaCondensadorRemoto, opt.linha_id_condensador)
+    else:
+        if not opt.fabricante_condensador or not opt.linha_condensador:
+            return {"aviso": "Escolha Fabricante e Linha.", "selecao": None, "linha_id": None,
+                    "dt_catalogo_c": None, "filtros_disponiveis": {"fpis": [], "polos_rpm": []}}
+        q = (db.query(m.LinhaCondensadorRemoto)
+             .join(m.Fabricante, m.LinhaCondensadorRemoto.fabricante_id == m.Fabricante.id)
+             .filter(m.Fabricante.nome == opt.fabricante_condensador,
+                     m.LinhaCondensadorRemoto.nome == opt.linha_condensador))
+        linhas_cond = q.all()
+        if tipo_condensador:
+            linhas_cond = [l for l in linhas_cond if (l.tipo_estrutura or "") == tipo_condensador]
+        linha = max(linhas_cond, key=lambda l: l.id) if linhas_cond else None
+    ctx = {**contexto_base, "aleta": "Protegida" if protecao else "Padrão"}
     if not linha:
         return {"aviso": "Linha não encontrada no catálogo.", "selecao": None, "linha_id": None,
                 "dt_catalogo_c": None, "filtros_disponiveis": {"fpis": [], "polos_rpm": []}}
@@ -650,7 +671,7 @@ def _calcular_opcao_condensador(db, opt, contexto_base, calor_rejeitado, tipo_co
     selecoes_manuais = json.loads(opt.nomenclatura_condensador_selecionada) if opt.nomenclatura_condensador_selecionada else {}
     selecao = cc_calc.selecionar_condensador(
         modelos, fatores_por_tipo, ctx, calor_rejeitado, opt.folga_condensador_pct,
-        filtro_fpi=opt.filtro_fpi_condensador, filtro_polos_rpm=opt.filtro_polos_rpm_condensador,
+        filtro_fpi=filtro_fpi, filtro_polos_rpm=filtro_polos,
         delta_catalogo=linha.dt_catalogo_c, tensao_equipamentos=tensao_eq,
         quantidade=opt.quantidade_condensadores or 1)
     def _ctx_cand(cand):
@@ -717,7 +738,6 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
         base["temp_condensacao"] = None
         base["temp_apos_condensador"] = None
 
-    _garantir_condensador(db, rack)
     opcoes_resultado = {}
     filtros_merge = {"fpis": set(), "polos_rpm": []}
     for opt in rack.condensadores:

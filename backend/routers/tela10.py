@@ -89,8 +89,13 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
         if cd.get("fonte") == "rack" and cd.get("modelo_condensador"):
             rack = sistema.rack_paralelo
             cond_id_com = None
-            if rack and rack.linha_condensador:
-                lc = db.query(m.LinhaCondensadorRemoto).filter_by(nome=rack.linha_condensador).first()
+            if rack:
+                if rack.linha_id_condensador:
+                    lc = db.get(m.LinhaCondensadorRemoto, rack.linha_id_condensador)
+                elif rack.linha_condensador:
+                    lc = db.query(m.LinhaCondensadorRemoto).filter_by(nome=rack.linha_condensador).first()
+                else:
+                    lc = None
                 cond_id_com = lc.id_comercial if lc else None
             # A descrição carrega a qtd de condensadores POR RACK ("Nx modelo", escolha do usuário);
             # a quantidade do BOM = nº de racks em paralelo, então o total = qtd_por_rack × N racks.

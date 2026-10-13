@@ -25,8 +25,13 @@ function initTela11() {
   document.getElementById('t11_ri_arquivo').addEventListener('change', t11_previewImportacao);
   document.getElementById('t11_ri_btnCancelar').addEventListener('click', t11_cancelarPreviewImportacao);
   document.getElementById('t11_ri_btnConfirmar').addEventListener('click', t11_confirmarImportacao);
-  document.getElementById('t11_cond_notas').addEventListener('change', t11_salvarCondensador);
+  document.getElementById('t11_cond_tipoCondensador').addEventListener('change', t11_onTipoCondensadorChange);
+  document.getElementById('t11_cond_deltaCondensacao').addEventListener('change', t11_salvarCondensador);
+  document.getElementById('t11_cond_filtroFpi').addEventListener('change', t11_salvarFiltroCondensador);
+  document.getElementById('t11_cond_filtroPolos').addEventListener('change', t11_salvarFiltroCondensador);
+  document.getElementById('t11_cond_filtroProtecao').addEventListener('change', t11_salvarFiltroCondensador);
   document.getElementById('t11_cond_btnAdd').addEventListener('click', t11_addOpcaoCondensador);
+  document.getElementById('t11_cond_addFab').addEventListener('change', t11_atualizarLinhasBarraCondensador);
   document.getElementById('t11_btnAddRack').addEventListener('click', t11_addRack);
   document.getElementById('t11_btnEditar').addEventListener('click', t11_editarEntidade);
   document.addEventListener('projeto-changed', t11_onProjetoChanged);
@@ -75,16 +80,19 @@ function t11_onProjetoChanged() {
 async function t11_trocarSistema() {
   const sistemaId = document.getElementById('t11_sistema_id').value;
   if (!sistemaId) return;
-  const sistema = state.sistemas.find(s => String(s.id) === String(sistemaId));
-  document.getElementById('t11_tipoEquipamento').value = t1_nomePorCodigo(sistema.tipo_compressao) || '—';
-  document.getElementById('t11_estrutura').value = t1_nomePorCodigo(sistema.estrutura_compressao) || '—';
-  document.getElementById('t11_gasRefrigerante').value = sistema.gas_refrigerante || '—';
-  document.getElementById('t11_tempLinhaLiquido').value = sistema.temp_apos_subresfriamento ?? sistema.temp_apos_condensador ?? '—';
-  document.getElementById('t11_tipoPartida').value = t1_nomePorCodigo(sistema.partida) || '—';
-  document.getElementById('t11_tipoOperacao').value = t1_nomePorCodigo(sistema.modo_operacao) || '—';
+  mostrarLoading('Carregando sistema...');
+  try {
+    const sistema = state.sistemas.find(s => String(s.id) === String(sistemaId));
+    document.getElementById('t11_tipoEquipamento').value = t1_nomePorCodigo(sistema.tipo_compressao) || '—';
+    document.getElementById('t11_estrutura').value = t1_nomePorCodigo(sistema.estrutura_compressao) || '—';
+    document.getElementById('t11_gasRefrigerante').value = sistema.gas_refrigerante || '—';
+    document.getElementById('t11_tempLinhaLiquido').value = sistema.temp_apos_subresfriamento ?? sistema.temp_apos_condensador ?? '—';
+    document.getElementById('t11_tipoPartida').value = t1_nomePorCodigo(sistema.partida) || '—';
+    document.getElementById('t11_tipoOperacao').value = t1_nomePorCodigo(sistema.modo_operacao) || '—';
 
-  t11_rackEditandoId = null;              // troca de sistema → volta pro rack considerado
-  await t11_recarregarRacks(false);
+    t11_rackEditandoId = null;
+    await t11_recarregarRacks(false);
+  } finally { esconderLoading(); }
 }
 
 // Recarrega a lista de racks do sistema e abre um deles no formulário. manterEdicao=true mantém o
@@ -114,6 +122,7 @@ async function t11_carregarRackNoForm(r) {
   document.getElementById('t11_cargaRequerida').value = fmtNum(r.carga_sistema_total_kcal_h ?? r.carga_requerida_kcal_h);
   t11_renderMateriais(r.materiais);
   await t11_carregarOpcoesCondensador();
+  await t11_carregarCondensador();
   await t11_carregarCompressores();
   t11_aplicarEstadoFechada(r);
 }
@@ -374,16 +383,19 @@ let t11_condOpcoes = null;
 let t11_filtrosDisponiveis = null;  // fpis/polos_rpm disponíveis — carregados em t11_carregarCondensador
 
 // Campos rack-nível ainda habilitados/desabilitados pelo Tipo Condensador.
-const T11_CAMPOS_CONDENSADOR_SELECAO = ['t11_cond_notas'];
+const T11_CAMPOS_CONDENSADOR_SELECAO = ['t11_cond_filtroFpi', 't11_cond_filtroPolos', 't11_cond_filtroProtecao'];
 
 function t11_atualizarDisponibilidadeCondensador(tipoCondensador) {
   const habilitado = !!tipoCondensador && tipoCondensador !== 'Plano Onboard';
   T11_CAMPOS_CONDENSADOR_SELECAO.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !habilitado; });
   const btnAdd = document.getElementById('t11_cond_btnAdd');
   if (btnAdd) btnAdd.disabled = !habilitado;
-  // Habilita/desabilita linha da tabela de opções via CSS
+  const addFab = document.getElementById('t11_cond_addFab');
+  if (addFab) addFab.disabled = !habilitado;
+  const addLinha = document.getElementById('t11_cond_addLinha');
+  if (addLinha) addLinha.disabled = !habilitado;
   const lista = document.getElementById('t11_cond_opcoesLista');
-  if (lista) lista.querySelectorAll('select,input').forEach(el => { el.disabled = !habilitado; });
+  if (lista) lista.querySelectorAll('input').forEach(el => { el.disabled = !habilitado; });
 }
 
 // Tipo Condensador agora é editável aqui (master) — popula o select com opções da árvore 4.4.1,
@@ -411,6 +423,7 @@ async function t11_carregarOpcoesCondensador() {
   }
   t11_atualizarDisponibilidadeCondensador(tipoCondensador);
   t11_condOpcoes = await api.get(`/api/rack-paralelo/${t11_rackAtual.id}/condensador-opcoes`);
+  t11_popularBarraCondensador();
   t11_renderOpcoesCondensador();
 }
 
@@ -421,202 +434,283 @@ function t11_renderOpcoesCondensador() {
   const el = document.getElementById('t11_cond_opcoesLista');
   if (!el || !t11_rackAtual) return;
   const ops = t11_rackAtual.condensadores || [];
-  const fabricantes = (t11_condOpcoes && t11_condOpcoes.fabricantes) || [];
-  const linhasPorFab = (t11_condOpcoes && t11_condOpcoes.linhas_por_fabricante) || {};
-  const fpis = (t11_filtrosDisponiveis && t11_filtrosDisponiveis.fpis) || [];
-  const polosOpts = (t11_filtrosDisponiveis && t11_filtrosDisponiveis.polos_rpm) || [];
-  const rotuloPolos = { AC: 'Qual. AC', EC: 'EC' };
-
-  let html = '';
-  ops.forEach(o => {
-    const linhas = linhasPorFab[o.fabricante_condensador] || [];
-    const res = t11_condDadosPorOpcao[String(o.id)] || {};
-    const sel = res.selecao;
-    const e = sel && sel.escolhido;
-    const folgaReal = sel && sel.folga_real_pct != null ? fmtNum(sel.folga_real_pct, 1) + '%' : '—';
-    const qtdCond = (o.quantidade_condensadores || 1);
-    const modelo = e ? (e.codigo_comercial || e.modelo) : (res.aviso || '— sem modelo');
-    const atendeBadge = sel ? (sel.atende
-      ? '<span class="techspec" style="color:#15803d;font-weight:bold;">✓ Atende</span>'
-      : '<span class="techspec" style="color:#b91c1c;font-weight:bold;">✗ Não atende</span>') : '';
-    const faltantes = sel && sel.fatores_faltantes && sel.fatores_faltantes.length
-      ? `<span class="techspec" style="color:#b45309;">⚠ Fatores faltantes: ${sel.fatores_faltantes.join(', ')}</span>` : '';
-
-    html += `<div class="group-head" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>${o.fabricante_condensador || '(fabricante)'} / ${o.linha_condensador || '(linha)'}</span>
-      <span style="font-weight:normal;font-size:11px;color:#6b7280;">${o.considerado ? '★ Considerada' : ''}</span>
-    </div>`;
-    html += `<table class="list"><tbody>`;
-    html += `<tr>
-      <td style="width:18%;text-align:center;white-space:normal;word-wrap:break-word;">
-        <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Fabricante</label>
-        <select data-cond-fab="${o.id}" style="width:100%;">
-          <option value="">—</option>
-          ${fabricantes.map(f => `<option ${f === o.fabricante_condensador ? 'selected' : ''}>${f}</option>`).join('')}
-        </select>
-      </td>
-      <td style="width:18%;text-align:center;white-space:normal;word-wrap:break-word;">
-        <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Linha</label>
-        <select data-cond-linha="${o.id}" style="width:100%;">
-          <option value="">—</option>
-          ${linhas.map(l => `<option ${l === o.linha_condensador ? 'selected' : ''}>${l}</option>`).join('')}
-        </select>
-      </td>
-      <td style="width:9%;text-align:center;white-space:normal;word-wrap:break-word;">
-        <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Folga %</label>
-        <input type="text" data-cond-folga="${o.id}" value="${o.folga_condensador_pct ?? ''}" style="width:60px;display:inline-block;">
-      </td>
-      <td style="width:8%;text-align:center;white-space:normal;word-wrap:break-word;">
-        <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Qtd.</label>
-        <input type="number" min="1" data-cond-qty="${o.id}" value="${qtdCond}" style="width:52px;">
-      </td>
-      <td style="width:19%;text-align:center;white-space:normal;word-wrap:break-word;color:#6b7280;">${e ? `${qtdCond}x ${modelo}` : modelo}</td>
-      <td style="width:10%;text-align:center;white-space:normal;word-wrap:break-word;color:#6b7280;">${folgaReal}</td>
-      <td style="width:12%;text-align:center;white-space:normal;word-wrap:break-word;">
-        <label style="font-size:11.5px;font-weight:${o.considerado ? 'bold' : 'normal'};color:${o.considerado ? '#15803d' : '#6b7280'};">
-          <input type="radio" name="t11_cond_considerado" ${o.considerado ? 'checked' : ''} data-considerar="${o.id}"> Considerar
-        </label>
-      </td>
-      <td style="width:6%;text-align:center;white-space:normal;word-wrap:break-word;">
-        ${ops.length > 1 ? `<span class="btn-text danger" data-excluir-cond="${o.id}">Excluir</span>` : ''}
-      </td>
-    </tr>`;
-    html += `<tr><td colspan="8" style="background:#fafafa;border-bottom:1px solid var(--line);padding:5px 8px;">
-      <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;margin-right:4px;">FPI</label>
-      <select data-cond-fpi="${o.id}" style="width:68px;display:inline-block;margin-right:12px;">
-        <option value="">Qual.</option>
-        ${fpis.map(v => `<option ${String(v) === String(o.filtro_fpi_condensador) ? 'selected' : ''}>${v}</option>`).join('')}
-      </select>
-      <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;margin-right:4px;">Motor</label>
-      <select data-cond-polos="${o.id}" style="width:70px;display:inline-block;margin-right:12px;">
-        <option value="">Qual.</option>
-        ${polosOpts.map(v => `<option value="${v}" ${v === o.filtro_polos_rpm_condensador ? 'selected' : ''}>${rotuloPolos[v] || v}</option>`).join('')}
-      </select>
-      <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;margin-right:4px;">Proteção</label>
-      <select data-cond-prot="${o.id}" style="width:78px;display:inline-block;margin-right:12px;">
-        <option value="">Padrão</option>
-        <option value="true" ${o.protecao_aletas_condensador ? 'selected' : ''}>Protegida</option>
-      </select>
-      ${e ? `
-        <span class="techspec">Cap. catálogo: ${fmtNum(e.capacidade_catalogo_kcal_h)}kcal/h</span>
-        <span class="techspec" style="font-weight:bold;color:#1d4ed8;">Cap. corrigida (unit.): ${fmtNum(e.capacidade_corrigida_kcal_h)}kcal/h</span>
-        ${qtdCond > 1 && e.capacidade_corrigida_total_kcal_h ? `<span class="techspec" style="font-weight:bold;">Total instalado (${qtdCond}x): ${fmtNum(e.capacidade_corrigida_total_kcal_h)}kcal/h</span>` : ''}
-        ${e.fpi ? `<span class="techspec">FPI: ${e.fpi}</span>` : ''}
-        ${e.qtd_ventiladores && e.diametro_ventilador_mm ? `<span class="techspec">${e.qtd_ventiladores}x Ventilador Ø${e.diametro_ventilador_mm}mm</span>` : ''}
-        ${e.polos_ou_rpm ? `<span class="techspec">${(e.tipo_motor || '').toUpperCase().startsWith('EC') ? 'RPM' : 'Polos'}: ${e.polos_ou_rpm}</span>` : ''}
-        ${e.corrente_ventiladores_a != null ? `<span class="techspec">Corrente vent.: ${fmtNum(e.corrente_ventiladores_a, 2)}A</span>` : ''}
-        ${atendeBadge}${faltantes}
-      ` : (res.aviso ? `<span class="techspec" style="color:#6b7280;">${res.aviso}</span>` : '')}
-    </td></tr>`;
-    if (o.considerado) {
-      html += `<tr><td colspan="8" style="background:#f9fafb;padding:8px;" data-nomenc-cond-wrap-${o.id}></td></tr>`;
-    }
-    html += `</tbody></table>`;
-  });
+  const d = t11_condDadosGlobais || {};
 
   if (!ops.length) {
-    html = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhuma opção de condensador.</div>';
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhuma opção de condensador.</div>';
+    return;
   }
+
+  const grupos = {};
+  ops.forEach(o => {
+    const fab = o.fabricante_condensador || '(sem fabricante)';
+    (grupos[fab] = grupos[fab] || []).push(o);
+  });
+
+  let html = '';
+  Object.keys(grupos).forEach(fab => {
+    html += `<div class="group-head">${fab}</div><table class="list"><tbody>`;
+    grupos[fab].forEach(o => {
+      const res = t11_condDadosPorOpcao[String(o.id)] || {};
+      const sel = res.selecao;
+      const e = sel && sel.escolhido;
+      const temFabLinha = o.fabricante_condensador && o.linha_condensador;
+      const qtdCond = o.quantidade_condensadores || 1;
+
+      html += `<tr style="${o.considerado ? 'background:#eff6ff;' : ''}">
+        <td style="width:14%;font-weight:bold;text-align:center;white-space:normal;word-wrap:break-word;">${o.linha_condensador || '—'}</td>
+        <td style="width:14%;text-align:center;white-space:normal;word-wrap:break-word;">
+          <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Folga Desejada</label>
+          <input type="text" data-cond-folga="${o.id}" value="${o.folga_condensador_pct ?? ''}" style="width:60px;display:inline-block;"> %
+        </td>
+        <td style="width:9%;text-align:center;white-space:normal;word-wrap:break-word;">
+          <label style="font-size:10.5px;font-weight:bold;text-transform:uppercase;color:#1d4ed8;display:block;margin-bottom:2px;">Qtd.</label>
+          <input type="number" min="1" data-cond-qty="${o.id}" value="${qtdCond}" style="width:52px;">
+        </td>
+        <td style="width:19%;text-align:center;white-space:normal;word-wrap:break-word;color:#6b7280;">${e ? (e.codigo_comercial || e.modelo) : '— sem modelo'}</td>
+        <td style="width:10%;text-align:center;white-space:normal;word-wrap:break-word;color:#6b7280;">${sel && sel.folga_real_pct != null ? fmtNum(sel.folga_real_pct, 1) + '%' : '—'}</td>
+        <td style="width:16%;text-align:center;white-space:normal;word-wrap:break-word;">
+          <label style="font-size:11.5px;font-weight:${o.considerado ? 'bold' : 'normal'};color:${o.considerado ? '#15803d' : '#6b7280'};">
+            <input type="radio" name="t11_cond_considerado" ${o.considerado ? 'checked' : ''} data-considerar="${o.id}"> Considerar
+          </label>
+        </td>
+        <td style="width:14%;text-align:center;white-space:normal;word-wrap:break-word;">
+          <span class="btn-text danger" data-excluir-cond="${o.id}">Excluir</span>
+        </td>
+      </tr>`;
+
+      html += `<tr><td colspan="7" style="background:#fafafa;border-bottom:1px solid var(--line);padding:5px 8px;">`;
+      if (e) {
+        html += `${e.capacidade_catalogo_kcal_h ? `<span class="techspec">Capacidade tabelada: ${fmtNum(e.capacidade_catalogo_kcal_h)}kcal/h</span>` : ''}`;
+        html += `${e.capacidade_corrigida_kcal_h ? `<span class="techspec" style="font-weight:bold;color:#1d4ed8;">Capacidade corrigida (unit.): ${fmtNum(e.capacidade_corrigida_kcal_h)}kcal/h</span>` : ''}`;
+        html += `${qtdCond > 1 && e.capacidade_corrigida_total_kcal_h ? `<span class="techspec" style="font-weight:bold;">Total instalado (${qtdCond}x): ${fmtNum(e.capacidade_corrigida_total_kcal_h)}kcal/h</span>` : ''}`;
+        html += `${e.qtd_ventiladores && e.diametro_ventilador_mm ? `<span class="techspec">${e.qtd_ventiladores}x Ventilador Ø${e.diametro_ventilador_mm}mm</span>` : ''}`;
+        html += `${d.tensao_equipamentos ? `<span class="techspec">Tensão: ${d.tensao_equipamentos}</span>` : ''}`;
+        html += `${e.corrente_ventiladores_a != null ? `<span class="techspec">Corrente vent.: ${fmtNum(e.corrente_ventiladores_a, 2)}A</span>` : ''}`;
+        html += `${e.fpi ? `<span class="techspec">FPI: ${e.fpi}</span>` : ''}`;
+        html += `${e.polos_ou_rpm ? `<span class="techspec">${(e.tipo_motor || '').toUpperCase().startsWith('EC') ? 'RPM' : 'Pólos'}: ${e.polos_ou_rpm}</span>` : ''}`;
+      } else if (res.aviso) {
+        html += `<span class="techspec" style="color:#6b7280;">${res.aviso}</span>`;
+      } else if (temFabLinha) {
+        html += `<span class="techspec" style="color:#b91c1c;">Nenhum modelo do catálogo atende</span>`;
+      }
+      if (sel) {
+        const badge = sel.atende
+          ? '<span style="color:#15803d;font-weight:bold;font-size:11px;margin-left:6px;">Atende ✓</span>'
+          : (e ? '<span style="color:#b91c1c;font-weight:bold;font-size:11px;margin-left:6px;">Não atende</span>' : '');
+        html += badge;
+      }
+      html += `</td></tr>`;
+
+      if (o.considerado) {
+        html += `<tr><td colspan="7" style="background:#f9fafb;padding:8px;" data-nomenc-cond-wrap></td></tr>`;
+      }
+    });
+    html += '</tbody></table>';
+  });
   el.innerHTML = html;
 
-  el.querySelectorAll('[data-cond-fab]').forEach(sel => sel.addEventListener('change', async () => {
-    const optId = sel.dataset.condFab;
-    await api.put(`/api/rack-paralelo/condensadores/${optId}`, { fabricante_condensador: sel.value || null, linha_condensador: null });
-    await t11_carregarCondensador();
-  }));
-  el.querySelectorAll('[data-cond-linha]').forEach(sel => sel.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condLinha}`, { linha_condensador: sel.value || null });
-    await t11_carregarCondensador();
-  }));
-  el.querySelectorAll('[data-cond-fpi]').forEach(sel => sel.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condFpi}`, { filtro_fpi_condensador: sel.value ? Number(sel.value) : null });
-    await t11_carregarCondensador();
-  }));
-  el.querySelectorAll('[data-cond-polos]').forEach(sel => sel.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condPolos}`, { filtro_polos_rpm_condensador: sel.value || null });
-    await t11_carregarCondensador();
-  }));
-  el.querySelectorAll('[data-cond-prot]').forEach(sel => sel.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${sel.dataset.condProt}`, { protecao_aletas_condensador: sel.value === 'true' });
-    await t11_carregarCondensador();
-  }));
   el.querySelectorAll('[data-cond-folga]').forEach(inp => inp.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condFolga}`, { folga_condensador_pct: parseNumBR(inp.value) });
-    await t11_carregarCondensador();
+    mostrarLoading('Atualizando condensador...');
+    try {
+      await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condFolga}`, { folga_condensador_pct: parseNumBR(inp.value) });
+      await t11_carregarCondensador();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-cond-qty]').forEach(inp => inp.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condQty}`, { quantidade_condensadores: parseInt(inp.value) || 1 });
-    await t11_carregarCondensador();
+    mostrarLoading('Atualizando condensador...');
+    try {
+      await api.put(`/api/rack-paralelo/condensadores/${inp.dataset.condQty}`, { quantidade_condensadores: parseInt(inp.value) || 1 });
+      await t11_carregarCondensador();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-considerar]').forEach(r => r.addEventListener('change', async () => {
-    await api.put(`/api/rack-paralelo/condensadores/${r.dataset.considerar}/considerar`, {});
-    await t11_recarregarRacks(true);
+    mostrarLoading('Atualizando condensador...');
+    try {
+      await api.put(`/api/rack-paralelo/condensadores/${r.dataset.considerar}/considerar`, {});
+      await t11_recarregarRacks(true);
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-excluir-cond]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir esta opção de condensador?')) return;
-    await api.del(`/api/rack-paralelo/condensadores/${b.dataset.excluirCond}`);
-    await t11_recarregarRacks(true);
+    mostrarLoading('Excluindo condensador...');
+    try {
+      await api.del(`/api/rack-paralelo/condensadores/${b.dataset.excluirCond}`);
+      await t11_recarregarRacks(true);
+    } finally { esconderLoading(); }
   }));
+
+  const considerada = ops.find(o => o.considerado);
+  if (considerada) {
+    const res = t11_condDadosPorOpcao[String(considerada.id)] || {};
+    if (res.selecao && res.selecao.escolhido) {
+      _carregarPainelNomenclaturaCondensador(el, res, (valores) => t11_salvarNomenclaturaCondensadorOpcao(considerada.id, valores));
+    }
+  }
+}
+
+function t11_atualizarLinhasBarraCondensador() {
+  const fabId = document.getElementById('t11_cond_addFab').value;
+  const linhaSel = document.getElementById('t11_cond_addLinha');
+  const linhas = (t11_condOpcoes && t11_condOpcoes.linhas_por_fabricante && t11_condOpcoes.linhas_por_fabricante[fabId]) || [];
+  linhaSel.innerHTML = '<option value="">—</option>' + linhas.map(l => `<option value="${l.id}">${l.nome}</option>`).join('');
+}
+
+function t11_popularBarraCondensador() {
+  const fabricantes = (t11_condOpcoes && t11_condOpcoes.fabricantes) || [];
+  const fabSel = document.getElementById('t11_cond_addFab');
+  const linhaSel = document.getElementById('t11_cond_addLinha');
+  fabSel.innerHTML = '<option value="">—</option>' + fabricantes.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+  linhaSel.innerHTML = '<option value="">—</option>';
 }
 
 async function t11_addOpcaoCondensador() {
   if (!t11_rackAtual) return;
-  await api.post(`/api/rack-paralelo/${t11_rackAtual.id}/condensadores`, {});
+  const fabId = document.getElementById('t11_cond_addFab').value || null;
+  const linhaId = document.getElementById('t11_cond_addLinha').value || null;
+  const body = {};
+  if (fabId) body.fabricante_id_condensador = Number(fabId);
+  if (linhaId) body.linha_id_condensador = Number(linhaId);
+  await api.post(`/api/rack-paralelo/${t11_rackAtual.id}/condensadores`, body);
   await t11_recarregarRacks(true);
+}
+
+async function t11_onTipoCondensadorChange() {
+  if (!t11_rackAtual || t11_fechada) return;
+  mostrarLoading('Atualizando tipo condensador...');
+  try {
+    const sistemaId = document.getElementById('t11_sistema_id').value;
+    const selCond = document.getElementById('t11_cond_tipoCondensador').value || null;
+    const tipoCondensadorNome = (selCond && t1_nomePorCodigo(selCond)) || '';
+    await api.put(`/api/sistemas/${sistemaId}`, { selecao_condensador_ar: selCond });
+    const sist = state.sistemas.find(s => String(s.id) === String(sistemaId));
+    if (sist) sist.selecao_condensador_ar = selCond;
+    t11_rackAtual = await api.put(`/api/rack-paralelo/${t11_rackAtual.id}`, { tipo_condensador: tipoCondensadorNome || null });
+    t11_atualizarDisponibilidadeCondensador(tipoCondensadorNome);
+    t11_condOpcoes = await api.get(`/api/rack-paralelo/${t11_rackAtual.id}/condensador-opcoes`);
+    t11_popularBarraCondensador();
+    t11_renderOpcoesCondensador();
+    await t11_carregarCondensador();
+  } finally { esconderLoading(); }
 }
 
 async function t11_salvarCondensador() {
   if (!t11_rackAtual) return;
   if (t11_fechada) return;
   const sistemaId = document.getElementById('t11_sistema_id').value;
-  const selCond = document.getElementById('t11_cond_tipoCondensador').value || null;
   const deltaCond = parseNumBR(document.getElementById('t11_cond_deltaCondensacao').value);
-  const tipoCondensadorNome = (selCond && t1_nomePorCodigo(selCond)) || '';
-  await api.put(`/api/sistemas/${sistemaId}`, { selecao_condensador_ar: selCond, delta_condensacao: deltaCond });
+  await api.put(`/api/sistemas/${sistemaId}`, { delta_condensacao: deltaCond });
   const sist = state.sistemas.find(s => String(s.id) === String(sistemaId));
-  if (sist) { sist.selecao_condensador_ar = selCond; sist.delta_condensacao = deltaCond; }
-  t11_rackAtual = await api.put(`/api/rack-paralelo/${t11_rackAtual.id}`, {
-    tipo_condensador: tipoCondensadorNome || null,
-    notas_condensador: document.getElementById('t11_cond_notas').value || null,
-  });
+  if (sist) sist.delta_condensacao = deltaCond;
   await t11_carregarCondensador();
+}
+
+async function t11_salvarFiltroCondensador() {
+  if (!t11_rackAtual || t11_fechada) return;
+  mostrarLoading('Atualizando filtros...');
+  try {
+    const fpi = document.getElementById('t11_cond_filtroFpi').value;
+    const polos = document.getElementById('t11_cond_filtroPolos').value;
+    const protEl = document.getElementById('t11_cond_filtroProtecao');
+    const prot = protEl.value === '1';
+    t11_rackAtual = await api.put(`/api/rack-paralelo/${t11_rackAtual.id}`, {
+      filtro_fpi_condensador: fpi ? Number(fpi) : null,
+      filtro_polos_rpm_condensador: polos || null,
+      protecao_aletas_condensador: prot,
+    });
+    await t11_carregarCondensador();
+  } finally { esconderLoading(); }
 }
 
 async function t11_carregarCondensador() {
   if (!t11_rackAtual) return;
+  const sistemaId = document.getElementById('t11_sistema_id').value;
+  if (sistemaId) {
+    const resp = await api.get(`/api/rack-paralelo?sistema_id=${sistemaId}`);
+    const racks = resp.racks || [];
+    const atualizado = racks.find(r => r.id === t11_rackAtual.id);
+    if (atualizado) t11_rackAtual = atualizado;
+  }
   const d = await api.get(`/api/rack-paralelo/${t11_rackAtual.id}/condensador`);
   document.getElementById('t11_cond_tempAposCondensador').value = d.temp_apos_condensador != null ? fmtNum(d.temp_apos_condensador, 1) : '—';
   document.getElementById('t11_cond_tempCondensacao').value = d.temp_condensacao != null ? fmtNum(d.temp_condensacao, 1) : '—';
-  document.getElementById('t11_cond_notas').value = d.notas_condensador || '';
   t11_condDadosPorOpcao = d.opcoes_resultado || {};
   t11_condDadosGlobais = d;
   if (d.filtros_disponiveis) t11_filtrosDisponiveis = d.filtros_disponiveis;
+  const fpiSel = document.getElementById('t11_cond_filtroFpi');
+  const polosSel = document.getElementById('t11_cond_filtroPolos');
+  const protSel = document.getElementById('t11_cond_filtroProtecao');
+  if (fpiSel && t11_filtrosDisponiveis) {
+    const fpis = t11_filtrosDisponiveis.fpis || [];
+    const fpiAtual = t11_rackAtual.filtro_fpi_condensador;
+    fpiSel.innerHTML = '<option value="">Todos</option>' + fpis.map(v => `<option ${String(v) === String(fpiAtual) ? 'selected' : ''}>${v}</option>`).join('');
+  }
+  if (polosSel && t11_filtrosDisponiveis) {
+    const rotuloPolos = { AC: 'Qual. AC', EC: 'EC' };
+    const polosOpts = t11_filtrosDisponiveis.polos_rpm || [];
+    const polosAtual = t11_rackAtual.filtro_polos_rpm_condensador;
+    polosSel.innerHTML = '<option value="">Todos</option>' + polosOpts.map(v => `<option value="${v}" ${v === polosAtual ? 'selected' : ''}>${rotuloPolos[v] || v}</option>`).join('');
+  }
+  if (protSel) {
+    protSel.value = t11_rackAtual.protecao_aletas_condensador ? '1' : '';
+  }
   t11_renderOpcoesCondensador();
 
   const el = document.getElementById('t11_cond_resultado');
   const calor = d.calor_rejeitado_kcal_h;
   const ctx = d.contexto;
-  const sel = d.selecao;
   const razao = (ctx.delta_condensacao != null && d.dt_catalogo_c)
     ? ` (×${fmtNum(ctx.delta_condensacao / d.dt_catalogo_c, 3)})` : '';
-  el.innerHTML = `<p class="small">Calor rejeitado do rack: <strong>${calor != null ? fmtNum(calor) + ' kcal/h' : '—'}</strong>`
-    + ` · Demanda (c/ folga): <strong>${sel && sel.demanda_kcal_h != null ? fmtNum(sel.demanda_kcal_h) + ' kcal/h' : '—'}</strong>`
+  const linhaCtx = `Calor rejeitado do rack: <strong>${calor != null ? fmtNum(calor) + ' kcal/h' : '—'}</strong>`
+    + ` · Demanda (c/ folga): <strong>${d.selecao && d.selecao.demanda_kcal_h != null ? fmtNum(d.selecao.demanda_kcal_h) + ' kcal/h' : '—'}</strong>`
     + `<br><span class="small" style="color:#6b7280;">ΔCond projeto ${ctx.delta_condensacao ?? '—'} / catálogo ${d.dt_catalogo_c ?? '—'}${razao}`
-    + ` · Fatores: Gás ${ctx.gas ?? '—'} · Aleta ${ctx.aleta} · Altitude ${ctx.altitude ?? '—'}m · Temp. Ar ${ctx.temp_entrada_ar ?? '—'}°C</span></p>`
-    + (!calor ? '<p class="small" style="color:#b45309;">Complete a Seleção de Compressores para calcular o calor rejeitado.</p>' : '');
-
+    + ` · Fatores: Gás ${ctx.gas ?? '—'} · Aleta ${ctx.aleta} · Altitude ${ctx.altitude ?? '—'}m · Temp. Ar ${ctx.temp_entrada_ar ?? '—'}°C</span>`;
+  if (!calor) {
+    el.innerHTML = `<p class="small">${linhaCtx}</p><p class="small" style="color:#b45309;">Complete a Seleção de Compressores para calcular o calor rejeitado.</p>`;
+    return;
+  }
   const ops = t11_rackAtual.condensadores || [];
   const considerada = ops.find(o => o.considerado);
-  if (considerada) {
-    const resConsiderada = t11_condDadosPorOpcao[String(considerada.id)] || {};
-    const wrapEl = document.querySelector(`[data-nomenc-cond-wrap-${considerada.id}]`);
-    if (wrapEl && resConsiderada.selecao && resConsiderada.selecao.escolhido) {
-      const fakeContainer = document.createElement('div');
-      fakeContainer.innerHTML = '<div data-nomenc-cond-wrap></div>';
-      wrapEl.appendChild(fakeContainer);
-      await _carregarPainelNomenclaturaCondensador(fakeContainer, resConsiderada, (valores) => t11_salvarNomenclaturaCondensadorOpcao(considerada.id, valores));
-    }
+  const res = considerada ? (t11_condDadosPorOpcao[String(considerada.id)] || {}) : {};
+  const sel = res.selecao;
+  if (res.aviso && !sel) {
+    el.innerHTML = `<p class="small">${linhaCtx}</p><p class="small" style="color:#6b7280;">${res.aviso}</p>`;
+    return;
   }
+  let corpo;
+  if (!sel || !sel.escolhido) {
+    corpo = '<p class="small" style="color:#b91c1c;">Nenhum modelo do catálogo atende — confira Fabricante/Linha, filtros e os fatores de correção da Tela C.</p>';
+  } else {
+    const e = sel.escolhido;
+    const faltantes = sel.fatores_faltantes && sel.fatores_faltantes.length
+      ? `<p class="small" style="color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;">Fatores não cadastrados na Tela C (usados como 1,0): ${sel.fatores_faltantes.join(', ')}</p>` : '';
+    const badge = sel.atende
+      ? '<span style="color:#15803d;font-weight:bold;">Atende ✓</span>'
+      : '<span style="color:#b91c1c;font-weight:bold;">Nenhum atende — mostrando o maior</span>';
+    const rotuloPolosEsc = (e.tipo_motor || '').toUpperCase().startsWith('EC') ? 'Rotação (RPM)' : 'Nº de Polos';
+    const qtdCond = sel.quantidade_condensadores || 1;
+    const linhasResumo = [
+      ['Tipo de Equipamento', 'Condensador Remoto'],
+      ['Modelo Condensador', `<strong>${qtdCond}x ${e.codigo_comercial || e.modelo}</strong>`],
+      ['Fabricante / Linha', `${considerada.fabricante_condensador || '—'} / ${considerada.linha_condensador || '—'}`],
+      ['Temperatura Ambiente (°C)', ctx.temp_entrada_ar != null ? fmtNum(ctx.temp_entrada_ar, 1) : '—'],
+      ['ΔT Condensação', ctx.delta_condensacao != null ? fmtNum(ctx.delta_condensacao, 1) : '—'],
+      ['Temperatura de Condensação (°C)', d.temp_condensacao != null ? fmtNum(d.temp_condensacao, 1) : '—'],
+      ['Aletas por Polegada (FPI)', e.fpi ?? '—'],
+      [rotuloPolosEsc, e.polos_ou_rpm ?? '—'],
+      ['Ventiladores', (e.qtd_ventiladores && e.diametro_ventilador_mm) ? `${e.qtd_ventiladores}x Ø${e.diametro_ventilador_mm}mm` : '—'],
+      ['Tensão', d.tensao_equipamentos || '—'],
+      ['Corrente Nominal Ventiladores (A)', e.corrente_ventiladores_a != null ? fmtNum(e.corrente_ventiladores_a, 2) : '—'],
+      ['Capacidade de Catálogo (kcal/h)', fmtNum(e.capacidade_catalogo_kcal_h)],
+      ['Capacidade Unit. — corrigida (kcal/h)', fmtNum(e.capacidade_corrigida_kcal_h)],
+      ['Capacidade Total Fornecida (kcal/h)', `<strong>${fmtNum(e.capacidade_corrigida_total_kcal_h ?? e.capacidade_corrigida_kcal_h)}</strong>`],
+      ['Folga Técnica (%)', sel.folga_real_pct != null ? fmtNum(sel.folga_real_pct, 1) + '%' : '—'],
+      ['Resultado', badge],
+    ];
+    corpo = `<table class="list"><tbody>${linhasResumo.map(([label, valor]) =>
+      `<tr><td style="color:#6b7280;">${label}</td><td style="text-align:right;">${valor}</td></tr>`).join('')}</tbody></table>${faltantes}`;
+  }
+  el.innerHTML = `<p class="small">${linhaCtx}</p>${corpo}`;
 }
 
 async function t11_salvarNomenclaturaCondensadorOpcao(optId, valores) {
