@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from .. import models as m
-from ..database import get_db, DB_PATH
+from ..database import get_db, DB_PATH, BASE_DIR
 from ..utils import model_to_dict, list_to_dict, chave_ordem_camara
 from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
@@ -90,8 +90,318 @@ def backup_banco():
     """Cópia do arquivo do banco de dados inteiro (todos os projetos) — devolve o arquivo
     como download para o navegador/Electron salvar via dialog nativo."""
     from fastapi.responses import FileResponse
+    _wal_checkpoint()
     nome = f"carga_termica_BACKUP_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
     return FileResponse(DB_PATH, filename=nome, media_type="application/octet-stream")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SE-107: Endpoints master-only — backup pré-logout, importar banco, deploy,
+#         build EXE
+# ──────────────────────────────────────────────────────────────────────────────
+import subprocess as _subprocess
+import os as _os
+import json as _json_builtin
+import sqlite3 as _sqlite3
+
+_BASE = str(BASE_DIR)
+_INSTALL_DIR = r"C:\Program Files\Vektorium\resources"
+_ELECTRON_DIR = _os.path.join(_BASE, "electron")
+
+_project_base_file = _os.path.join(_BASE, ".project_base")
+if _os.path.isfile(_project_base_file):
+    with open(_project_base_file, "r", encoding="utf-8-sig") as _f:
+        _PROJECT_BASE = _f.read().strip()
+else:
+    _PROJECT_BASE = _BASE
+
+_BACKUP_BASE = _os.path.join(_INSTALL_DIR, "A - Backup Banco de Dados")
+_BACKUP_BANCO = _os.path.join(_BACKUP_BASE, "Banco de dados")
+_BACKUP_SISTEMA = _os.path.join(_BACKUP_BASE, "Sistema")
+
+
+def _timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+
+
+def _wal_checkpoint():
+    conn = _sqlite3.connect(str(DB_PATH))
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        conn.close()
+
+
+def _backup_banco_para_pasta():
+    _os.makedirs(_BACKUP_BANCO, exist_ok=True)
+    ts = _timestamp()
+    nome = f"carga_termica_BACKUP_{ts}.db"
+    destino = _os.path.join(_BACKUP_BANCO, nome)
+    _wal_checkpoint()
+    shutil.copy2(str(DB_PATH), destino)
+    return destino
+
+
+def _backup_sistema_para_pasta():
+    if not _os.path.isdir(_INSTALL_DIR):
+        raise HTTPException(500, f"Pasta de instalação não encontrada: {_INSTALL_DIR}")
+    _os.makedirs(_BACKUP_SISTEMA, exist_ok=True)
+    ts = _timestamp()
+    pasta_destino = _os.path.join(_BACKUP_SISTEMA, f"Sistema_BACKUP_{ts}")
+    _os.makedirs(pasta_destino, exist_ok=True)
+    for item in ["backend", "frontend", "database", "dados", "python-embed"]:
+        src = _os.path.join(_INSTALL_DIR, item)
+        dst = _os.path.join(pasta_destino, item)
+        if _os.path.isdir(src):
+            shutil.copytree(src, dst, ignore=shutil.ignore_patterns(
+                "__pycache__", "*.pyc", "*.pyo", "*.db-wal", "*.db-shm"
+            ))
+    ini = _os.path.join(_INSTALL_DIR, "iniciar_app.py")
+    if _os.path.isfile(ini):
+        shutil.copy2(ini, _os.path.join(pasta_destino, "iniciar_app.py"))
+    return pasta_destino
+
+
+@router.post("/sistema/backup-pre-logout")
+def backup_pre_logout():
+    resultados = {"banco": None, "sistema": None, "erros": []}
+    try:
+        resultados["banco"] = _backup_banco_para_pasta()
+    except Exception as e:
+        resultados["erros"].append(f"Backup banco: {e}")
+    try:
+        resultados["sistema"] = _backup_sistema_para_pasta()
+    except Exception as e:
+        resultados["erros"].append(f"Backup sistema: {e}")
+    if resultados["erros"] and not resultados["banco"] and not resultados["sistema"]:
+        raise HTTPException(500, "; ".join(resultados["erros"]))
+    return resultados
+
+
+@router.post("/sistema/importar-banco")
+def importar_banco(payload: dict = Body(...)):
+    from ..database import engine as _engine
+
+    caminho = payload.get("caminho")
+    if not caminho or not _os.path.isfile(caminho):
+        raise HTTPException(400, "Arquivo de banco não encontrado.")
+
+    try:
+        conn_test = _sqlite3.connect(caminho)
+        conn_test.execute("SELECT count(*) FROM sqlite_master")
+        conn_test.close()
+    except Exception as e:
+        raise HTTPException(400, f"Arquivo não é um banco SQLite válido: {e}")
+
+    try:
+        backup_seguranca = _backup_banco_para_pasta()
+    except Exception as e:
+        raise HTTPException(500, f"Falha no backup de segurança: {e}")
+
+    db_path_str = str(DB_PATH)
+    wal_path = db_path_str + "-wal"
+    shm_path = db_path_str + "-shm"
+
+    _engine.dispose()
+
+    try:
+        for f in [wal_path, shm_path]:
+            if _os.path.isfile(f):
+                _os.remove(f)
+        shutil.copy2(caminho, db_path_str)
+        for f in [wal_path, shm_path]:
+            if _os.path.isfile(f):
+                _os.remove(f)
+    except Exception as e:
+        try:
+            shutil.copy2(backup_seguranca, db_path_str)
+        except Exception:
+            pass
+        raise HTTPException(500, f"Erro ao importar banco: {e}. Backup de segurança em: {backup_seguranca}")
+
+    return {
+        "ok": True,
+        "backup_seguranca": backup_seguranca,
+        "msg": "Banco importado com sucesso. Reinicie o aplicativo para garantir integridade."
+    }
+
+
+@router.post("/sistema/deploy")
+def deploy_para_program_files():
+    resultados = {"backup_banco": None, "backup_sistema": None, "etapas": [], "erros": []}
+
+    _origem = _BASE
+    if _os.path.normcase(_BASE) == _os.path.normcase(_INSTALL_DIR):
+        _origem = _PROJECT_BASE
+    if _os.path.normcase(_origem) == _os.path.normcase(_INSTALL_DIR):
+        raise HTTPException(400,
+            "Deploy impossível: o backend está rodando de Program Files e "
+            "não há .project_base configurado apontando para o diretório de desenvolvimento.")
+    if not _os.path.isdir(_origem):
+        raise HTTPException(400, f"Diretório de origem não encontrado: {_origem}")
+
+    temp_dir = r"C:\Temp\vk_deploy"
+    try:
+        if _os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        _os.makedirs(temp_dir, exist_ok=True)
+
+        ignore_fn = shutil.ignore_patterns(
+            "__pycache__", "*.pyc", "*.pyo", "*.db-wal", "*.db-shm",
+            "node_modules", "venv", ".venv", ".git", ".claude",
+            "Documentos*", "Instalação*", "Instalacao*", "A - Backup*",
+            "mockups", "_tmp_proposta", "_reversao_*", "*.log",
+            "scripts", "calc_remoto_client.py", "calc_remoto.py"
+        )
+
+        for pasta in ["backend", "frontend", "dados"]:
+            src = _os.path.join(_origem, pasta)
+            dst = _os.path.join(temp_dir, pasta)
+            if _os.path.isdir(src):
+                shutil.copytree(src, dst, ignore=ignore_fn)
+
+        ini = _os.path.join(_origem, "iniciar_app.py")
+        if _os.path.isfile(ini):
+            shutil.copy2(ini, _os.path.join(temp_dir, "iniciar_app.py"))
+
+        resultados["etapas"].append("Cópia dev → temp OK")
+    except Exception as e:
+        raise HTTPException(500, f"Falha ao copiar para diretório temporário: {e}")
+
+    _wal_checkpoint()
+    script_path = r"C:\Temp\vk_deploy_script.ps1"
+    try:
+        script_content = (
+            "$ErrorActionPreference = 'Stop'\n"
+            f"$src = '{temp_dir}'\n"
+            f"$dst = '{_INSTALL_DIR}'\n"
+            "\n"
+            "# Criar pastas de backup\n"
+            "$backupBase = Join-Path $dst 'A - Backup Banco de Dados'\n"
+            "$backupBanco = Join-Path $backupBase 'Banco de dados'\n"
+            "$backupSistema = Join-Path $backupBase 'Sistema'\n"
+            "New-Item -ItemType Directory -Force $backupBanco | Out-Null\n"
+            "New-Item -ItemType Directory -Force $backupSistema | Out-Null\n"
+            "\n"
+            "# Permissao de escrita para o usuario (backup_pre_logout sem elevacao)\n"
+            "$usr = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name\n"
+            "$g = '\"' + $usr + ':(OI)(CI)M\"'\n"
+            "icacls $backupBanco /grant $g /Q\n"
+            "icacls $backupSistema /grant $g /Q\n"
+            "\n"
+            "$ts = Get-Date -Format 'yyyy-MM-dd HH-mm-ss'\n"
+            "\n"
+            "# Backup do banco AppData (banco real, checkpoint ja feito pelo Python)\n"
+            "$dbAppData = Join-Path $env:APPDATA 'Vektorium\\database\\carga_termica.db'\n"
+            "if (Test-Path $dbAppData) {\n"
+            "    Copy-Item $dbAppData (Join-Path $backupBanco \"carga_termica_BACKUP_$ts.db\") -Force\n"
+            "}\n"
+            "\n"
+            "# Backup do sistema PF (inclui database do EXE)\n"
+            "$bkpSys = Join-Path $backupSistema \"Sistema_BACKUP_$ts\"\n"
+            "New-Item -ItemType Directory -Force $bkpSys | Out-Null\n"
+            "foreach ($pasta in @('backend','frontend','database','dados','python-embed')) {\n"
+            "    $s = Join-Path $dst $pasta\n"
+            "    if (Test-Path $s) { Copy-Item $s (Join-Path $bkpSys $pasta) -Recurse -Force }\n"
+            "}\n"
+            "$iniDst = Join-Path $dst 'iniciar_app.py'\n"
+            "if (Test-Path $iniDst) { Copy-Item $iniDst (Join-Path $bkpSys 'iniciar_app.py') -Force }\n"
+            "\n"
+            "# Deploy: copiar codigo de temp para PF (sem database)\n"
+            "foreach ($pasta in @('backend', 'frontend', 'dados')) {\n"
+            "    $s = Join-Path $src $pasta\n"
+            "    $d = Join-Path $dst $pasta\n"
+            "    if (Test-Path $s) {\n"
+            "        if (Test-Path $d) { Remove-Item $d -Recurse -Force }\n"
+            "        Copy-Item $s $d -Recurse -Force\n"
+            "    }\n"
+            "}\n"
+            "$ini = Join-Path $src 'iniciar_app.py'\n"
+            "if (Test-Path $ini) { Copy-Item $ini (Join-Path $dst 'iniciar_app.py') -Force }\n"
+            "Remove-Item $src -Recurse -Force\n"
+            "\n"
+            "# Gravar caminho do projeto de origem para deploy futuro\n"
+            f"[IO.File]::WriteAllText((Join-Path $dst '.project_base'), '{_origem}', (New-Object System.Text.UTF8Encoding $true))\n"
+        )
+        with open(script_path, "w", encoding="utf-8-sig") as f:
+            f.write(script_content)
+
+        result = _subprocess.run(
+            [
+                "powershell", "-NoProfile", "-Command",
+                f"Start-Process powershell -Verb RunAs -Wait "
+                f"-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{script_path}'"
+            ],
+            capture_output=True, text=True, timeout=180
+        )
+
+        check_file = _os.path.join(_INSTALL_DIR, "frontend", "index.html")
+        if not _os.path.isfile(check_file):
+            raise Exception("Verificação falhou — frontend/index.html não encontrado em Program Files.")
+
+        resultados["etapas"].append("Backup do destino OK")
+        resultados["etapas"].append("Deploy para Program Files OK")
+    except _subprocess.TimeoutExpired:
+        raise HTTPException(500, "Deploy expirou (timeout 180s). O UAC pode ter sido cancelado.")
+    except Exception as e:
+        raise HTTPException(500, f"Deploy para Program Files falhou: {e}")
+    finally:
+        if _os.path.isfile(script_path):
+            try:
+                _os.remove(script_path)
+            except Exception:
+                pass
+
+    return resultados
+
+
+@router.post("/sistema/build-exe")
+def build_exe():
+    resultados = {"etapas": [], "erros": []}
+
+    try:
+        deploy_result = deploy_para_program_files()
+        resultados["etapas"].extend(deploy_result.get("etapas", []))
+        resultados["backup_banco"] = deploy_result.get("backup_banco")
+        resultados["backup_sistema"] = deploy_result.get("backup_sistema")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Deploy falhou: {e}")
+
+    npm_path = shutil.which("npm")
+    if not npm_path:
+        for tentativa in [
+            r"C:\Program Files\nodejs\npm.cmd",
+            r"C:\Program Files (x86)\nodejs\npm.cmd",
+            _os.path.expandvars(r"%APPDATA%\npm\npm.cmd"),
+        ]:
+            if _os.path.isfile(tentativa):
+                npm_path = tentativa
+                break
+    if not npm_path:
+        raise HTTPException(500, "npm não encontrado no PATH do sistema.")
+
+    try:
+        result = _subprocess.run(
+            [npm_path, "run", "build"],
+            cwd=_ELECTRON_DIR,
+            capture_output=True, text=True, timeout=600,
+            env={**_os.environ, "ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES": "true"}
+        )
+        if result.returncode != 0:
+            stderr_resumo = (result.stderr or "")[-500:]
+            raise Exception(f"electron-builder código {result.returncode}.\n{stderr_resumo}")
+        resultados["etapas"].append("Build EXE OK")
+        resultados["stdout_resumo"] = (result.stdout or "")[-300:]
+    except _subprocess.TimeoutExpired:
+        raise HTTPException(500, "Build EXE expirou (timeout 10min).")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Build EXE falhou: {e}")
+
+    return resultados
 
 
 @router.post("/projetos")

@@ -1,11 +1,12 @@
 {
   "name": "vektorium",
-  "version": "2.0.2",
+  "version": "2.0.6",
   "description": "Vektorium — Sistema de Cálculos Térmicos",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win"
+    "prebuild": "powershell -Command \"$b=Get-ChildItem 'C:\\Program Files\\Vektorium\\resources\\A - Backup Banco de Dados\\Banco de dados\\carga_termica_BACKUP_*.db' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($b){Copy-Item $b.FullName '..\\database\\carga_termica.db' -Force; Write-Host ('Banco atualizado: '+$b.Name)}else{Write-Error 'NENHUM BACKUP ENCONTRADO'; exit 1}\"",
+    "build": "npm run prebuild && ..\\venv\\Scripts\\python.exe -c \"import sqlite3;c=sqlite3.connect('../database/carga_termica.db');v=c.execute('PRAGMA user_version').fetchone()[0];c.execute('PRAGMA user_version='+str(v+1));c.commit();print('user_version:',v,'->',v+1);c.close()\" && electron-builder --win"
   },
   "author": "Vektorium",
   "license": "UNLICENSED",
