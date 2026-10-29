@@ -106,14 +106,19 @@ import sqlite3 as _sqlite3
 
 _BASE = str(BASE_DIR)
 _INSTALL_DIR = r"C:\Program Files\Vektorium\resources"
-_ELECTRON_DIR = _os.path.join(_BASE, "electron")
 
 _project_base_file = _os.path.join(_BASE, ".project_base")
+_appdata_pb_file = _os.path.join(_os.environ.get("APPDATA", ""), "Vektorium", ".project_base")
 if _os.path.isfile(_project_base_file):
     with open(_project_base_file, "r", encoding="utf-8-sig") as _f:
         _PROJECT_BASE = _f.read().strip()
+elif _os.path.isfile(_appdata_pb_file):
+    with open(_appdata_pb_file, "r", encoding="utf-8-sig") as _f:
+        _PROJECT_BASE = _f.read().strip()
 else:
     _PROJECT_BASE = _BASE
+
+_ELECTRON_DIR = _os.path.join(_PROJECT_BASE, "electron")
 
 _BACKUP_BASE = _os.path.join(_INSTALL_DIR, "A - Backup Banco de Dados")
 _BACKUP_BANCO = _os.path.join(_BACKUP_BASE, "Banco de dados")
@@ -320,8 +325,11 @@ def deploy_para_program_files():
             "if (Test-Path $ini) { Copy-Item $ini (Join-Path $dst 'iniciar_app.py') -Force }\n"
             "Remove-Item $src -Recurse -Force\n"
             "\n"
-            "# Gravar caminho do projeto de origem para deploy futuro\n"
+            "# Gravar caminho do projeto de origem para deploy futuro (PF + AppData)\n"
             f"[IO.File]::WriteAllText((Join-Path $dst '.project_base'), '{_origem}', (New-Object System.Text.UTF8Encoding $true))\n"
+            "$appDataDir = Join-Path $env:APPDATA 'Vektorium'\n"
+            "New-Item -ItemType Directory -Force $appDataDir | Out-Null\n"
+            f"[IO.File]::WriteAllText((Join-Path $appDataDir '.project_base'), '{_origem}', (New-Object System.Text.UTF8Encoding $true))\n"
         )
         with open(script_path, "w", encoding="utf-8-sig") as f:
             f.write(script_content)
