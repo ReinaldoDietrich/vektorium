@@ -80,7 +80,7 @@ def _tipos_painel(db, projeto_id):
     return " / ".join(vistos)
 
 
-def _orcamento_filtrado(db, projeto_id):
+def _orcamento_filtrado(db, projeto_id, filtro=None):
     from .. import composicao_preco as cp
     from .. import models as m
     margem = cp._margem_negociacao(db, projeto_id)
@@ -90,10 +90,10 @@ def _orcamento_filtrado(db, projeto_id):
     for i in itens:
         c = cp.calcular_item(i, margem)
         blocos.setdefault(c["bloco"], []).append(c)
-    return cp.tabela_orcamento({"blocos": blocos, "margem_negociacao_pct": margem})
+    return cp.tabela_orcamento({"blocos": blocos, "margem_negociacao_pct": margem}, filtro=filtro)
 
 
-def _coletar(db, projeto_id):
+def _coletar(db, projeto_id, opcoes=None):
     from .. import models as m
     from .. import id_comercial
     from ..routers import (compilacao, compilacao_geral, consumo, luminotecnico,
@@ -101,6 +101,12 @@ def _coletar(db, projeto_id):
     projeto = db.get(m.Projeto, projeto_id)
     if not projeto:
         raise ValueError(f"Projeto {projeto_id} não encontrado")
+
+    orc_filtro = (opcoes or {}).get("orcamento_filtro") or {}
+    filtro_dados = {}
+    for k in ("fabricante", "centro_custo_id", "bloco"):
+        if orc_filtro.get(k):
+            filtro_dados[k] = orc_filtro[k]
 
     def tenta(fn, *a, **kw):
         try:
@@ -115,7 +121,7 @@ def _coletar(db, projeto_id):
         "comp_geral": tenta(compilacao_geral.compilacao_geral, projeto_id=projeto_id, db=db),
         "consumo": tenta(consumo.consumo_projeto, projeto_id=projeto_id, db=db),
         "lumino": tenta(luminotecnico.estudo_luminotecnico, projeto_id=projeto_id, db=db),
-        "orcamento_tab": tenta(_orcamento_filtrado, db, projeto_id),
+        "orcamento_tab": tenta(_orcamento_filtrado, db, projeto_id, filtro=filtro_dados or None),
         "pagamento": tenta(composicao_preco.obter_condicao_pagamento, projeto_id=projeto_id, db=db),
         "resumo_paineis": tenta(paineis_portas.resumo, projeto_id=projeto_id, modo="total", db=db),
         "memorial": tenta(id_comercial.montar_memorial_projeto, db, projeto_id),
@@ -142,7 +148,7 @@ def _expandir_ids_filhos(db, ids_selecionados):
 
 def _conteudo_comercial(db, ids):
     from .. import models as m
-    ids = _expandir_ids_filhos(db, ids)
+    ids = set(str(x) for x in (ids or []))
     equipamentos, paineis_portas, detalhes = [], [], []
 
     def add(lista, nome, texto, imagem, ordem):
@@ -748,7 +754,7 @@ def gerar(db, projeto_id, opcoes=None):
     opcoes = opcoes or {}
     tw._SEQ_TABELA[0] = 0
     tpl = DocxTemplate(str(garantir_template()))
-    d = _coletar(db, projeto_id)
+    d = _coletar(db, projeto_id, opcoes=opcoes)
     projeto = d["projeto"]
 
     defaults = config.carregar_defaults()
