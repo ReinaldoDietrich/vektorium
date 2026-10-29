@@ -327,10 +327,12 @@ function t1_estacaoRenderLista(filtro) {
 }
 
 async function t1_atualizarStatusProjeto() {
+  const gen = state.projetoGen;
   const status = document.getElementById('projetoStatus');
   const btnFechar = document.getElementById('btnFecharProjetoAtivo');
   if (state.projetoId) {
     const p = await api.get(`/api/projetos/${state.projetoId}`);
+    if (gen !== state.projetoGen) return;
     status.textContent = `projeto ativo: ${p.codigo_projeto || '#' + p.id}${p.cliente ? ' — ' + p.cliente : ''}`;
     btnFechar.style.display = 'inline';
     aplicarModoProjetoFechado(p.fechado);   // projeto fechado = telas dele só para visualização
@@ -353,8 +355,10 @@ async function t1_fecharProjetoAtivo() {
 let t1_revisoesRetraidas = new Set();   // codigo_base cujos filhos (revisões) estão recolhidos
 
 async function t1_carregarProjetos() {
-  if (state.projetoId) { await carregarSistemasDoProjeto(); t1_renderSistemas(); }
+  if (state.projetoId) { t1_renderSistemas(); }
+  const gen = state.projetoGen;
   const projetos = await api.get('/api/projetos');
+  if (gen !== state.projetoGen) return;
   const el = document.getElementById('listaProjetos');
   const formWrap = document.getElementById('formProjetoWrap');
   // o formulário é uma única instância reaproveitada, que pode estar posicionada dentro da lista
@@ -485,12 +489,20 @@ async function t1_novoProjeto() {
 
 async function t1_escolherPastaSalvamento() {
   const campo = document.getElementById('p_pasta_salvamento');
+  let novaPasta = null;
   if (window.vektorium?.escolherPasta) {
-    const pasta = await window.vektorium.escolherPasta({ titulo: 'Escolher pasta de salvamento do projeto', inicial: campo.value || null });
-    if (pasta) campo.value = pasta;
+    novaPasta = await window.vektorium.escolherPasta({ titulo: 'Escolher pasta de salvamento do projeto', inicial: campo.value || null });
   } else {
     const r = await api.post('/api/projetos/escolher-pasta', { inicial: campo.value || null });
-    if (r.pasta) campo.value = r.pasta;
+    novaPasta = r.pasta || null;
+  }
+  if (novaPasta) {
+    campo.value = novaPasta;
+    if (t1_editandoProjetoId) {
+      try {
+        await api.put(`/api/projetos/${t1_editandoProjetoId}/pasta-salvamento`, { pasta_salvamento: novaPasta });
+      } catch (_) {}
+    }
   }
 }
 
@@ -499,7 +511,9 @@ function t1_cancelarProjeto() {
 }
 
 async function t1_abrirProjeto(id, projetosCache) {
+  const gen = state.projetoGen;
   const p = projetosCache.find(x => x.id === id) || await api.get(`/api/projetos/${id}`);
+  if (gen !== state.projetoGen) return;
   t1_editandoProjetoId = id;
   document.getElementById('p_codigo_projeto').value = p.codigo_projeto || '';
   document.getElementById('p_data').value = p.data || '';
@@ -518,6 +532,7 @@ async function t1_abrirProjeto(id, projetosCache) {
   t1_estacaoSelecionadaId = p.estacao_inmet_id || null;
   document.getElementById('p_estacao_busca').value = '';
   await t1_carregarEstacoes(p.estado_uf);
+  if (gen !== state.projetoGen) return;
   if (t1_estacaoSelecionadaId) {
     const est = Object.values(t1_estacoesPorLabel).find(e => e.id === t1_estacaoSelecionadaId);
     document.getElementById('p_estacao_busca').value = est ? est.label : '';
@@ -536,6 +551,7 @@ async function t1_abrirProjeto(id, projetosCache) {
   document.getElementById('blocoSistemas').style.display = 'block';
   t1_retrairTudo();
   await definirProjetoAtivo(id);
+  if (state.projetoId !== id) return;
   t1_renderSistemas();
   t1_carregarFiltroFabGlobal();
   t1_carregarProjetos();
@@ -552,7 +568,9 @@ const T1_FAB_TIPOS = [
 
 async function t1_carregarFiltroFabGlobal() {
   if (!state.projetoId || !document.getElementById('p_fab_global_forcador')) return;
+  const gen = state.projetoGen;
   const r = await api.get(`/api/projetos/${state.projetoId}/fabricante-global`);
+  if (gen !== state.projetoGen) return;
   T1_FAB_TIPOS.forEach(t => {
     const eleg = r[t.tipo] || [];
     const sel = document.getElementById(t.sel);
@@ -669,8 +687,10 @@ function t1_atualizarVisibilidadeCamposSistema() {
   }
   const gerenciamento = temTipo && document.getElementById('sAutomacao').value === '1.3.2';  // Gerenciamento Eletrônico
   document.getElementById('sCampoFabricanteWrap').style.display = gerenciamento ? 'block' : 'none';
+  document.getElementById('sCampoModeloControladorEquipWrap').style.display = gerenciamento ? 'block' : 'none';
   if (!gerenciamento) {
     document.getElementById('sAutomacaoFabricante').value = '';
+    document.getElementById('sModeloControladorEquipamentos').value = '';
   }
 
   t1_atualizarTempAposCondensador();
@@ -742,7 +762,9 @@ function t1_tempCondensacao(s) {
 
 function t1_tempLiquido(s) {
   const valores = [s.temp_apos_condensador, s.temp_apos_subresfriamento].filter(v => v != null);
-  return valores.length ? Math.min(...valores) : null;
+  if (valores.length) return Math.min(...valores);
+  const tc = t1_tempCondensacao(s);
+  return tc != null ? tc - 3 : null;
 }
 
 function t1_renderSistemas() {

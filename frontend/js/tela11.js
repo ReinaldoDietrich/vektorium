@@ -67,7 +67,7 @@ function t11_onProjetoChanged() {
     return;
   }
   semProjeto.style.display = 'none'; importacao.style.display = 'block';
-  const racks = state.sistemas;  // seleção de Rack liberada para TODOS os sistemas (aprovado 2026-08-13) — o tipo_compressao do sistema é quem decide o que entra no cálculo (Tela 5/8/9/10), não esta tela
+  const racks = state.sistemas;
   if (racks.length === 0) {
     semSistema.style.display = 'block'; conteudo.style.display = 'none';
     return;
@@ -78,6 +78,7 @@ function t11_onProjetoChanged() {
 }
 
 async function t11_trocarSistema() {
+  const gen = state.projetoGen;
   const sistemaId = document.getElementById('t11_sistema_id').value;
   if (!sistemaId) return;
   mostrarLoading('Carregando sistema...');
@@ -92,6 +93,7 @@ async function t11_trocarSistema() {
 
     t11_rackEditandoId = null;
     await t11_recarregarRacks(false);
+    if (gen !== state.projetoGen) return;
   } finally { esconderLoading(); }
 }
 
@@ -420,6 +422,10 @@ async function t11_carregarOpcoesCondensador() {
     deltaEl.value = sistema?.delta_condensacao ?? '';
     deltaEl.disabled = isUC;
     if (isUC && !sistema?.delta_condensacao) deltaEl.value = '10';
+  }
+  if (isUC && sistema.delta_condensacao == null) {
+    sistema.delta_condensacao = 10;
+    await api.put(`/api/sistemas/${sistemaId}`, { delta_condensacao: 10 });
   }
   t11_atualizarDisponibilidadeCondensador(tipoCondensador);
   t11_condOpcoes = await api.get(`/api/rack-paralelo/${t11_rackAtual.id}/condensador-opcoes`);
@@ -750,7 +756,9 @@ async function t11_editarEntidade() {
 window.initTela11 = initTela11;
 window.telaShowHandlers[11] = async () => {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   await carregarSistemasDoProjeto();
+  if (gen !== state.projetoGen) return;
   t11_onProjetoChanged();
 };
 document.addEventListener('DOMContentLoaded', initTela11);
