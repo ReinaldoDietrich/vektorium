@@ -43,7 +43,8 @@ const T12_BLOCO_FORCADORES = [
   ['folga_tecnica_pct', 'Folga Técnica (%)'],
 ];
 const T12_BLOCO_RACK = [
-  ['tipo_equipamento', 'Tipo de Equipamento'], ['quantidade_compressores', 'Quantidade de Compressores/Rack', 0],
+  ['tipo_equipamento', 'Tipo de Equipamento'], ['quantidade_paralelo', 'Quantidade Rack', 0],
+  ['quantidade_compressores', 'Quantidade de Compressores/Rack', 0],
   ['modelo_tecnico', 'Modelo técnico'], ['modelo_comercial', 'Modelo Comercial'], ['tensao', 'Tensão'],
   ['linha_compressor', 'Linha Compressor'], ['fabricante_compressor', 'Fabricante Compressor'],
   ['modelo_compressor', 'Modelo Compressor'], ['cop_compressor', 'COP Compressor', 2],
@@ -60,7 +61,8 @@ const T12_BLOCO_RACK = [
   ['folga_tecnica_pct', 'Folga Técnica (%)'],
 ];
 const T12_BLOCO_CONDENSADOR = [
-  ['tipo_equipamento', 'Tipo de Equipamento'], ['modelo_condensador', 'Modelo Condensador'],
+  ['tipo_equipamento', 'Tipo de Equipamento'], ['quantidade_condensadores', 'Quantidade Condensadores', 0],
+  ['modelo_condensador', 'Modelo Condensador'],
   ['temp_ambiente', 'Temperatura Ambiente (°C)'], ['delta_condensacao', 'ΔT Condensação'],
   ['temp_condensacao', 'Temperatura de Condensação (°C)'], ['qtd_ventiladores', 'Qtd. Ventiladores/Condensador', 0],
   ['diametro_ventilador_mm', 'Diâmetro Ventilador (mm)', 0],
@@ -91,10 +93,12 @@ function t12_onProjetoChanged() {
 
 async function t12_carregar() {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   const [dados, sf] = await Promise.all([
     api.get(`/api/compilacao-geral?projeto_id=${state.projetoId}`),
     api.get(`/api/compilacao/status-fechada?projeto_id=${state.projetoId}`).catch(() => ({ abertas: [], total_abertas: 0 })),
   ]);
+  if (gen !== state.projetoGen) return;
   let bannerEl = document.getElementById('t12_bannerAbertas');
   if (!bannerEl) {
     bannerEl = document.createElement('div');
