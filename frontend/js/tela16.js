@@ -85,6 +85,10 @@ function t16_linha(label, va, vb, fmt = t16_fmt) {
 function t16_subheader(nome) {
   return `<tr class="grupo-sep"><td colspan="3" class="sistema-nome">${nome}</td></tr>`;
 }
+function t16_stripQtd(v) {
+  if (!v) return v;
+  return v.replace(/\d+x\s*/g, '').replace(/\s*\+\s*/g, ' + ');
+}
 function t16_bloco(titulo, subtitulo, corpoHtml) {
   return `<div class="t16-bloco">
     <div class="t16-bloco-titulo">${titulo}${subtitulo ? ` <span class="t16-sub">${subtitulo}</span>` : ''}</div>
@@ -129,7 +133,9 @@ function t16_render(a, b) {
     corpoSist += t16_linha('Temp. evaporação', sa && sa.temp_evaporacao, sb && sb.temp_evaporacao, v => v == null ? '—' : t16_fmt(v, ' °C'));
     corpoSist += t16_linha('Compressão', sa && t16_nomePorCodigo(sa.tipo_compressao), sb && t16_nomePorCodigo(sb.tipo_compressao));
     corpoSist += t16_linha('Condensação', sa && t16_nomePorCodigo(sa.selecao_condensador_ar), sb && t16_nomePorCodigo(sb.selecao_condensador_ar));
-    corpoSist += t16_linha('Temp. condensação', sa && sa.temp_apos_condensador, sb && sb.temp_apos_condensador, v => v == null ? '—' : t16_fmt(v, ' °C'));
+    const condA = (a.compilacaoGeral.sistemas.find(x => x.sistema_nome === p.nome) || {}).condensador || {};
+    const condB = (b.compilacaoGeral.sistemas.find(x => x.sistema_nome === p.nome) || {}).condensador || {};
+    corpoSist += t16_linha('Temp. condensação', condA.temp_condensacao, condB.temp_condensacao, v => v == null ? '—' : t16_fmt(v, ' °C'));
     const cargaA = (a.compilacaoGeral.totais.carga_termica_por_sistema.find(x => x.sistema_nome === p.nome) || {}).carga_termica_kcal_h;
     const cargaB = (b.compilacaoGeral.totais.carga_termica_por_sistema.find(x => x.sistema_nome === p.nome) || {}).carga_termica_kcal_h;
     corpoSist += t16_linha('Carga térmica', cargaA, cargaB, v => v == null ? '—' : t16_fmt(v, ' kcal/h'));
@@ -153,8 +159,8 @@ function t16_render(a, b) {
     const ra = (a.compilacaoGeral.sistemas.find(s => s.sistema_nome === p.nome) || {}).rack_uc || {};
     const rb = (b.compilacaoGeral.sistemas.find(s => s.sistema_nome === p.nome) || {}).rack_uc || {};
     corpoUc += t16_subheader(p.nome);
-    corpoUc += t16_linha('Modelo equipamento', ra.modelo_comercial, rb.modelo_comercial);
-    corpoUc += t16_linha('Modelo compressores', ra.modelo_compressor, rb.modelo_compressor);
+    corpoUc += t16_linha('Modelo equipamento', ra.modelo_comercial || ra.modelo_tecnico, rb.modelo_comercial || rb.modelo_tecnico);
+    corpoUc += t16_linha('Modelo compressores', t16_stripQtd(ra.modelo_compressor), t16_stripQtd(rb.modelo_compressor));
     corpoUc += t16_linha('Quantidade compressores', ra.quantidade_compressores, rb.quantidade_compressores);
     corpoUc += t16_linha('Linha compressores', ra.linha_compressor, rb.linha_compressor);
     corpoUc += t16_linha('Fabricante compressores', ra.fabricante_compressor, rb.fabricante_compressor);
@@ -175,7 +181,7 @@ function t16_render(a, b) {
     corpoCond += t16_subheader(p.nome);
     corpoCond += t16_linha('Tipo', sa && t16_nomePorCodigo(sa.selecao_condensador_ar), sb && t16_nomePorCodigo(sb.selecao_condensador_ar));
     corpoCond += t16_linha('Modelo', ca.modelo_condensador, cb.modelo_condensador);
-    corpoCond += t16_linha('Quantidade forçadores', ca.qtd_ventiladores, cb.qtd_ventiladores);
+    corpoCond += t16_linha('Quantidade condensadores', ca.quantidade_condensadores, cb.quantidade_condensadores);
     corpoCond += t16_linha('Diâmetro ventiladores', ca.diametro_ventilador_mm, cb.diametro_ventilador_mm, v => v == null ? '—' : t16_fmt(v, ' mm'));
     corpoCond += t16_linha('Corrente nominal', ca.corrente_nominal_ventiladores_a, cb.corrente_nominal_ventiladores_a, v => v == null ? '—' : t16_fmt(v, ' A'));
     corpoCond += t16_linha('Capacidade condensador', ca.capacidade_condensador_kcal_h, cb.capacidade_condensador_kcal_h, v => v == null ? '—' : t16_fmt(v, ' kcal/h'));

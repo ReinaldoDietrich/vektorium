@@ -742,6 +742,36 @@ def gerar_revisao(projeto_id: int, db: Session = Depends(get_db)):
         db.add(m.PortaFrigorifica(**_cols(pf, {"id", "projeto_id", "camara_completo_id", "camara_simples_id"}),
             projeto_id=novo.id, camara_completo_id=map_cc.get(pf.camara_completo_id),
             camara_simples_id=map_cs.get(pf.camara_simples_id)))
+
+    # Tela 7 — Resumo de Materiais
+    for mt in db.query(m.MaterialTela10).filter_by(projeto_id=orig.id).all():
+        db.add(m.MaterialTela10(**_cols(mt, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Valores de Equipamentos
+    for ev in db.query(m.EquipamentoValorTela10).filter_by(projeto_id=orig.id).all():
+        db.add(m.EquipamentoValorTela10(**_cols(ev, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Composição de Preço (itens de todos os blocos)
+    for ci in db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=orig.id).all():
+        db.add(m.ComposicaoPrecoItem(**_cols(ci, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Condições de Pagamento (config)
+    for cp in db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=orig.id).all():
+        db.add(m.CondicaoPagamentoProjeto(**_cols(cp, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Parcelas de Pagamento (agenda)
+    for pp in db.query(m.CondicaoPagamentoParcela).filter_by(projeto_id=orig.id).all():
+        db.add(m.CondicaoPagamentoParcela(**_cols(pp, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Comissão de Vendedores
+    for cv in db.query(m.ComissaoVendedorProjeto).filter_by(projeto_id=orig.id).all():
+        db.add(m.ComissaoVendedorProjeto(**_cols(cv, {"id", "projeto_id"}), projeto_id=novo.id))
+
+    # Tela 10 — Margem de Negociação (projeto_id é PK, não tem coluna id)
+    mn = db.query(m.MargemNegociacaoProjeto).filter_by(projeto_id=orig.id).first()
+    if mn:
+        db.add(m.MargemNegociacaoProjeto(**_cols(mn, {"projeto_id"}), projeto_id=novo.id))
+
     db.commit()
     db.refresh(novo)
     workspace.registrar_revisao(novo.id, orig.id)
