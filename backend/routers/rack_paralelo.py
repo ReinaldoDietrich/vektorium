@@ -352,12 +352,13 @@ def atualizar(rack_id: int, payload: dict = Body(...), db: Session = Depends(get
             setattr(rack, k, v)
     if "nomenclatura_condensador_selecionada" in payload:
         rack.nomenclatura_condensador_selecionada = json.dumps(payload["nomenclatura_condensador_selecionada"] or {})
-    # Se o PUT mexeu em campos de condensador, propaga pra opção CONSIDERADA (mantém espelho ↔ opção).
+    # Se o PUT mexeu em campos de condensador, propaga APENAS os campos alterados pra opção CONSIDERADA.
     if any(k in payload for k in m.CAMPOS_CONDENSADOR):
         c = _condensador_considerado(rack)
         if c:
             for campo in m.CAMPOS_CONDENSADOR:
-                setattr(c, campo, getattr(rack, campo))
+                if campo in payload:
+                    setattr(c, campo, getattr(rack, campo))
     db.commit()
     return _serializar(db, rack)
 
@@ -373,7 +374,8 @@ def add_condensador(rack_id: int, payload: dict = Body(default={}), db: Session 
         raise HTTPException(404, "Rack não encontrado")
     bp.verificar_projeto_da(rack)
     bf.verificar_pai_aberto(rack)
-    kwargs = {"rack_id": rack_id, "considerado": False}
+    primeira = not bool(rack.condensadores)
+    kwargs = {"rack_id": rack_id, "considerado": primeira}
     fab_id = payload.get("fabricante_id_condensador")
     linha_id = payload.get("linha_id_condensador")
     if fab_id:
@@ -388,6 +390,9 @@ def add_condensador(rack_id: int, payload: dict = Body(default={}), db: Session 
             kwargs["linha_condensador"] = ln.nome
     opt = m.RackCondensadorSelecao(**kwargs)
     db.add(opt)
+    db.flush()
+    if primeira:
+        _sync_rack_do_considerado(rack)
     db.commit()
     db.refresh(opt)
     return model_to_dict(opt)
