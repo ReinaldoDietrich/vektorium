@@ -1,5 +1,6 @@
 const state = {
   projetoId: null,
+  projetoGen: 0,
   sistemas: [],
   // Gancho de PERFIL (espelha backend/perfil.py). HOJE local/mono-usuário → sempre master, tudo
   // liberado. TODO(online): preencher a partir da autenticação real. Pontos que serão restritos a
@@ -34,6 +35,21 @@ function parseNumBRMilhar(v) {
   return parseNumBR(s.replace(/\./g, ''));
 }
 
+async function escolherPastaEExportar(url) {
+  let pasta = null;
+  if (window.vektorium?.escolherPasta) {
+    pasta = await window.vektorium.escolherPasta({ titulo: 'Escolher pasta para exportação' });
+  } else {
+    try {
+      const r = await api.post('/api/projetos/escolher-pasta', {});
+      pasta = r.pasta || null;
+    } catch (_) {}
+  }
+  if (!pasta) return;
+  const sep = url.includes('?') ? '&' : '?';
+  api.baixarOuSalvar(url + sep + 'pasta=' + encodeURIComponent(pasta));
+}
+
 // Aplica formatação "1.234,56" (milhar + 2 decimais) num campo ao perder o foco.
 function formatarCampoMilhar(id) {
   const el = document.getElementById(id);
@@ -43,10 +59,10 @@ function formatarCampoMilhar(id) {
   });
 }
 
-function showTab(n) {
+function showTab(n, skipHandler) {
   document.querySelectorAll('.screen').forEach(el => el.classList.toggle('active', el.id === 'tela' + n));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tab) === n));
-  if (window.telaShowHandlers[n]) window.telaShowHandlers[n]();
+  if (!skipHandler && window.telaShowHandlers[n]) window.telaShowHandlers[n]();
   if (window.onShowTab) window.onShowTab(n);
 }
 
@@ -87,7 +103,11 @@ function populateSelect(select, items, valueKey, labelKey, placeholder) {
 
 async function carregarSistemasDoProjeto() {
   if (!state.projetoId) { state.sistemas = []; return; }
-  state.sistemas = await api.get(`/api/projetos/${state.projetoId}/sistemas`);
+  const pid = state.projetoId;
+  const gen = state.projetoGen;
+  const sistemas = await api.get(`/api/projetos/${pid}/sistemas`);
+  if (gen !== state.projetoGen) return;
+  state.sistemas = sistemas;
 }
 
 function popularSelectsSistema(selects) {
@@ -96,6 +116,7 @@ function popularSelectsSistema(selects) {
 
 async function definirProjetoAtivo(projetoId) {
   state.projetoId = projetoId;
+  state.projetoGen++;
   await carregarSistemasDoProjeto();
   document.dispatchEvent(new CustomEvent('projeto-changed', { detail: { projetoId } }));
 }
@@ -131,7 +152,7 @@ async function verificarLicenca() {
       const d = await r.json();
       _aplicarLicenca(!!d.ativa);
     }
-  } catch (e) { /* sem rede — mantém último estado */ }
+  } catch (e) { _aplicarLicenca(true); }
 }
 
 function pararVerificacaoLicenca() {
@@ -147,9 +168,9 @@ function _aplicarLicenca(ativa) {
 }
 
 function iniciarVerificacaoPeriodicaLicenca() {
+  // SE-074: verificação periódica desativada — apenas aplica licença ativa uma vez
   if (_licencaTimer) clearInterval(_licencaTimer);
-  verificarLicenca();
-  _licencaTimer = setInterval(verificarLicenca, 30 * 60 * 1000);
+  _aplicarLicenca(true);
 }
 
 window.verificarLicenca = verificarLicenca;
@@ -158,6 +179,18 @@ window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
 async function sairDoApp() {
   if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
+
+  if (typeof state !== 'undefined' && state.isMaster === true) {
+    mostrarLoading('Realizando backup pré-logout...');
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 30000);
+      await fetch('/api/sistema/backup-pre-logout', { method: 'POST', signal: ctrl.signal });
+    } catch (_) {
+      console.warn('[sairDoApp] backup pré-logout falhou (best-effort)');
+    }
+  }
+
   try {
     for (let t = 0; t < 3; t++) {
       try {
@@ -166,54 +199,30 @@ async function sairDoApp() {
       } catch (_) {}
     }
     if (typeof AUTH !== 'undefined') {
-      const _uid =
-        AUTH._sessao &&
-        AUTH._sessao.user
-          ? AUTH._sessao.user.id
-          : null;
-
-      const _jwt =
-        typeof AUTH.token === 'function'
-          ? AUTH.token()
-          : null;
-
+      try { await AUTH.garantirToken(); } catch (_) {}
+      const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+      const _jwt = AUTH.token();
       if (_uid && _jwt) {
-        try {
-          await api.post('/api/cloud/push-todos', {
-            user_id: _uid,
-            token: _jwt
-          });
-        } catch (e) {
-          console.error('[SAIR] push-todos:', e);
-        }
-
-        try {
-          await api.post('/api/cloud/delete-lock', {
-            user_id: _uid,
-            token: _jwt
-          });
-        } catch (e) {
-          console.error('[SAIR] delete-lock:', e);
+        mostrarLoading('Removendo sessão do servidor...');
+        for (let tentativa = 0; tentativa < 10; tentativa++) {
+          try {
+            const r = await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt });
+            if (r && r.ok) break;
+          } catch (_) {}
+          await new Promise(ok => setTimeout(ok, 1500));
         }
       }
-
       try { await AUTH.logout(); } catch (_) {}
-      AUTH.limpar();
     }
 
     try { await api.post('/api/workspace/fechar-todos'); } catch (_) {}
 
   } finally {
+    esconderLoading();
     const overlay = document.getElementById('overlaySaida');
+    if (overlay) overlay.style.display = 'flex';
 
-    if (overlay) {
-      overlay.style.display = 'flex';
-    }
-
-    if (
-      window.vektorium &&
-      typeof window.vektorium.sair === 'function'
-    ) {
+    if (window.vektorium && typeof window.vektorium.sair === 'function') {
       await window.vektorium.sair();
     } else {
       location.reload();
@@ -221,16 +230,26 @@ async function sairDoApp() {
   }
 }
 
-setInterval(async () => {
-  try { await api.post('/api/workspace/salvar-todos'); } catch (_) {}
-}, 2 * 60 * 1000);
+
+// SE-074: auto-save configurável via Configurações Globais (default 5 min)
+(async function _iniciarAutoSave() {
+  let minutos = 5;
+  try {
+    const cfgs = await api.get('/api/catalogos/configuracao-global');
+    const cfg = cfgs.find(c => c.chave === 'intervalo_auto_salvamento_min');
+    if (cfg && cfg.valor > 0) minutos = cfg.valor;
+  } catch (_) {}
+  setInterval(async () => {
+    const ov = document.getElementById('overlayCarregamento');
+    const jaAtivo = ov && ov.classList.contains('ativo');
+    if (!jaAtivo) mostrarLoading('Salvando...');
+    try { await api.post('/api/workspace/salvar-todos'); } catch (_) {}
+    if (!jaAtivo) esconderLoading();
+  }, minutos * 60 * 1000);
+})();
 
 async function _carregarPerfilRemoto() {
-  if (typeof AUTH === 'undefined' || !AUTH.logado()) return;
-  try {
-    const dados = await api.get('/api/admin/meu-perfil');
-    state.isMaster = dados.usuario.papel === 'master';
-  } catch (_) {}
+  // SE-074: chamada remota desativada — perfil sempre master (mono-usuário local)
 }
 
 async function atualizarCamposPorArvore() {
