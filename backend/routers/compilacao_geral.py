@@ -379,7 +379,7 @@ def _bloco_condensador(db, sistema):
         cod_cc = e.get("codigo_comercial") or ""
         # codigo_comercial pode conter wildcards ('*') vindos da nomenclatura não resolvida — usa
         # nomenclatura_condensador_selecionada do rack (valores escolhidos pelo usuário) como fallback.
-        if cod_cc and '*' not in cod_cc:
+        if cod_cc:
             codigo = cod_cc
         else:
             selecoes = {}

@@ -80,9 +80,8 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             cap = ru.get("carga_total_fornecida_kcal_h")
             # N racks idênticos em paralelo — quantidade do BOM = N.
             add("Rack Paralelo",
-                f'Rack Paralelo {_t(ru.get("estrutura_equipamento"))} - {_t(ru.get("modelo_compressor"))} - '
-                f'Temp. Evap. {_t(sistema.temp_evaporacao)} - Capacidade {_t(cap)} - {_t(tensao_eq)}',
-                ru.get("fabricante_compressor"), ru.get("quantidade_paralelo") or 1,
+                f'Rack Paralelo - Flexbox - {_t(ru.get("modelo_comercial"))} - {_t(tensao_eq)}',
+                "Flexbox", ru.get("quantidade_paralelo") or 1,
                 chave=f"Rack Paralelo — Sistema {sistema.nome}")
 
         cd = s["condensador"]
@@ -100,8 +99,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             # A descrição carrega a qtd de condensadores POR RACK ("Nx modelo", escolha do usuário);
             # a quantidade do BOM = nº de racks em paralelo, então o total = qtd_por_rack × N racks.
             add("Condensador Remoto a Ar",
-                f'Condensador Remoto a Ar - {_t(rack.tipo_condensador if rack else None)} - '
-                f'{_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)}',
+                f'Condensador Remoto a Ar - {_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)}',
                 (rack.fabricante_condensador if rack else None), cd.get("quantidade_paralelo") or 1,
                 chave=f"Condensador Remoto — Sistema {sistema.nome}",
                 id_comercial=cond_id_com)

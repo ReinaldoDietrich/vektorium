@@ -158,6 +158,19 @@ async function ativarProjetoNaTela(proj) {
   const jaCachado = _revisoesCachadas.has(proj.id);
   const meuGen = ++_ativarGen;
 
+  if (idMudou && state.projetoId) {
+    const formWrap = document.getElementById('formProjetoWrap');
+    if (formWrap && formWrap.style.display === 'block') {
+      if (confirm('Deseja salvar as alterações do projeto atual antes de trocar?')) {
+        try {
+          if (typeof window.t1_salvarProjeto === 'function') await window.t1_salvarProjeto();
+          await api.post('/api/workspace/salvar-todos');
+        } catch (_) {}
+      }
+    }
+    if (meuGen !== _ativarGen) return;
+  }
+
   if (idMudou && !jaCachado) {
     _carregandoProjetoId = proj.id;
     mostrarLoading('Carregando projeto...');
@@ -179,8 +192,21 @@ async function ativarProjetoNaTela(proj) {
       if (meuGen !== _ativarGen) return;
       const acc = document.getElementById('accDadosCliente');
       if (acc) acc.open = true;
-    } finally { _carregandoProjetoId = null; esconderLoading(); }
+      await _preCarregarTelasProjeto();
+      if (meuGen !== _ativarGen) return;
+    } catch (e) { console.warn('abrirProjeto', e); }
+    finally { _carregandoProjetoId = null; esconderLoading(); }
   }
+
+  if (idMudou) _colapsarOutrosProjetos(proj.id);
+}
+
+function _colapsarOutrosProjetos(projetoIdAtivo) {
+  document.querySelectorAll('.sidebar-projbox').forEach(box => {
+    const contem = box.querySelector(`.sidebar-rev[data-rid="${projetoIdAtivo}"]`) ||
+                   String(box.dataset.pid) === String(projetoIdAtivo);
+    if (!contem) box.classList.remove('open');
+  });
 }
 
 function mkRevisaoBox(proj, isMaisRecente) {

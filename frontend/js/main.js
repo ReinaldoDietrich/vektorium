@@ -59,10 +59,14 @@ function formatarCampoMilhar(id) {
   });
 }
 
-function showTab(n, skipHandler) {
+async function showTab(n, skipHandler) {
   document.querySelectorAll('.screen').forEach(el => el.classList.toggle('active', el.id === 'tela' + n));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tab) === n));
-  if (!skipHandler && window.telaShowHandlers[n]) window.telaShowHandlers[n]();
+  if (!skipHandler && window.telaShowHandlers[n]) {
+    mostrarLoading('Carregando...');
+    try { await window.telaShowHandlers[n](); } catch (_) {}
+    finally { esconderLoading(); }
+  }
   if (window.onShowTab) window.onShowTab(n);
 }
 
@@ -115,6 +119,7 @@ function popularSelectsSistema(selects) {
 }
 
 async function definirProjetoAtivo(projetoId) {
+  aplicarModoProjetoFechado(false);
   state.projetoId = projetoId;
   state.projetoGen++;
   await carregarSistemasDoProjeto();
