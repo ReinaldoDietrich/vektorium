@@ -18,23 +18,18 @@ router = APIRouter(prefix="/api/importacao", tags=["importacao"])
 
 
 @router.get("/template")
-def baixar_template():
+def baixar_template(pasta: str = None):
+    from ..utils import resposta_excel_catalogo
     conteudo = gerar_template()
-    return StreamingResponse(
-        io.BytesIO(conteudo),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=template_catalogo_forcadores.xlsx"},
-    )
+    return resposta_excel_catalogo(conteudo, "template_catalogo_forcadores.xlsx", pasta=pasta)
 
 
 @router.get("/documento")
-def baixar_documento_importacao():
+def baixar_documento_importacao(pasta: str = None):
+    from ..utils import resposta_arquivo_catalogo
     conteudo = gerar_documento_importacao()
-    return StreamingResponse(
-        io.BytesIO(conteudo),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": "attachment; filename=documento_importacao_forcadores.docx"},
-    )
+    return resposta_arquivo_catalogo(conteudo, "documento_importacao_forcadores.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", pasta=pasta)
 
 
 @router.post("/excel-preview")

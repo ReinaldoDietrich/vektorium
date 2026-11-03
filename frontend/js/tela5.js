@@ -249,10 +249,12 @@ function t5_tabelaTotalGeral(r) {
 
 async function t5_carregar() {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   const [r, sf] = await Promise.all([
     api.get(`/api/compilacao?projeto_id=${state.projetoId}&fator_potencia=${t5_fator()}`),
     api.get(`/api/compilacao/status-fechada?projeto_id=${state.projetoId}`).catch(() => ({ abertas: [], total_abertas: 0 })),
   ]);
+  if (gen !== state.projetoGen) return;
   let bannerEl = document.getElementById('t5_bannerAbertas');
   if (!bannerEl) {
     bannerEl = document.createElement('div');

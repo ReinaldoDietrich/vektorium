@@ -45,8 +45,14 @@ function initTela7() {
   document.getElementById('cfg_btnAddEstadoBrasileiro').addEventListener('click', () => t7_tabelaGenerica.estadosBrasileiros.add());
   document.getElementById('cfg_btnAddDadosClimatologicosInmet').addEventListener('click', () => t7_tabelaGenerica.dadosClimatologicosInmet.add());
   document.getElementById('cfg_btnBackupBanco').addEventListener('click', t7_backupBanco);
+  const btnImportar = document.getElementById('cfg_btnImportarBanco');
+  const btnDeploy = document.getElementById('cfg_btnDeploy');
+  const btnBuild = document.getElementById('cfg_btnBuildExe');
+  if (btnImportar) btnImportar.addEventListener('click', t7_importarBanco);
+  if (btnDeploy) btnDeploy.addEventListener('click', t7_deploy);
+  if (btnBuild) btnBuild.addEventListener('click', t7_buildExe);
   document.getElementById('cfg_btnExportarCamposExcel').addEventListener('click', () =>
-    api.baixarOuSalvar('/api/sistema/campos/exportar/excel'));
+    escolherPastaEExportar('/api/sistema/campos/exportar/excel'));
   t7_carregarCamposSistema();
   document.getElementById('cfg_btnAddCentroCusto').addEventListener('click', t7_addCentroCusto);
   t7_carregarCentroCusto();
@@ -940,7 +946,146 @@ async function t7_carregar() {
     try { await api.put(`/api/catalogos/configuracao-global/${id}`, { valor }); alert('Configuração salva.'); }
     catch (err) { alert('Erro ao salvar: ' + err.message); }
   }));
+
+  const masterDiv = document.getElementById('cfg_masterActions');
+  if (masterDiv) {
+    masterDiv.style.display = (typeof state !== 'undefined' && state.isMaster === true) ? 'block' : 'none';
+  }
 }
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SE-107: Funções master-only — Importar banco, Deploy, Build EXE
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function t7_importarBanco() {
+  if (!state.isMaster) { alert('Função exclusiva do administrador.'); return; }
+
+  let caminho = null;
+  if (window.vektorium && typeof window.vektorium.escolherArquivoDB === 'function') {
+    caminho = await window.vektorium.escolherArquivoDB();
+  } else {
+    caminho = prompt('Caminho completo do arquivo .db de backup:');
+  }
+  if (!caminho) return;
+
+  const confirma = confirm(
+    'ATENÇÃO: Isso substituirá o banco de dados ATUAL por este arquivo.\n\n' +
+    'Um backup de segurança do banco atual será feito automaticamente.\n\n' +
+    'Arquivo selecionado:\n' + caminho + '\n\n' +
+    'O aplicativo será reiniciado após a importação.\n\n' +
+    'Deseja continuar?'
+  );
+  if (!confirma) return;
+
+  mostrarLoading('Importando banco de dados...');
+  try {
+    const r = await api.post('/api/sistema/importar-banco', { caminho });
+    if (r.ok === false) throw new Error(r.detail || 'Erro na importação');
+    alert(
+      'Banco importado com sucesso!\n\n' +
+      'Backup de segurança: ' + r.backup_seguranca + '\n\n' +
+      'O aplicativo será reiniciado.'
+    );
+    if (window.vektorium && typeof window.vektorium.sair === 'function') {
+      await window.vektorium.sair();
+    } else {
+      location.reload();
+    }
+  } catch (e) {
+    alert('Erro ao importar banco: ' + (e.message || e));
+  } finally {
+    esconderLoading();
+  }
+}
+
+
+async function t7_deploy() {
+  if (!state.isMaster) { alert('Função exclusiva do administrador.'); return; }
+
+  const confirma = confirm(
+    'DEPLOY — Copiar código de desenvolvimento para Program Files.\n\n' +
+    'Etapas automáticas:\n' +
+    '  1. Backup do banco de dados\n' +
+    '  2. Backup do sistema atual (Program Files)\n' +
+    '  3. Cópia dos arquivos de desenvolvimento para Program Files\n\n' +
+    'Uma janela do UAC (Controle de Conta de Usuário) será exibida.\n' +
+    'Clique em SIM para permitir a cópia.\n\n' +
+    'Deseja continuar?'
+  );
+  if (!confirma) return;
+
+  mostrarLoading('Executando deploy...');
+  try {
+    const r = await fetch('/api/sistema/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(180000)
+    });
+    const dados = await r.json();
+    if (!r.ok) throw new Error(dados.detail || 'Erro no deploy');
+    alert(
+      'Deploy concluído com sucesso!\n\n' +
+      'Etapas:\n' + (dados.etapas || []).map(function(e) { return '  \u2713 ' + e; }).join('\n') +
+      (dados.erros && dados.erros.length ? '\n\nAvisos:\n' + dados.erros.join('\n') : '') +
+      '\n\nReinicie o aplicativo para usar a versão atualizada.'
+    );
+  } catch (e) {
+    if (e.name === 'TimeoutError') {
+      alert('Deploy expirou (tempo limite de 3 minutos).\nVerifique se o UAC foi aceito.');
+    } else {
+      alert('Erro no deploy: ' + (e.message || e));
+    }
+  } finally {
+    esconderLoading();
+  }
+}
+
+
+async function t7_buildExe() {
+  if (!state.isMaster) { alert('Função exclusiva do administrador.'); return; }
+
+  const confirma = confirm(
+    'BUILD EXE — Gerar instalador do Vektorium.\n\n' +
+    'Etapas automáticas:\n' +
+    '  1. Backup do banco de dados\n' +
+    '  2. Backup do sistema atual (Program Files)\n' +
+    '  3. Deploy (cópia dev → Program Files)\n' +
+    '  4. Geração do instalador .exe (electron-builder)\n\n' +
+    'ATENÇÃO:\n' +
+    '  - Uma janela do UAC será exibida (etapa 3)\n' +
+    '  - O processo de build pode levar vários minutos\n' +
+    '  - NÃO feche o aplicativo durante o build\n\n' +
+    'Deseja continuar?'
+  );
+  if (!confirma) return;
+
+  mostrarLoading('Gerando instalador... isso pode levar alguns minutos.');
+  try {
+    const r = await fetch('/api/sistema/build-exe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(660000)
+    });
+    const dados = await r.json();
+    if (!r.ok) throw new Error(dados.detail || 'Erro no build');
+    alert(
+      'Build EXE concluído com sucesso!\n\n' +
+      'Etapas:\n' + (dados.etapas || []).map(function(e) { return '  \u2713 ' + e; }).join('\n') +
+      (dados.erros && dados.erros.length ? '\n\nAvisos:\n' + dados.erros.join('\n') : '') +
+      '\n\nO instalador está em:\nB:\\Documentos Programas\\App Carga Térmica\\Instalação EXE'
+    );
+  } catch (e) {
+    if (e.name === 'TimeoutError') {
+      alert('Build expirou (tempo limite de 11 minutos).\nVerifique o terminal para mais detalhes.');
+    } else {
+      alert('Erro no build: ' + (e.message || e));
+    }
+  } finally {
+    esconderLoading();
+  }
+}
+
 
 window.initTela7 = initTela7;
 document.addEventListener('DOMContentLoaded', initTela7);

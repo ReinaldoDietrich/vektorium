@@ -46,7 +46,9 @@ async function _preCarregarTelasProjeto() {
     [18, 'Estudo luminotécnico'], [19, 'Proposta comercial']
   ];
   const msg = document.getElementById('overlayCarregamentoMsg');
+  const preGen = state.projetoGen;
   for (const [t, nome] of telas) {
+    if (preGen !== state.projetoGen) return;
     if (msg) msg.textContent = 'Carregando ' + nome + '...';
     if (window.telaShowHandlers[t]) {
       try { await window.telaShowHandlers[t](); } catch (_) {}
@@ -160,7 +162,7 @@ async function ativarProjetoNaTela(proj) {
     _carregandoProjetoId = proj.id;
     mostrarLoading('Carregando projeto...');
     try {
-      await window.t1_abrirProjeto(proj.id, window.__projetosCache || [proj], true);
+      await window.t1_abrirProjeto(proj.id, window.__projetosCache || [proj]);
       if (meuGen !== _ativarGen) return;
       const acc = document.getElementById('accDadosCliente');
       if (acc) acc.open = true;
@@ -439,10 +441,10 @@ function initSidebar() {
       if (r.ok || r.ja_aberto) {
         await loadProjetosArvore();
         if (r.projeto_ids && r.projeto_ids.length) {
-          await definirProjetoAtivo(r.projeto_ids[0], true);
-          clickTab('1');
-          await _preCarregarTelasProjeto();
-          _revisoesCachadas.add(r.projeto_ids[0]);
+          const pid = r.projeto_ids[0];
+          const proj = (window.__projetosCache || []).find(p => p.id === pid) || { id: pid };
+          await ativarProjetoNaTela(proj);
+          clickTab('1', true);
         }
       }
     } catch (e) {

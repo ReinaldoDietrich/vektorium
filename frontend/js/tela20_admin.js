@@ -13,7 +13,8 @@
     'compilacao_geral', 'consumo_eletrico', 'resumo_materiais',
     'luminotecnico', 'comparativo_revisoes', 'proposta_comercial',
     'catalogo_forcadores', 'catalogo_uc', 'catalogo_condensadores',
-    'catalogo_comercial', 'configuracoes'
+    'catalogo_comercial', 'configuracoes',
+    'memorial_descritivo', 'administracao'
   ];
 
   window.telaShowHandlers[20] = async function () {
@@ -418,23 +419,4 @@
     if (tipo) tipo.addEventListener('change', () => { _logsOffset = 0; _renderLogs(); });
   });
 
-  // --- VISIBILIDADE da aba Admin no sidebar ---
-  function _atualizarVisibilidadeAdmin() {
-    const el = document.querySelector('.sidebar-cat[data-tab="20"]');
-    if (el) el.style.display = state.isMaster ? '' : 'none';
-    const btn = document.querySelector('.tab-btn[data-tab="20"]');
-    if (btn) btn.style.display = state.isMaster ? '' : 'none';
-  }
-
-  const _origCarregarPerfil = window._carregarPerfilRemoto;
-  if (_origCarregarPerfil) {
-    window._carregarPerfilRemoto = async function () {
-      await _origCarregarPerfil();
-      _atualizarVisibilidadeAdmin();
-    };
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(_atualizarVisibilidadeAdmin, 2000);
-  });
 })();

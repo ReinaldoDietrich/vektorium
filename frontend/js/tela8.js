@@ -39,8 +39,8 @@ const T8_CAMPOS_ELETRICA_EDIT = [
 const T8_NUM_ELETRICA = ['fases', 'mcc_a', 'rla_a', 'lra_a', 'vent_fases', 'vent_corrente_a'];
 
 function initTela8() {
-  document.getElementById('ucBtnTemplate').addEventListener('click', () => { api.downloadRemoto('/api/uc/template'); });
-  document.getElementById('ucBtnDocumento').addEventListener('click', () => { api.downloadRemoto('/api/uc/documento'); });
+  document.getElementById('ucBtnTemplate').addEventListener('click', () => { escolherPastaEExportar('/api/uc/template'); });
+  document.getElementById('ucBtnDocumento').addEventListener('click', () => { escolherPastaEExportar('/api/uc/documento'); });
   document.getElementById('ucArquivo').addEventListener('change', t8_preview);
   document.getElementById('ucPrevTabMec').addEventListener('click', () => t8_previewTab('mec'));
   document.getElementById('ucPrevTabEle').addEventListener('click', () => t8_previewTab('ele'));
@@ -49,7 +49,7 @@ function initTela8() {
   document.getElementById('ucBtnFechar').addEventListener('click', t8_fechar);
   document.getElementById('ucBtnSalvar').addEventListener('click', t8_salvar);
   document.getElementById('ucBtnExcluir').addEventListener('click', t8_excluir);
-  document.getElementById('ucBtnExportar').addEventListener('click', () => { api.downloadRemoto('/api/uc/exportar-bd'); });
+  document.getElementById('ucBtnExportar').addEventListener('click', () => { escolherPastaEExportar('/api/uc/exportar-bd'); });
   document.getElementById('ucDetTabMec').addEventListener('click', () => t8_detTab('mec'));
   document.getElementById('ucDetTabEle').addEventListener('click', () => t8_detTab('ele'));
   window.telaShowHandlers[8] = t8_carregarCatalogo;
@@ -310,10 +310,16 @@ async function t8_carregarCatalogo() {
     try {
       await api.del(`/api/uc/catalogos-detalhe/${id}`);
       try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
+      t8_catalogosAbertos.delete(id);
       t8_fechar(); t8_carregarCatalogo();
     }
     catch (err) { alert('Erro ao excluir: ' + err.message); }
   }));
+
+  for (const id of t8_catalogosAbertos) {
+    const conteudo = el.querySelector(`[data-cat-conteudo="${id}"]`);
+    if (conteudo) await t8_renderCatalogoConteudo(conteudo, id);
+  }
 }
 
 const t8_editoresNomenclatura = {};
@@ -329,6 +335,9 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
   const us = await api.get('/api/uc/unidades');
   const lista = us.filter(u => u.catalogo_id === catalogoId);
   container.innerHTML = `
+    <div style="padding:6px 10px 0;text-align:right;">
+      <span class="sub" data-fechar-cat="${catalogoId}" style="cursor:pointer;">— Fechar ✕</span>
+    </div>
     <div style="padding:10px;background:#f9fafb;border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
       <div class="grid g3">
         <div><label class="lbl">Nome do Catálogo</label><input type="text" id="catNome_${catalogoId}" value="${c.nome ?? ''}"></div>
@@ -364,6 +373,7 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
     const btn = document.getElementById(`catBtnSalvar_${catalogoId}`);
     if (btn.disabled) return;
     btn.disabled = true;
+    mostrarLoading('Salvando catálogo...');
     try {
       const tarefas = [
         { nome: 'Cabeçalho', fn: () => api.put(`/api/uc/catalogos-detalhe/${catalogoId}`, {
@@ -381,15 +391,12 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
       }
       nomenc_invalidarCache();
       await t8_carregarCatalogo();
-      if (t8_catalogosAbertos.has(catalogoId)) {
-        const conteudo = document.querySelector(`[data-cat-conteudo="${catalogoId}"]`);
-        if (conteudo) await t8_renderCatalogoConteudo(conteudo, catalogoId);
-      }
       try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       if (erros.length) {
         alert('Algumas partes NÃO foram salvas:\n' + erros.join('\n') + '\n\nAs demais partes foram salvas normalmente.');
       }
     } finally {
+      esconderLoading();
       const b = document.getElementById(`catBtnSalvar_${catalogoId}`);
       if (b) b.disabled = false;
     }
@@ -405,6 +412,12 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
   });
   await t8_obterEditorNomenclatura(catalogoId).carregar(`/api/uc/catalogos-detalhe/${catalogoId}/campos`);
 
+  container.querySelectorAll('[data-fechar-cat]').forEach(btn => btn.addEventListener('click', () => {
+    const id = Number(btn.dataset.fecharCat);
+    t8_catalogosAbertos.delete(id);
+    const corpo = document.querySelector(`[data-cat-corpo="${id}"]`);
+    if (corpo) corpo.style.display = 'none';
+  }));
   container.querySelectorAll('[data-uc]').forEach(tr => tr.addEventListener('click', (e) => {
     if (e.target.dataset.excluirUc) return;
     t8_abrir(Number(tr.dataset.uc));
@@ -417,7 +430,6 @@ async function t8_renderCatalogoConteudo(container, catalogoId) {
       try { localStorage.setItem('catalogosDirty', 'true'); } catch (_) {}
       if (t8_unidadeAtual === Number(b.dataset.excluirUc)) t8_fechar();
       await t8_renderCatalogoConteudo(container, catalogoId);
-      t8_carregarCatalogo();
     } catch (err) { alert('Erro ao excluir unidade: ' + err.message); }
   }));
 

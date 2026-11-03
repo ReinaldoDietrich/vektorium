@@ -92,11 +92,13 @@ async function t3_carregarCatalogos() {
 }
 
 async function t3_onProjetoChanged() {
+  const gen = state.projetoGen;
   const semProjeto = !state.projetoId;
   document.getElementById('t3_aviso_sem_projeto').style.display = semProjeto ? 'block' : 'none';
   document.getElementById('t3_conteudo').style.display = semProjeto ? 'none' : 'block';
   if (semProjeto) return;
   const cat = await t3_carregarCatalogos();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c3_sistema_id')]);
   populateSelect(document.getElementById('c3_tabela02_id'), cat.tabela02, 'id', 'tipo', '—');
   populateSelect(document.getElementById('c3_tipo_ambiente_lumino_id'), cat.ambientesLumino, 'id', 'nome', '—');
@@ -336,7 +338,9 @@ async function t3_upd_valvula(id, payload) {
 async function t3_carregarLista() {
   const el = document.getElementById('c3_lista');
   if (!state.projetoId) { el.innerHTML = ''; return; }
+  const gen = state.projetoGen;
   const todas = await api.get(`/api/camaras-simples?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   if (todas.length === 0) { el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhuma câmara cadastrada ainda.</div>'; return; }
   el.innerHTML = todas.map(c => {
     const badge = c.fechada
@@ -355,7 +359,9 @@ async function t3_carregarLista() {
 window.initTela3 = initTela3;
 window.telaShowHandlers[3] = async () => {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   await carregarSistemasDoProjeto();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c3_sistema_id')]);
   t3_carregarLista();
 };

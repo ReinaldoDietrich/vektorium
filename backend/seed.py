@@ -9,9 +9,13 @@
 Idempotente: não duplica se já houver dados.
 """
 import json
+import logging
 import os
-from .database import SessionLocal, engine, Base
+from pathlib import Path
+from .database import SessionLocal, engine, Base, DB_PATH, BASE_DIR
 from . import models as m
+
+_log = logging.getLogger(__name__)
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -172,7 +176,6 @@ def run():
                 ("Seladora Automática (Termoencolhível)", 5000, 0.85, 0.60),
                 ("Lavadora de Caixas/Louças", 4500, 0.60, 0.40),
                 ("Compactador de Papelão/Plástico", 5600, 1.00, 0.15),
-                ("Inversor de Frequência (consumo típico 3kW considerado)", 3000, 0.04, 0.90),
                 ("Esteira Transportadora/Sorger", 3500, 1.00, 0.75),
                 ("Carregador de Bateria (Empilhadeiras)", 8000, 0.15, 0.65),
                 ("Terminal de Computador/Coletor (Fixo)", 200, 1.00, 1.00),
@@ -193,6 +196,28 @@ def run():
             for nome, pot, fu, fs in equipamentos:
                 db.add(m.TipoEquipamento(nome=nome, potencia_tipica_w=pot,
                                           fator_calor_rejeitado=fu, fator_simultaneidade=fs))
+
+        # Inversores, soft-starters e equipamento genérico por potência (SE-092).
+        _CV_W = 735.5
+        _potencias_cv = [0.5, 1, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 25, 30, 40, 50, 60, 75,
+                         100, 125, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800,
+                         1000, 1250, 1500, 2000]
+        _nomes_existentes = {t.nome for t in db.query(m.TipoEquipamento).all()}
+        for cv in _potencias_cv:
+            kw = cv * 0.7355
+            kw_s = f"{kw:g}" if kw == int(kw) else (f"{kw:.1f}" if kw >= 10 else f"{kw:.2f}").rstrip('0').rstrip('.')
+            cv_s = f"{cv:g}"
+            pot_w = cv * _CV_W
+            for prefixo in ("Inversor de Frequência", "Soft-Starter"):
+                nome = f"{prefixo} {cv_s}CV ({kw_s}kW)"
+                if nome not in _nomes_existentes:
+                    db.add(m.TipoEquipamento(nome=nome, potencia_tipica_w=pot_w,
+                                              fator_calor_rejeitado=1.00, fator_simultaneidade=1.00))
+                    _nomes_existentes.add(nome)
+        nome_gen = "Equipamento Genérico 1kW (860 kcal/h)"
+        if nome_gen not in _nomes_existentes:
+            db.add(m.TipoEquipamento(nome=nome_gen, potencia_tipica_w=1000,
+                                      fator_calor_rejeitado=1.00, fator_simultaneidade=1.00))
 
         # Condição Climática (INMET, Normal Climatológica 1991-2020) é populada por script próprio
         # (backend/scripts/importar_climatologia.py), não por seed — são ~190 estações reais.
@@ -266,6 +291,12 @@ def run():
                                                     "Modo Operação), aplicada quando o Sistema opera no piso de 20% de carga — "
                                                     "decresce linearmente até 0% em 100% de carga. Faixa típica de literatura "
                                                     "(VFD vs. liga-desliga, ganho de IEER): 30%-50% — ver calculo_consumo.py"))
+            db.add(m.ConfiguracaoGlobal(chave="intervalo_auto_salvamento_min", valor=5,
+                                         descricao="Intervalo de auto-salvamento automático em minutos (default 5)"))
+            db.add(m.ConfiguracaoGlobal(chave="intervalo_verificacao_sessao_min", valor=60,
+                                         descricao="Intervalo de verificação de sessão ativa em minutos (default 60). "
+                                                    "Verifica se o token JWT ainda é válido no Supabase — se revogado "
+                                                    "(outro dispositivo forçou login), salva e exibe tela de login."))
 
         db.commit()
 
@@ -298,6 +329,117 @@ def run():
         db.commit()
     finally:
         db.close()
+
+
+_TABELAS_MASTER = [
+    "cat_produtos", "cat_tipos_embalagem", "cat_isolamento_parede_teto",
+    "cat_isolamento_piso", "cat_tipos_equipamento", "cat_condicoes_climaticas",
+    "estado_brasileiro", "dados_climatologicos_inmet",
+    "cat_tabela_tipo02", "cat_faixa_area_tabela02",
+    "cat_fator_altura", "cat_fator_insolacao",
+    "configuracao_global", "cat_faixas_trocas_ar", "cat_classes_produto",
+    "cat_setores_expositor", "cat_bancos_expositor", "cat_modelos_expositor",
+    "cat_fabricantes",
+    "forcador_linhas", "forcador_modelos", "forcador_capacidades",
+    "forcador_eletricos", "forcador_fisicos", "forcador_dimensionais",
+    "forcador_importacoes", "forcador_fatores_gas",
+    "condensador_linhas", "condensador_modelos", "condensador_fatores",
+    "condensador_importacoes",
+    "cat_modelos_valvula", "tabela_valvula_expansao",
+    "tabela_controlador_valvula", "tabela_compatibilidade_valvula",
+    "uc_catalogos", "uc_unidades", "uc_eletricas", "uc_capacidades",
+    "campo_catalogo", "campo_catalogo_opcao",
+    "paineis_portas_lookup",
+    "catalogo_comercial", "id_comercial", "campo_sistema",
+    "polinomio_compressor", "valor_nominal_compressor", "faixa_operacao_compressor",
+    "classificacao_sistema_compressor", "lubrificante_compressor",
+    "dados_fisicos_compressor_bitzer",
+    "tabela_disjuntor_termomagnetico", "tabela_disjuntor_ddr",
+    "lookup_ambiente_luminotecnico", "lookup_lampada",
+    "catalogo_versoes",
+    "fator_venda", "item_composicao_mestre", "centro_custo",
+]
+
+
+def atualizar_catalogos_master():
+    """Atualiza as tabelas de catálogo/configuração a partir do banco master empacotado no EXE.
+    Usa PRAGMA user_version para só executar quando o master for mais novo que o banco do
+    usuário. FK está OFF (database.py), então a ordem de DELETE/INSERT não causa violação."""
+    appdata = os.environ.get("VEKTORIUM_APPDATA")
+    if not appdata:
+        return
+    master_db = Path(appdata) / "database" / "master.db"
+    if not master_db.exists():
+        _log.info("[SEED] master.db não encontrado em %s, pulando", master_db)
+        return
+    if "sqlite" not in str(engine.url):
+        return
+
+    import sqlite3
+
+    master_conn = sqlite3.connect(str(master_db))
+    try:
+        master_version = master_conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        master_conn.close()
+
+    if master_version == 0:
+        _log.info("[SEED] master.db sem user_version definido, pulando atualização")
+        return
+
+    user_conn = sqlite3.connect(str(DB_PATH))
+    try:
+        user_version = user_conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        user_conn.close()
+
+    if user_version >= master_version:
+        _log.debug("[SEED] Catálogos já atualizados (user=%d, master=%d)", user_version, master_version)
+        return
+
+    _log.info("[SEED] Atualizando catálogos: versão %d → %d", user_version, master_version)
+
+    master_conn = sqlite3.connect(str(master_db))
+    try:
+        master_tables = {r[0] for r in master_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        user_conn = sqlite3.connect(str(DB_PATH))
+        try:
+            atualizadas = 0
+            falhas = []
+            for tabela in _TABELAS_MASTER:
+                if tabela not in master_tables:
+                    continue
+                try:
+                    info = master_conn.execute(f'PRAGMA table_info("{tabela}")').fetchall()
+                    colunas = [col[1] for col in info]
+                    nomes = ", ".join(f'"{c}"' for c in colunas)
+                    placeholders = ", ".join(["?"] * len(colunas))
+                    rows = master_conn.execute(f'SELECT {nomes} FROM "{tabela}"').fetchall()
+                    user_conn.execute(f'DELETE FROM "{tabela}"')
+                    if rows:
+                        user_conn.executemany(
+                            f'INSERT INTO "{tabela}" ({nomes}) VALUES ({placeholders})', rows
+                        )
+                    atualizadas += 1
+                except Exception as e:
+                    _log.error("[SEED] Falha ao atualizar tabela '%s': %s", tabela, e)
+                    falhas.append(tabela)
+            user_conn.execute(f"PRAGMA user_version = {master_version}")
+            user_conn.commit()
+            _log.info(
+                "[SEED] %d tabelas atualizadas (v%d), %d falhas%s",
+                atualizadas, master_version, len(falhas),
+                f": {', '.join(falhas)}" if falhas else ""
+            )
+        except Exception as e:
+            _log.error("[SEED] Erro fatal ao atualizar catálogos: %s", e)
+            user_conn.rollback()
+        finally:
+            user_conn.close()
+    finally:
+        master_conn.close()
 
 
 if __name__ == "__main__":

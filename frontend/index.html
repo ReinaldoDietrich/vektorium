@@ -280,7 +280,7 @@
             <div><label class="lbl">Tipo de Condensador <span class="readonly-tag">editável na Tela 6</span></label>
               <input type="text" id="sSelecaoCondensadorAr_display" disabled></div>
             <div><label class="lbl">Delta de Condensação (°C) <span class="readonly-tag">editável na Tela 6</span></label><input type="text" id="sDeltaCondensacao" disabled></div>
-            <div><label class="lbl">Modelo Controlador Equipamentos</label>
+            <div id="sCampoModeloControladorEquipWrap" style="display:none;"><label class="lbl">Modelo Controlador Equipamentos</label>
               <select id="sModeloControladorEquipamentos" data-id-campo="T143"><option value="">—</option></select></div>
           </div>
 
@@ -814,10 +814,27 @@
   <div class="screen" id="tela7">
     <div class="titlebar"><span>TELA E — CONFIGURAÇÕES DE SISTEMA E BANCO DE DADOS</span><small></small></div>
     <div class="body-pad">
-      <details class="cfg-accordion" open>
+      <details class="cfg-accordion" open id="cfg_secaoBackup">
         <summary class="sec-title">Backup do Banco de Dados</summary>
         <p class="sub">Gera uma cópia do banco de dados inteiro (todos os projetos) no momento atual. Você escolhe onde salvar o arquivo.</p>
-        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnBackupBanco">Fazer Backup do Banco de Dados</span></p>
+        <p style="margin-top:8px;">
+          <span class="btn-text" id="cfg_btnBackupBanco">Fazer Backup do Banco de Dados</span>
+        </p>
+        <div id="cfg_masterActions" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid #e5e7eb;">
+          <p class="sub" style="margin-bottom:8px;">Funções exclusivas do administrador:</p>
+          <p style="margin-top:6px;">
+            <span class="btn-text" id="cfg_btnImportarBanco">Importar Banco de Dados</span>
+            <span style="color:#6b7280; font-size:11.5px; margin-left:8px;">Substitui o banco atual por um arquivo de backup</span>
+          </p>
+          <p style="margin-top:6px;">
+            <span class="btn-text" id="cfg_btnDeploy">Deploy para Instalação</span>
+            <span style="color:#6b7280; font-size:11.5px; margin-left:8px;">Copia código de desenvolvimento para Program Files</span>
+          </p>
+          <p style="margin-top:6px;">
+            <span class="btn-text" id="cfg_btnBuildExe">Build EXE (Instalador)</span>
+            <span style="color:#6b7280; font-size:11.5px; margin-left:8px;">Deploy + gera o instalador .exe</span>
+          </p>
+        </div>
       </details>
 
       <details class="cfg-accordion">

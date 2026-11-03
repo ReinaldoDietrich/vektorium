@@ -244,13 +244,14 @@ def calcular_portas(db, projeto: m.Projeto) -> list:
     saida = []
     for p in portas:
         prefixo = prefixo_por_modelo.get(p.modelo) or "P"
-        chave_padrao = (p.modelo, p.sentido, p.vao_largura_mm, p.vao_altura_mm)
+        chave_padrao = (p.funcao, p.modelo, p.sentido, p.vao_largura_mm, p.vao_altura_mm)
         if chave_padrao not in padrao_num:
             contador_padrao[prefixo] = contador_padrao.get(prefixo, 0) + 1
             padrao_num[chave_padrao] = contador_padrao[prefixo]
             seq_padrao[chave_padrao] = 0
-        seq_padrao[chave_padrao] += 1
-        id_porta = f"{prefixo}-{padrao_num[chave_padrao]:02d}-{seq_padrao[chave_padrao]:02d}"
+        start = seq_padrao[chave_padrao] + 1
+        seq_padrao[chave_padrao] += (p.quantidade or 1)
+        id_porta = f"{prefixo}-{padrao_num[chave_padrao]:02d}-{start:02d}"
 
         id_planta, camara_nome, chave_grupo = _grupo_de(p)
         saida.append({
@@ -631,13 +632,14 @@ def calcular_portas_de_dados(db, dados):
     for p in portas:
         modelo = p.get("modelo")
         prefixo = prefixo_por_modelo.get(modelo) or "P"
-        chave_padrao = (modelo, p.get("sentido"), p.get("vao_largura_mm"), p.get("vao_altura_mm"))
+        chave_padrao = (p.get("funcao"), modelo, p.get("sentido"), p.get("vao_largura_mm"), p.get("vao_altura_mm"))
         if chave_padrao not in padrao_num:
             contador_padrao[prefixo] = contador_padrao.get(prefixo, 0) + 1
             padrao_num[chave_padrao] = contador_padrao[prefixo]
             seq_padrao[chave_padrao] = 0
-        seq_padrao[chave_padrao] += 1
-        id_porta = f"{prefixo}-{padrao_num[chave_padrao]:02d}-{seq_padrao[chave_padrao]:02d}"
+        start = seq_padrao[chave_padrao] + 1
+        seq_padrao[chave_padrao] += (p.get("quantidade") or 1)
+        id_porta = f"{prefixo}-{padrao_num[chave_padrao]:02d}-{start:02d}"
 
         id_planta, camara_nome, chave_grupo = _grupo_de_dados(p)
         row_base = {k: v for k, v in p.items() if k != "_camara_info"}

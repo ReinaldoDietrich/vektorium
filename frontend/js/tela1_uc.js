@@ -7,18 +7,16 @@
 // Faixa de Operação > Folga. Trocar um campo invalida (limpa) os campos seguintes na cadeia.
 
 let t1uc_addFiltros = {};   // filtros do add-row, por sistema_id — não persiste no servidor até o "+"
+let _t1uc_renderGen = 0;    // guarda contra renders concorrentes — só o mais recente escreve no DOM
 
 const T1UC_CASCATA = [
   ['fab', 'fabricante_uc'], ['linha', 'catalogo_id'], ['tipo', 'tipo_compressor'],
   ['fabcomp', 'fabricante_compressor'], ['numcomp', 'numero_compressores'], ['faixa', 'faixa_operacao'],
 ];
 
-// Campos a limpar quando um campo anterior da cadeia muda.
-// catalogo_id também reseta fabricante_uc porque alguns catálogos (ex: ES+) não pertencem ao
-// fabricante previamente selecionado — manter o fab causava resultado vazio na seleção.
 const T1UC_CASCATA_LIMPAR = {
   fabricante_uc: ['catalogo_id', 'tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
-  catalogo_id: ['fabricante_uc', 'tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
+  catalogo_id: ['tipo_compressor', 'fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
   tipo_compressor: ['fabricante_compressor', 'numero_compressores', 'faixa_operacao'],
   fabricante_compressor: ['numero_compressores', 'faixa_operacao'],
   numero_compressores: ['faixa_operacao'],
@@ -78,14 +76,17 @@ async function t1uc_render() {
   const el = document.getElementById('ucSelecaoSistemas');
   if (!el) return;
   if (!state.projetoId) { el.innerHTML = ''; return; }
+  const meuGen = ++_t1uc_renderGen;
   try {
   const totais = await api.get(`/api/uc/sistemas/${state.projetoId}/totais`);
+  if (meuGen !== _t1uc_renderGen) return;
   if (!totais.length) { el.innerHTML = '<div class="small" style="padding:10px;color:#9ca3af;">Cadastre sistemas acima primeiro.</div>'; return; }
 
   let html = '';
   const mapaSelecoes = {};   // id da selecao -> objeto (pra ler campos_selecionados atual antes de gravar)
   for (const s of totais) {
     const sel = await api.get(`/api/uc/sistemas/${s.sistema_id}/selecao`);
+    if (meuGen !== _t1uc_renderGen) return;
     sel.selecoes.forEach(o => { mapaSelecoes[o.id] = o; });
     html += `<div style="border:1px solid var(--line);border-radius:6px;margin-bottom:12px;">
       <div style="background:#111827;color:#fff;padding:6px 10px;font-size:12px;font-weight:bold;">
@@ -99,6 +100,7 @@ async function t1uc_render() {
     } else {
       for (const o of sel.selecoes) {
         const opcoesLinha = await t1uc_fetchOpcoes(o);
+        if (meuGen !== _t1uc_renderGen) return;
         let badge = '';
         if (o.fechada) {
           badge = o.calculo_desatualizado
@@ -176,6 +178,7 @@ async function t1uc_render() {
     // add-row — oculta por padrão (tela enxuta); botão "+" revela os campos
     if (!t1uc_addFiltros[s.sistema_id]) t1uc_addFiltros[s.sistema_id] = {};
     const opcoesAdd = await t1uc_fetchOpcoes(t1uc_addFiltros[s.sistema_id]);
+    if (meuGen !== _t1uc_renderGen) return;
     html += `<p style="margin:6px 0 0;"><button class="btn-wide" data-uc-revelar="${s.sistema_id}" type="button">+ Adicionar opção de UC</button></p>
       <div data-uc-addwrap="${s.sistema_id}" style="display:none;">
       <div class="uc-cascata-fields" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:6px;" data-uc-addfields="${s.sistema_id}">
@@ -192,36 +195,53 @@ async function t1uc_render() {
   // ---- linhas já existentes: cada campo da cadeia dispara PUT (limpando os campos seguintes) ----
   for (const [attr, campo] of T1UC_CASCATA) {
     el.querySelectorAll(`[data-sel-${attr}]`).forEach(sel2 => sel2.addEventListener('change', async () => {
-      const id = sel2.dataset[`sel${t1uc_attrParaDataset(attr)}`];
-      const payload = { [campo]: sel2.value || null };
-      for (const limpar of (T1UC_CASCATA_LIMPAR[campo] || [])) payload[limpar] = null;
-      await api.put(`/api/uc/selecao/${id}`, payload);
-      t1uc_render();
+      mostrarLoading('Atualizando seleção UC...');
+      try {
+        const id = sel2.dataset[`sel${t1uc_attrParaDataset(attr)}`];
+        const payload = { [campo]: sel2.value || null };
+        for (const limpar of (T1UC_CASCATA_LIMPAR[campo] || [])) payload[limpar] = null;
+        await api.put(`/api/uc/selecao/${id}`, payload);
+        await t1uc_render();
+      } catch (err) { console.error('Erro ao alterar filtro UC:', err); alert('Erro ao alterar filtro: ' + err.message); }
+      finally { esconderLoading(); }
     }));
   }
   el.querySelectorAll('[data-sel-folga]').forEach(inp => inp.addEventListener('change', async () => {
-    await api.put(`/api/uc/selecao/${inp.dataset.selFolga}`, { folga_desejada: parseNumBR(inp.value) });
-    t1uc_render();
+    mostrarLoading('Atualizando folga UC...');
+    try {
+      await api.put(`/api/uc/selecao/${inp.dataset.selFolga}`, { folga_desejada: parseNumBR(inp.value) });
+      await t1uc_render();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-sel-qtdpar]').forEach(inp => inp.addEventListener('change', async () => {
-    // Nº de UCs idênticas em paralelo — a seleção passa a dividir a demanda do sistema por N.
-    await api.put(`/api/uc/selecao/${inp.dataset.selQtdpar}`, { quantidade_paralelo: Math.max(parseInt(inp.value, 10) || 1, 1) });
-    t1uc_render();
+    mostrarLoading('Atualizando quantidade UC...');
+    try {
+      await api.put(`/api/uc/selecao/${inp.dataset.selQtdpar}`, { quantidade_paralelo: Math.max(parseInt(inp.value, 10) || 1, 1) });
+      await t1uc_render();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-uc-consid]').forEach(inp => inp.addEventListener('change', async () => {
-    await api.put(`/api/uc/selecao/${inp.dataset.ucConsid}`, { considerado: true });
-    t1uc_render();
+    mostrarLoading('Atualizando seleção UC...');
+    try {
+      await api.put(`/api/uc/selecao/${inp.dataset.ucConsid}`, { considerado: true });
+      await t1uc_render();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-uc-excluir]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir esta seleção de UC?')) return;
+    mostrarLoading('Excluindo seleção UC...');
     try {
       await api.del(`/api/uc/selecao/${b.dataset.ucExcluir}`);
-      t1uc_render();
+      await t1uc_render();
     } catch (err) { alert('Erro ao excluir seleção: ' + err.message); }
+    finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-uc-editar]').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/api/uc/selecao/${b.dataset.ucEditar}/editar`, {});
-    t1uc_render();
+    mostrarLoading('Reabrindo seleção UC...');
+    try {
+      await api.post(`/api/uc/selecao/${b.dataset.ucEditar}/editar`, {});
+      await t1uc_render();
+    } finally { esconderLoading(); }
   }));
   el.querySelectorAll('[data-uc-flut]').forEach(sel2 => sel2.addEventListener('change', async () => {
     const selId = sel2.dataset.ucFlut;
@@ -262,31 +282,37 @@ function t1uc_wireAddFields(el, sid) {
     const sel2 = el.querySelector(`[data-add-${attr}="${sid}"]`);
     if (!sel2) continue;
     sel2.addEventListener('change', async () => {
-      t1uc_addFiltros[sid] = t1uc_addFiltros[sid] || {};
-      t1uc_addFiltros[sid][campo] = sel2.value || null;
-      for (const limpar of (T1UC_CASCATA_LIMPAR[campo] || [])) t1uc_addFiltros[sid][limpar] = null;
-      const folgaAtual = el.querySelector(`[data-add-folga="${sid}"]`)?.value ?? '10';
-      const opcoes = await t1uc_fetchOpcoes(t1uc_addFiltros[sid]);
-      const container = el.querySelector(`[data-uc-addfields="${sid}"]`);
-      container.innerHTML = t1uc_camposCascata('add', sid, t1uc_addFiltros[sid], opcoes) +
-        `<div><label class="lbl">Folga %</label><input type="text" value="${folgaAtual}" data-add-folga="${sid}"></div>
-        <div><label class="lbl">&nbsp;</label><button class="btn" data-uc-add="${sid}">+</button></div>`;
-      t1uc_wireAddFields(el, sid);
-      el.querySelector(`[data-uc-add="${sid}"]`).addEventListener('click', () => t1uc_confirmarAdd(el, sid));
+      mostrarLoading('Filtrando opções UC...');
+      try {
+        t1uc_addFiltros[sid] = t1uc_addFiltros[sid] || {};
+        t1uc_addFiltros[sid][campo] = sel2.value || null;
+        for (const limpar of (T1UC_CASCATA_LIMPAR[campo] || [])) t1uc_addFiltros[sid][limpar] = null;
+        const folgaAtual = el.querySelector(`[data-add-folga="${sid}"]`)?.value ?? '10';
+        const opcoes = await t1uc_fetchOpcoes(t1uc_addFiltros[sid]);
+        const container = el.querySelector(`[data-uc-addfields="${sid}"]`);
+        container.innerHTML = t1uc_camposCascata('add', sid, t1uc_addFiltros[sid], opcoes) +
+          `<div><label class="lbl">Folga %</label><input type="text" value="${folgaAtual}" data-add-folga="${sid}"></div>
+          <div><label class="lbl">&nbsp;</label><button class="btn" data-uc-add="${sid}">+</button></div>`;
+        t1uc_wireAddFields(el, sid);
+        el.querySelector(`[data-uc-add="${sid}"]`).addEventListener('click', () => t1uc_confirmarAdd(el, sid));
+      } finally { esconderLoading(); }
     });
   }
 }
 
 async function t1uc_confirmarAdd(el, sid) {
-  const filtros = t1uc_addFiltros[sid] || {};
-  await api.post(`/api/uc/sistemas/${sid}/selecao`, {
-    fabricante_uc: filtros.fabricante_uc || null, catalogo_id: filtros.catalogo_id || null,
-    tipo_compressor: filtros.tipo_compressor || null, fabricante_compressor: filtros.fabricante_compressor || null,
-    numero_compressores: filtros.numero_compressores || null, faixa_operacao: filtros.faixa_operacao || null,
-    folga_desejada: parseNumBR(el.querySelector(`[data-add-folga="${sid}"]`).value) || 10,
-  });
-  t1uc_addFiltros[sid] = {};
-  t1uc_render();
+  mostrarLoading('Adicionando opção UC...');
+  try {
+    const filtros = t1uc_addFiltros[sid] || {};
+    await api.post(`/api/uc/sistemas/${sid}/selecao`, {
+      fabricante_uc: filtros.fabricante_uc || null, catalogo_id: filtros.catalogo_id || null,
+      tipo_compressor: filtros.tipo_compressor || null, fabricante_compressor: filtros.fabricante_compressor || null,
+      numero_compressores: filtros.numero_compressores || null, faixa_operacao: filtros.faixa_operacao || null,
+      folga_desejada: parseNumBR(el.querySelector(`[data-add-folga="${sid}"]`).value) || 10,
+    });
+    t1uc_addFiltros[sid] = {};
+    await t1uc_render();
+  } finally { esconderLoading(); }
 }
 
 window.t1uc_render = t1uc_render;

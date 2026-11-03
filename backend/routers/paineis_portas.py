@@ -4,6 +4,7 @@ editáveis (Configurações — aba única) e o endpoint de resumo (4 modos). Ca
 (texto+foto) fica em CatalogoComercial (backend/routers/catalogo_comercial.py), unificado com
 os demais componentes."""
 from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session, selectinload
 from .. import models as m
 from ..database import get_db
@@ -121,7 +122,7 @@ def criar_painel(projeto_id: int, payload: dict = Body(...), db: Session = Depen
     bp.verificar_projeto_aberto(db, projeto_id)
     dados = {k: v for k, v in payload.items() if k in CAMPOS_PAINEL}
     _validar_camara_do_projeto(db, projeto_id, dados)
-    ordem_max = db.query(m.PainelTermico).filter_by(projeto_id=projeto_id).count()
+    ordem_max = db.query(sa_func.coalesce(sa_func.max(m.PainelTermico.ordem), -1)).filter_by(projeto_id=projeto_id).scalar() + 1
     obj = m.PainelTermico(projeto_id=projeto_id, ordem=dados.pop("ordem", ordem_max), **dados)
     db.add(obj)
     db.commit()
@@ -169,7 +170,7 @@ def criar_porta(projeto_id: int, payload: dict = Body(...), db: Session = Depend
     bp.verificar_projeto_aberto(db, projeto_id)
     dados = {k: v for k, v in payload.items() if k in CAMPOS_PORTA}
     _validar_camara_do_projeto(db, projeto_id, dados)
-    ordem_max = db.query(m.PortaFrigorifica).filter_by(projeto_id=projeto_id).count()
+    ordem_max = db.query(sa_func.coalesce(sa_func.max(m.PortaFrigorifica.ordem), -1)).filter_by(projeto_id=projeto_id).scalar() + 1
     obj = m.PortaFrigorifica(projeto_id=projeto_id, ordem=dados.pop("ordem", ordem_max), **dados)
     db.add(obj)
     db.commit()

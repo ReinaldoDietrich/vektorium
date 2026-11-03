@@ -28,12 +28,15 @@ async function t4_carregarCatalogos() {
 }
 
 async function t4_onProjetoChanged() {
+  const gen = state.projetoGen;
   const semProjeto = !state.projetoId;
   document.getElementById('t4_aviso_sem_projeto').style.display = semProjeto ? 'block' : 'none';
   document.getElementById('t4_conteudo').style.display = semProjeto ? 'none' : 'block';
   if (semProjeto) return;
   t4_projetoAtual = await api.get(`/api/projetos/${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   const cat = await t4_carregarCatalogos();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c4_sistema_id')]);
   populateSelect(document.getElementById('c4_setor_id'), cat.setores, 'id', 'nome', '—');
   populateSelect(document.getElementById('c4_banco_id'), cat.bancos, 'id', 'nome', '—');
@@ -164,7 +167,9 @@ async function t4_addModulo() {
 async function t4_carregarLista() {
   const el = document.getElementById('c4_lista');
   if (!state.projetoId) { el.innerHTML = ''; return; }
+  const gen = state.projetoGen;
   const todas = await api.get(`/api/expositores?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   if (todas.length === 0) { el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhum expositor cadastrado ainda.</div>'; return; }
   el.innerHTML = todas.map(e => {
     let badge = '';
@@ -185,7 +190,9 @@ async function t4_carregarLista() {
 window.initTela4 = initTela4;
 window.telaShowHandlers[4] = async () => {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   await carregarSistemasDoProjeto();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c4_sistema_id')]);
   t4_carregarLista();
 };

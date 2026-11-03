@@ -14,6 +14,33 @@ def resposta_excel_projeto(conteudo: bytes, nome_arquivo: str, projeto):
     return resposta_arquivo_projeto(conteudo, nome_arquivo, projeto, _XLSX_MIME)
 
 
+def resposta_excel_catalogo(conteudo: bytes, nome_arquivo: str, pasta: str = None):
+    """Exportação de catálogo/template — salva na pasta escolhida pelo usuário (se informada)
+    ou devolve StreamingResponse para download pelo navegador."""
+    return _resposta_catalogo(conteudo, nome_arquivo, _XLSX_MIME, pasta)
+
+
+def resposta_arquivo_catalogo(conteudo: bytes, nome_arquivo: str, mime: str, pasta: str = None):
+    """Exportação de catálogo/template (qualquer mime) — salva na pasta escolhida pelo usuário
+    (se informada) ou devolve StreamingResponse para download pelo navegador."""
+    return _resposta_catalogo(conteudo, nome_arquivo, mime, pasta)
+
+
+def _resposta_catalogo(conteudo: bytes, nome_arquivo: str, mime: str, pasta: str = None):
+    nome_arquivo = re.sub(r'[\\/:*?"<>|]', "-", nome_arquivo)
+    if pasta:
+        destino = Path(pasta)
+        try:
+            destino.mkdir(parents=True, exist_ok=True)
+            caminho = destino / nome_arquivo
+            caminho.write_bytes(conteudo)
+        except OSError as e:
+            raise HTTPException(400, f'Não foi possível salvar em "{destino}": {e}')
+        return {"salvo_em": str(caminho)}
+    return StreamingResponse(io.BytesIO(conteudo), media_type=mime,
+                             headers={"Content-Disposition": f"attachment; filename={nome_arquivo}"})
+
+
 def resposta_arquivo_projeto(conteudo: bytes, nome_arquivo: str, projeto, mime: str):
     """Salva um arquivo do projeto (ex.: a Proposta .docx) na 'Pasta de Salvamento' do projeto
     (Tela 1); se não houver, salva na pasta Downloads do Windows do usuário. Sempre grava em disco

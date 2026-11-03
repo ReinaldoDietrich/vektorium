@@ -112,18 +112,20 @@ async function t2_carregarCatalogos() {
 }
 
 async function t2_onProjetoChanged() {
+  const gen = state.projetoGen;
   const semProjeto = !state.projetoId;
   document.getElementById('t2_aviso_sem_projeto').style.display = semProjeto ? 'block' : 'none';
   document.getElementById('t2_conteudo').style.display = semProjeto ? 'none' : 'block';
   if (semProjeto) return;
   const cat = await t2_carregarCatalogos();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c2_sistema_id')]);
   populateSelect(document.getElementById('c2_produto_id'), cat.produtos, 'id', 'nome', '—');
   populateSelect(document.getElementById('c2_tipo_embalagem_id'), cat.embalagens, 'id', 'nome', null);
   populateSelect(document.getElementById('c2_isolamento_parede_id'), cat.paredeTeto, 'id', 'material', '—');
   populateSelect(document.getElementById('c2_isolamento_teto_id'), cat.paredeTeto, 'id', 'material', '—');
   populateSelect(document.getElementById('c2_isolamento_piso_id'), cat.piso, 'id', 'material', '—');
-  populateSelect(document.getElementById('c2_eqTipo'), cat.equipamentos, 'id', 'nome', '—');
+  populateSelect(document.getElementById('c2_eqTipo'), [...cat.equipamentos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), 'id', 'nome', '—');
   populateSelect(document.getElementById('c2_tipo_ambiente_lumino_id'), cat.ambientesLumino, 'id', 'nome', '—');
   t2_popularPotenciaLuminaria();
   t2_popularModeloLuminaria();
@@ -295,6 +297,7 @@ async function t2_duplicarCamara() {
 }
 
 async function t2_abrirCamara(id) {
+  if (!t2_catalogos) await t2_carregarCatalogos();
   const c = await api.get(`/api/camaras-completo/${id}`);
   t2_editandoId = id;
   T2_CAMPOS.forEach(campo => {
@@ -328,6 +331,7 @@ async function t2_abrirCamara(id) {
 // campos (add/editar/excluir forçador ou equipamento). Recarregar o formulário inteiro nesses
 // casos (como t2_abrirCamara faz) sobrescrevia qualquer edição ainda não salva com o "Salvar".
 async function t2_atualizarPainel(id) {
+  if (!t2_catalogos) await t2_carregarCatalogos();
   const c = await api.get(`/api/camaras-completo/${id}`);
   document.getElementById('c2_codigo').textContent = c.codigo;
   t2_renderEquipamentos(c.equipamentos);
@@ -530,7 +534,9 @@ async function t2_upd_valvula(id, payload) {
 async function t2_carregarLista() {
   const el = document.getElementById('c2_lista');
   if (!state.projetoId) { el.innerHTML = ''; return; }
+  const gen = state.projetoGen;
   const todas = await api.get(`/api/camaras-completo?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   if (todas.length === 0) { el.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:13px;">Nenhuma câmara cadastrada ainda.</div>'; return; }
   el.innerHTML = todas.map(c => {
     const badge = c.fechada
@@ -612,8 +618,10 @@ async function t2_confirmarImportacaoValvulas() {
 window.initTela2 = initTela2;
 window.telaShowHandlers[2] = async () => {
   if (!state.projetoId) return;
+  const gen = state.projetoGen;
   t2_catalogos = null;
   await carregarSistemasDoProjeto();
+  if (gen !== state.projetoGen) return;
   popularSelectsSistema([document.getElementById('c2_sistema_id')]);
   t2_carregarLista();
 };

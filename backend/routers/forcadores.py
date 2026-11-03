@@ -27,12 +27,12 @@ _XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 @router.get("/exportar-bd")
 def exportar_bd(fabricante: str = None, linha: str = None, fpi: float = None, pdl: float = None,
-                 db: Session = Depends(get_db)):
+                 pasta: str = None, db: Session = Depends(get_db)):
     """Exporta o banco de forçadores em Excel, no mesmo formato visual da planilha-modelo.
     Sem filtros = exporta tudo ("Todos")."""
+    from ..utils import resposta_excel_catalogo
     dados = exportar_forcadores(db, fabricante=fabricante, linha_nome=linha, fpi=fpi, pdl=pdl)
-    return StreamingResponse(io.BytesIO(dados), media_type=_XLSX,
-                             headers={"Content-Disposition": "attachment; filename=BD_Forcadores.xlsx"})
+    return resposta_excel_catalogo(dados, "BD_Forcadores.xlsx", pasta=pasta)
 
 
 @router.get("/exportar-bd/opcoes")

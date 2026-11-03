@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('vektorium', {
   abrirImpressao: (html) => ipcRenderer.invoke('abrir-impressao', html),
   abrirArquivo: () => ipcRenderer.invoke('abrir-arquivo'),
   salvarArquivoComo: (opcoes) => ipcRenderer.invoke('salvar-arquivo-como', opcoes),
-  sair: () => ipcRenderer.invoke('app-sair')
+  sair: () => ipcRenderer.invoke('app-sair'),
+  escolherArquivoDB: () => ipcRenderer.invoke('escolher-arquivo-db'),
+  backupPreLogout: () => ipcRenderer.invoke('backup-pre-logout')
 });

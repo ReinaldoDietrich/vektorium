@@ -73,6 +73,13 @@ campos de três naturezas diferentes. Só a primeira categoria é extraída do c
    categorias flutuantes achando que "não é extraível" — o que não é extraível é o valor por
    modelo, não o dicionário de códigos.
 
+## Regra 2b — formato obrigatório da coluna Tensao (aba Eletricas)
+
+A coluna `Tensao` da aba `Eletricas` deve conter APENAS a voltagem com sufixo "V" — ex.: `380V`,
+`220V`, `440V`. NUNCA incluir fases ou frequência nessa coluna (`Fases` e `Frequencia` já têm
+colunas próprias — não usar `"380V/3F/60Hz"`). NUNCA omitir o "V" (não usar `"380"` sozinho).
+Mesma regra para `Vent_Tensao`.
+
 ## Regra 3 — reconhecer dado pelo rótulo/unidade, não pela posição
 
 Um fabricante pode misturar categorias dentro da mesma tabela (ex.: dado físico dentro da tabela

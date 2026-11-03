@@ -33,7 +33,8 @@ def listar_campos(db: Session = Depends(get_db)):
 
 
 @router.get("/campos/exportar/excel")
-def exportar_campos_excel(db: Session = Depends(get_db)):
+def exportar_campos_excel(pasta: str = None, db: Session = Depends(get_db)):
+    from ..utils import resposta_excel_catalogo
     campos = _ordenados(db)
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -48,5 +49,4 @@ def exportar_campos_excel(db: Session = Depends(get_db)):
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return StreamingResponse(buf, media_type=_XLSX,
-                              headers={"Content-Disposition": "attachment; filename=Ids_Campos_Sistema.xlsx"})
+    return resposta_excel_catalogo(buf.read(), "Ids_Campos_Sistema.xlsx", pasta=pasta)

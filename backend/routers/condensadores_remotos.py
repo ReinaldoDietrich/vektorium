@@ -40,11 +40,12 @@ CAMPOS_LINHA = {"nome", "versao_catalogo", "tipo_estrutura", "dt_catalogo_c", "a
 
 @router.get("/exportar-bd")
 def exportar_bd(fabricante: str = None, linha: str = None, fpi: float = None,
-                tipo_estrutura: str = None, tipo_motor: str = None, db: Session = Depends(get_db)):
+                tipo_estrutura: str = None, tipo_motor: str = None,
+                pasta: str = None, db: Session = Depends(get_db)):
+    from ..utils import resposta_excel_catalogo
     dados = exportar_condensadores(db, fabricante=fabricante, linha_nome=linha, fpi=fpi,
                                    tipo_estrutura=tipo_estrutura, tipo_motor=tipo_motor)
-    return StreamingResponse(io.BytesIO(dados), media_type=_XLSX,
-                             headers={"Content-Disposition": "attachment; filename=BD_Condensadores.xlsx"})
+    return resposta_excel_catalogo(dados, "BD_Condensadores.xlsx", pasta=pasta)
 
 
 @router.get("/exportar-bd/opcoes")
@@ -203,15 +204,16 @@ def salvar_fatores(linha_id: int, payload: dict = Body(...), db: Session = Depen
 # ---------------- Importação (template/preview/confirmar/documento/histórico) ----------------
 
 @router.get("/template")
-def baixar_template():
-    return StreamingResponse(io.BytesIO(ci.gerar_template()), media_type=_XLSX,
-                             headers={"Content-Disposition": "attachment; filename=Modelo_Condensadores.xlsx"})
+def baixar_template(pasta: str = None):
+    from ..utils import resposta_excel_catalogo
+    return resposta_excel_catalogo(ci.gerar_template(), "Modelo_Condensadores.xlsx", pasta=pasta)
 
 
 @router.get("/documento")
-def baixar_documento():
-    return StreamingResponse(io.BytesIO(gerar_documento_condensador()), media_type=_DOCX,
-                             headers={"Content-Disposition": "attachment; filename=Documento_Importacao_Condensadores.docx"})
+def baixar_documento(pasta: str = None):
+    from ..utils import resposta_arquivo_catalogo
+    return resposta_arquivo_catalogo(gerar_documento_condensador(), "Documento_Importacao_Condensadores.docx",
+        _DOCX, pasta=pasta)
 
 
 @router.post("/excel-preview")

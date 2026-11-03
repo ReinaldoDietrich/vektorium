@@ -60,18 +60,18 @@ function t6_gerarExportacao() {
   if (lin) params.set('linha', lin);
   if (fpi) params.set('fpi', fpi);
   if (pdl) params.set('pdl', pdl);
-  api.downloadRemoto('/api/forcadores/exportar-bd' + (params.toString() ? '?' + params.toString() : ''));
+  escolherPastaEExportar('/api/forcadores/exportar-bd' + (params.toString() ? '?' + params.toString() : ''));
   document.getElementById('f6_exportFiltro').style.display = 'none';
 }
 
 function t6_baixarTemplate(e) {
   e.preventDefault();
-  api.downloadRemoto('/api/importacao/template');
+  escolherPastaEExportar('/api/importacao/template');
 }
 
 function t6_baixarDocumento(e) {
   e.preventDefault();
-  api.downloadRemoto('/api/importacao/documento');
+  escolherPastaEExportar('/api/importacao/documento');
 }
 
 // ---------- Importação por Excel, com revisão antes de gravar ----------
@@ -277,12 +277,10 @@ async function t6_carregarMatriz(idAbertura = t6_linhaAtualId) {
 }
 
 async function t6_salvarLinha() {
-  // Trava o botão durante o salvamento — clicar várias vezes seguidas disparava chamadas
-  // simultâneas de PUT .../campos, que podiam se sobrepor (delete + insert de cada chamada
-  // intercalados) e duplicar os Campos salvos (bug real reportado).
   const btn = document.getElementById('f6_btnSalvarLinha');
   if (btn.disabled) return;
   btn.disabled = true;
+  mostrarLoading('Salvando catálogo...');
   try {
     // Cada seção grava independente — uma falhar não pode impedir as outras de salvar.
     const el = document.getElementById('f6_linhaMatrizView');
@@ -319,6 +317,7 @@ async function t6_salvarLinha() {
       alert('Algumas partes NÃO foram salvas:\n' + erros.join('\n') + '\n\nAs demais partes foram salvas normalmente.');
     }
   } finally {
+    esconderLoading();
     btn.disabled = false;
   }
 }

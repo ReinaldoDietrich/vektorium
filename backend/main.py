@@ -94,6 +94,20 @@ class LicencaMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+_ws_last_save = 0.0
+_ws_save_lock = threading.Lock()
+_WS_SAVE_DEBOUNCE = 30
+
+
+def _ws_save_bg():
+    try:
+        from .workspace import workspace as _ws
+        with _ws_save_lock:
+            _ws.salvar_todos()
+    except Exception:
+        pass
+
+
 class WorkspaceSaveMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -101,20 +115,21 @@ class WorkspaceSaveMiddleware(BaseHTTPMiddleware):
             path = request.url.path
             if (any(path.startswith(p) for p in _ROTAS_ESCRITA)
                     and not path.startswith("/api/workspace/")):
-                try:
-                    from .workspace import workspace as _ws
-                    _ws.salvar_todos()
-                except Exception:
-                    pass
+                global _ws_last_save
+                now = time.time()
+                if now - _ws_last_save >= _WS_SAVE_DEBOUNCE:
+                    _ws_last_save = now
+                    threading.Thread(target=_ws_save_bg, daemon=True).start()
         return response
 
 
 app.add_middleware(SemCacheMiddleware)
 app.add_middleware(TokenMiddleware)
-app.add_middleware(LicencaMiddleware)
+# SE-074: LicencaMiddleware removido — licença verificada apenas no login
 app.add_middleware(WorkspaceSaveMiddleware)
 
 seed.run()
+seed.atualizar_catalogos_master()
 registrar(app, engine)
 
 def _migrar_schema():

@@ -13,6 +13,7 @@ function initTelaLuminotecnico() {
 }
 
 async function t18_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t18_semProjeto');
   const conteudo = document.getElementById('t18_conteudo');
   if (!state.projetoId) {
@@ -23,6 +24,7 @@ async function t18_carregar() {
   semProjeto.style.display = 'none';
   conteudo.style.display = 'block';
   const d = await api.get(`/api/luminotecnico/estudo?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   t18_renderTabela(d.linhas);
   t18_renderResumo(d.resumo_por_modelo);
   t18_renderNotas(d.notas);

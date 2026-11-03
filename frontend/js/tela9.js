@@ -30,6 +30,7 @@ async function t9_restaurarObservacao() {
 }
 
 async function t9_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t9_semProjeto');
   const conteudo = document.getElementById('t9_conteudo');
   if (!state.projetoId) { semProjeto.style.display = 'block'; conteudo.style.display = 'none'; return; }
@@ -37,6 +38,7 @@ async function t9_carregar() {
   conteudo.style.display = 'block';
 
   const r = await api.get(`/api/consumo/projetos/${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   const el = document.getElementById('t9_sistemas');
   el.innerHTML = r.sistemas.map(t9_renderSistema).join('');
   document.getElementById('t9_total').innerHTML = t9_renderTotal(r.total);

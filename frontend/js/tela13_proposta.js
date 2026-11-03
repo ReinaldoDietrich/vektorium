@@ -61,6 +61,7 @@ function t19_ligarMascaras() {
 }
 
 async function t19_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t19_semProjeto');
   const conteudo = document.getElementById('t19_conteudo');
   if (!state.projetoId) { semProjeto.style.display = 'block'; conteudo.style.display = 'none'; return; }
@@ -69,6 +70,7 @@ async function t19_carregar() {
   document.getElementById('t19_msg').textContent = 'Carregando…';
 
   t19_ctx = await api.get(`/api/proposta/contexto?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   const p = t19_ctx.projeto;
   document.getElementById('t19_projetoInfo').innerHTML =
     `<b>${p.codigo_revisao}</b> · ${p.razao_social || p.cliente || '—'} · ${p.cidade_estado} · A/C ${p.contato || '—'}`;
@@ -190,11 +192,18 @@ function t19_coletarOpcoes() {
 // idêntica ao que está na tela. Se a Tela 10 nunca foi aberta, usa o padrão dos próprios controles.
 function t19_filtroOrcamento() {
   const g = (id) => document.getElementById(id);
-  return {
+  const f = {
     agrupar: g('t17_orcAgrupar') ? g('t17_orcAgrupar').value : 'bloco_cc',
     exibir: g('t17_orcExibir') ? g('t17_orcExibir').value : 'individual',
     ocultar_qtd: g('t17_orcOcultarQtd') ? g('t17_orcOcultarQtd').checked : false,
   };
+  const fab = g('t17_filtroFab') ? g('t17_filtroFab').value : '';
+  const cc = g('t17_filtroCC') ? g('t17_filtroCC').value : '';
+  const bloco = g('t17_filtroTipo') ? g('t17_filtroTipo').value : '';
+  if (fab) f.fabricante = fab;
+  if (cc) f.centro_custo_id = cc;
+  if (bloco) f.bloco = bloco;
+  return f;
 }
 
 async function t19_salvarDefaults() {

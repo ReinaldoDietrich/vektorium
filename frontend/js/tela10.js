@@ -92,6 +92,7 @@ async function t10_limparTudo() {
 }
 
 async function t10_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t10_semProjeto');
   const conteudo = document.getElementById('t10_conteudo');
   if (!state.projetoId) { semProjeto.style.display = 'block'; conteudo.style.display = 'none'; return; }
@@ -102,6 +103,7 @@ async function t10_carregar() {
     api.get(`/api/projetos/${state.projetoId}`),
     api.get('/api/paineis-portas/lookup'),
   ]);
+  if (gen !== state.projetoGen) return;
   t10_lookup = lookup;
   document.getElementById('t10_largPlaca').value = projeto.largura_placa_painel_m ?? '';
   document.getElementById('t10_pisoLarg').value = projeto.piso_placa_largura_m ?? '';
@@ -207,6 +209,33 @@ function t10_wireDragPaineis(el) {
   });
 }
 
+function t10_wireDragPortas(el) {
+  const tbody = el.querySelector('tbody');
+  if (!tbody) return;
+  let arrastada = null;
+  tbody.querySelectorAll('tr[data-porta-id]').forEach(tr => {
+    tr.addEventListener('dragstart', () => { arrastada = tr; tr.style.opacity = '0.4'; });
+    tr.addEventListener('dragend', async () => {
+      tr.style.opacity = '';
+      if (!arrastada) return;
+      arrastada = null;
+      try {
+        const ids = [...tbody.querySelectorAll('tr[data-porta-id]')].map(r => Number(r.dataset.portaId));
+        await Promise.all(ids.map((id, i) => api.put(`/api/paineis-portas/portas/${id}`, { ordem: i })));
+        await t10_carregarPortas();
+        await t10_carregarResumo();
+      } catch (err) { alert('Erro ao reordenar: ' + err.message); }
+    });
+    tr.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!arrastada || arrastada === tr) return;
+      const r = tr.getBoundingClientRect();
+      const depois = (e.clientY - r.top) > r.height / 2;
+      tr.parentNode.insertBefore(arrastada, depois ? tr.nextSibling : tr);
+    });
+  });
+}
+
 function t10_wirePaineis(el) {
   el.querySelectorAll('tr[data-painel-id]').forEach(tr => {
     const id = tr.dataset.painelId;
@@ -293,6 +322,7 @@ function t10_selectModeloSentidoHtml(p) {
 function t10_linhaPortaHtml(p) {
   const { modelo, sentido } = t10_selectModeloSentidoHtml(p);
   return `
+    <td class="t10-drag" title="Arraste para reordenar" style="cursor:grab;color:#9ca3af;text-align:center;user-select:none;">⠿</td>
     <td data-out="id_planta">${p.id_planta || '—'}</td>
     <td style="font-weight:bold;" data-out="id_porta">${p.id_porta || '—'}</td>
     <td>${t10_celulaCamaraHtml(p, 'T711', 'T712')}</td>
@@ -321,6 +351,7 @@ async function t10_carregarPortas() {
     return;
   }
   el.innerHTML = `<table class="list"><thead><tr>
+    <th style="width:22px;"></th>
     <th style="white-space:normal;">Id. Planta</th><th style="white-space:normal;">Id. Porta</th>
     <th style="white-space:normal;">Câmara</th><th style="white-space:normal;">Função</th>
     <th style="white-space:normal;">Modelo</th><th style="white-space:normal;">Sentido</th>
@@ -328,8 +359,9 @@ async function t10_carregarPortas() {
     <th style="white-space:normal;">Fixação</th><th style="white-space:normal;">Esp. Fix. (mm)</th>
     <th style="white-space:normal;">Tensão</th><th style="white-space:normal;">Qtd.</th><th style="white-space:normal;">Obs.</th>
     <th style="white-space:normal;">Descrição</th><th></th></tr></thead>
-    <tbody>${portas.map(p => `<tr data-porta-id="${p.id}" ${p.fechada ? 'class="entidade-fechada"' : ''}>${t10_linhaPortaHtml(p)}</tr>`).join('')}</tbody></table>`;
+    <tbody>${portas.map(p => `<tr draggable="true" data-porta-id="${p.id}" ${p.fechada ? 'class="entidade-fechada"' : ''}>${t10_linhaPortaHtml(p)}</tr>`).join('')}</tbody></table>`;
   t10_wirePortas(el);
+  t10_wireDragPortas(el);
 }
 
 // Quando Função muda, as opções de Modelo mudam (filtradas pelo grupo) — se o Modelo atualmente

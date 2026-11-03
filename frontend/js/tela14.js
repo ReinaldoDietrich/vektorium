@@ -7,6 +7,7 @@ function initTela14() {
 }
 
 async function t14_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t14_semProjeto');
   const conteudo = document.getElementById('t14_conteudo');
   if (!state.projetoId) { semProjeto.style.display = 'block'; conteudo.style.display = 'none'; return; }
@@ -14,6 +15,7 @@ async function t14_carregar() {
   conteudo.style.display = 'block';
 
   const r = await api.get(`/api/catalogo-comercial/memorial-teste?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   if (r.erro) { document.getElementById('t14_itens').innerHTML = `<div class="small" style="color:#b91c1c;">${r.erro}</div>`; return; }
 
   document.getElementById('t14_idsResolvidos').textContent =

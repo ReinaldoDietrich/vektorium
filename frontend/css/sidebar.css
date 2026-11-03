@@ -84,8 +84,8 @@ body{margin:0;padding:0;background:var(--sb-bg);}
   flex-direction:column;text-align:center;padding:24px;}
 body.sem-projeto .welcome:not(.login-screen){display:flex;}
 body.sem-projeto .main-content .wrap{display:none;}
-body.sem-projeto .main-content:has(#tela20.active) .wrap{display:block;}
-body.sem-projeto .main-content:has(#tela20.active) .welcome{display:none;}
+body.sem-projeto .main-content:has(#tela6.active, #tela7.active, #tela8.active, #tela13.active, #tela14.active, #tela15.active, #tela20.active) .wrap{display:block;}
+body.sem-projeto .main-content:has(#tela6.active, #tela7.active, #tela8.active, #tela13.active, #tela14.active, #tela15.active, #tela20.active) .welcome{display:none;}
 .welcome-logo{width:420px;max-width:80%;margin-bottom:16px;object-fit:contain;}
 .welcome-logo.nologo{display:none;}
 .welcome-sub{font-size:20px;color:var(--sb-muted);letter-spacing:.1em;font-weight:500;margin:0 0 36px;}
@@ -114,6 +114,27 @@ body.sem-login .topbar,body.sem-login .shell{visibility:hidden;}
   background:#f7fafd;border:1px solid var(--sb-line);border-radius:8px;font-size:12.5px;}
 .acoes-projeto-ativo .info{color:var(--sb-muted);margin-right:auto;}
 .acoes-projeto-ativo .info b{color:var(--sb-ink);}
+
+/* Overlay de carregamento (login + abertura de projeto) */
+.overlay-carregamento{display:none;position:fixed;inset:0;z-index:950;
+  background:rgba(15,41,66,0.94);align-items:center;justify-content:center;
+  flex-direction:column;transition:opacity .3s ease;}
+.overlay-carregamento.ativo{display:flex;}
+.overlay-carregamento.fade-out{opacity:0;}
+.overlay-carregamento-box{text-align:center;width:320px;max-width:85vw;}
+.overlay-carregamento-logo{width:200px;max-width:70%;margin-bottom:24px;
+  background:#fff;padding:10px 16px;border-radius:10px;object-fit:contain;}
+.overlay-carregamento-barra{width:100%;height:5px;background:rgba(255,255,255,0.15);
+  border-radius:3px;overflow:hidden;margin-bottom:16px;}
+.overlay-carregamento-fill{width:35%;height:100%;background:var(--sb-acc,#1668c7);
+  border-radius:3px;animation:carregando 1.4s ease-in-out infinite;}
+@keyframes carregando{
+  0%{transform:translateX(-100%);}
+  50%{transform:translateX(200%);}
+  100%{transform:translateX(-100%);}
+}
+.overlay-carregamento-msg{color:#c7d6e6;font-size:13px;margin:0;letter-spacing:.02em;}
+@media print{.overlay-carregamento{display:none!important;}}
 
 /* Impressão (window.print / PDF): a página inteira (topo + árvore) nunca deve aparecer no
    PDF — só o conteúdo da tela ativa, igual funcionava antes da barra lateral existir. */

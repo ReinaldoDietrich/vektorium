@@ -93,6 +93,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
     custo_unit = item.custo_unitario or 0
     custo_total = qtd * custo_unit
     repasse = item.bloco != BLOCO_COMISSOES_INDICACAO and _eh_fator_comissao(item.fator)
+    faturamento_direto = bool(item.fator) and (item.fator.tipo_faturamento or "") == "Direto"
     if repasse:
         fator_venda = 1.0
         margem_r = impostos_r = comissao_r = 0.0
@@ -168,6 +169,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         # item do Receita de Vendas / Custo do DRE e da base do comissionamento do vendedor —
         # ver _totais_liquidos/dre_projeto/comissionamento (corrigido 2026-08-05).
         "repasse": repasse,
+        "faturamento_direto": faturamento_direto,
         "fechada": item.fechada,
     }
 
@@ -622,7 +624,7 @@ def _totais_liquidos(dados: dict) -> dict:
         if bloco == BLOCO_COMISSOES_INDICACAO:
             continue
         for it in itens:
-            if it.get("repasse") or not it.get("incluir_orcamento", True):
+            if it.get("repasse") or it.get("faturamento_direto") or not it.get("incluir_orcamento", True):
                 continue
             receita_vendas += it["valor_venda_negociacao"] or 0
             custo += it["custo_total"] or 0
@@ -826,21 +828,37 @@ def _ordenar_itens_orcamento(itens: list, bloco: str) -> list:
         (it.get("descricao") or "").lower()))
 
 
-def tabela_orcamento(dados: dict) -> dict:
+def tabela_orcamento(dados: dict, filtro: dict | None = None) -> dict:
     """Versão Python (Excel — "Exportar Tudo", Tela 1, aprovado 2026-08-12) da mesma "Tabela de
     Orçamento" que a Tela 17 monta em JS (ver tela17.js t17_calcularTabelaOrcamento) — MESMO
     algoritmo, pra nunca divergir do que a tela mostra: bloco Comissões nunca aparece como seção
     própria; item de Comissão com Centro de Custo escolhido em "Agrupar valor em" soma seu valor,
     por dentro, no bloco onde esse Centro de Custo já tem uso real (primeiro bloco encontrado, na
     ordem de BLOCOS_COMPOSICAO); item com o checkbox "considerar no orçamento" desmarcado nunca
-    entra aqui."""
+    entra aqui.
+    filtro opcional: {bloco, fabricante, centro_custo_id} — filtra itens pelos mesmos critérios
+    dos filtros da página principal da Tela 10."""
+    filtro = filtro or {}
+    f_bloco = filtro.get("bloco") or None
+    f_fab = filtro.get("fabricante") or None
+    f_cc = str(filtro.get("centro_custo_id") or "") or None
+
+    def _passa_filtro(it):
+        if f_fab and it.get("fabricante") != f_fab:
+            return False
+        if f_cc and str(it.get("centro_custo_id") or "") != f_cc:
+            return False
+        return True
+
     resultado = {}
     ordem = []
     for bloco in BLOCOS_COMPOSICAO:
         if bloco == BLOCO_COMISSOES_INDICACAO:
             continue
-        itens = _ordenar_itens_orcamento(
-            [it for it in dados["blocos"].get(bloco, []) if it.get("incluir_orcamento", True)], bloco)
+        if f_bloco and bloco != f_bloco:
+            continue
+        itens_brutos = [it for it in dados["blocos"].get(bloco, []) if it.get("incluir_orcamento", True)]
+        itens = _ordenar_itens_orcamento([it for it in itens_brutos if _passa_filtro(it)], bloco)
         linhas = [{"descricao": it["descricao"], "unidade": it.get("unidade") or "-",
                     "quantidade": it["quantidade"], "cc": it.get("centro_custo_descricao"),
                     "valor": it["valor_venda_negociacao"] or 0} for it in itens]
@@ -851,12 +869,16 @@ def tabela_orcamento(dados: dict) -> dict:
     for bloco in ordem:
         for it in dados["blocos"].get(bloco, []):
             cc_id = it.get("centro_custo_id")
-            if cc_id and cc_id not in bloco_por_cc:
+            if cc_id and it.get("incluir_orcamento", True) and _passa_filtro(it) and cc_id not in bloco_por_cc:
                 bloco_por_cc[cc_id] = bloco
 
     for it in dados["blocos"].get(BLOCO_COMISSOES_INDICACAO, []):
         cc_id = it.get("centro_custo_id")
         if not cc_id or not it.get("incluir_orcamento", True):
+            continue
+        if f_fab:
+            continue
+        if f_cc and str(cc_id) != f_cc:
             continue
         bloco_alvo_nome = bloco_por_cc.get(cc_id)
         if not bloco_alvo_nome:

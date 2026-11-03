@@ -10,21 +10,18 @@ from .database import get_db
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-_JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else None
-_jwks_client = jwt.PyJWKClient(_JWKS_URL) if _JWKS_URL else None
 
 
 def exigir_jwt(authorization: str = Header(None)) -> dict:
-    """Valida SOMENTE o JWT (sem verificar assinatura). Usado por endpoints que precisam
-    identificar o usuário mas devem funcionar mesmo com assinatura inativa (ex.: licenca/status)."""
+    """Decodifica o JWT sem verificação de assinatura (SE-076: sem chamada de rede).
+    A autenticação real acontece no login via Supabase; aqui o JWT serve apenas para
+    identificar o usuário localmente."""
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Token de autenticação ausente")
     token = authorization[7:]
-    if not _jwks_client:
-        raise HTTPException(500, "SUPABASE_URL não configurada no servidor")
     try:
-        signing_key = _jwks_client.get_signing_key_from_jwt(token)
-        payload = jwt.decode(token, signing_key.key, algorithms=["ES256", "RS256"], audience="authenticated")
+        payload = jwt.decode(token, options={"verify_signature": False},
+                             algorithms=["ES256", "RS256"])
     except Exception as e:
         raise HTTPException(401, f"Token inválido: {e}")
     return payload

@@ -34,11 +34,15 @@ function prepararDadosUsuario() {
   if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
   const dbDest = path.join(dbDir, 'carga_termica.db');
+  const dbOrigem = path.join(process.resourcesPath, 'database', 'carga_termica.db');
   if (!fs.existsSync(dbDest)) {
-    const dbOrigem = path.join(process.resourcesPath, 'database', 'carga_termica.db');
     if (fs.existsSync(dbOrigem)) {
       fs.copyFileSync(dbOrigem, dbDest);
     }
+  }
+  const masterDest = path.join(dbDir, 'master.db');
+  if (fs.existsSync(dbOrigem)) {
+    fs.copyFileSync(dbOrigem, masterDest);
   }
 }
 
@@ -181,7 +185,8 @@ async function criarJanela() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      spellcheck: false
     },
     show: false
   });
@@ -222,51 +227,26 @@ async function criarJanela() {
   });
 
   janelaPrincipal.on('close', async (e) => {
-    if (!fechandoApp) {
-      e.preventDefault();
-      const fecharTodos = janelaPrincipal.webContents.executeJavaScript(`
-        (async () => {
-          const ac = new AbortController();
-          setTimeout(() => ac.abort(), 10000);
-          for (let tentativa = 0; tentativa < 3; tentativa++) {
-            try {
-              const r = await fetch('/api/workspace/fechar-todos', {
-                method: 'POST', signal: ac.signal
-              });
-              const j = await r.json();
-              if (j.ok) return true;
-            } catch (_) {}
-          }
-          return false;
-        })()
-      `, true).catch(() => false);
-      const timeoutSalvar = new Promise(r => setTimeout(() => r(false), 12000));
-      await Promise.race([fecharTodos, timeoutSalvar]);
+    if (fechandoApp) return;
+    e.preventDefault();
+    fechandoApp = true;
+    if (processoBackend) processoBackend.removeAllListeners('exit');
 
-      const timeout = new Promise(r => setTimeout(r, 5000));
-      const logout = janelaPrincipal.webContents.executeJavaScript(`
-        (async () => {
-          if (typeof AUTH !== 'undefined') {
-            const uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
-            const jwt = AUTH.token ? AUTH.token() : null;
-            if (uid && jwt) {
-              const ac = new AbortController();
-              setTimeout(() => ac.abort(), 3000);
-              try { await fetch('/api/cloud/delete-lock', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({user_id: uid, token: jwt}),
-                signal: ac.signal
-              }); } catch(_) {}
-            }
-            try { await AUTH.logout(); } catch (_) {}
-            AUTH.limpar();
-          }
-        })()
-      `, true).catch(() => {});
-      await Promise.race([logout, timeout]);
-      encerrarApp();
+    // SE-106: cleanup completo via sairDoApp() — sem timeout
+    // sairDoApp() faz: backup-pre-logout → salvar-todos → delete-lock → AUTH.logout → fechar-todos
+    // No final chama window.vektorium.sair() → encerrarApp() que retorna imediatamente (fechandoApp já true)
+    try {
+      await janelaPrincipal.webContents.executeJavaScript(
+        'typeof sairDoApp === "function" ? sairDoApp() : Promise.resolve()', true
+      );
+    } catch (_) {}
+
+    if (janelaPrincipal && !janelaPrincipal.isDestroyed()) {
+      janelaPrincipal.destroy();
     }
+
+    matarBackend();
+    app.quit();
   });
 }
 
@@ -275,21 +255,11 @@ async function encerrarApp() {
   fechandoApp = true;
   if (processoBackend) processoBackend.removeAllListeners('exit');
 
-  let portaLivre = matarBackend();
-  for (let i = 0; i < 3 && !portaLivre; i++) {
-    console.log(`[ENCERRAR] Porta ${PORTA} ainda ocupada, tentativa ${i + 1}/3...`);
-    matarOrfaoNaPorta();
-    portaLivre = !portaOcupada();
-    if (!portaLivre) {
-      await new Promise(r => setTimeout(r, 1000));
-      portaLivre = matarBackend();
-    }
-  }
-  console.log('[ENCERRAR] Processos backend encerrados confirmado');
-
   if (janelaPrincipal && !janelaPrincipal.isDestroyed()) {
     janelaPrincipal.destroy();
   }
+
+  matarBackend();
   app.quit();
 }
 
@@ -403,6 +373,37 @@ ipcMain.handle('salvar-arquivo-como', async (_event, opcoes) => {
   if (opcoes?.nomeDefault) opts.defaultPath = opcoes.nomeDefault;
   const result = await dialog.showSaveDialog(janelaPrincipal, opts);
   return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle('escolher-arquivo-db', async () => {
+  const result = await dialog.showOpenDialog(janelaPrincipal, {
+    title: 'Selecionar Banco de Dados para Importar',
+    filters: [{ name: 'Banco SQLite', extensions: ['db'] }],
+    properties: ['openFile', 'dontAddToRecent']
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.handle('backup-pre-logout', async () => {
+  try {
+    const resp = await new Promise((resolve, reject) => {
+      const req = http.request(
+        { hostname: '127.0.0.1', port: PORTA, path: '/api/sistema/backup-pre-logout', method: 'POST' },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => body += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, body }));
+        }
+      );
+      req.on('error', reject);
+      req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
+      req.end();
+    });
+    return resp.status === 200;
+  } catch (e) {
+    console.error('[backup-pre-logout] falhou:', e.message);
+    return false;
+  }
 });
 
 process.on('exit', () => { matarBackend(); });

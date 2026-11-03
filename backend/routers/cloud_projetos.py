@@ -3,7 +3,7 @@
 import json
 import uuid
 import socket
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -31,7 +31,6 @@ router = APIRouter(prefix="/api/cloud", tags=["cloud"])
 SUPABASE_URL = "https://luzvgsgxutggnbyrhswg.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_BreZGIXnU6_rdBi8n3bF5w_N3HZ56-S"
 BUCKET = "vektorium-projetos"
-LOCK_TTL_SECONDS = 90  # 90s — renovado por heartbeat a cada 30s (SE-063)
 
 
 # ---- Schemas ----
@@ -93,7 +92,8 @@ def _storage_list(token: str, prefix: str) -> list:
 
 
 def _storage_delete(token: str, path: str) -> bool:
-    r = httpx.delete(
+    r = httpx.request(
+        "DELETE",
         f"{SUPABASE_URL}/storage/v1/object/{BUCKET}",
         json={"prefixes": [path]},
         headers={**_headers(token), "Content-Type": "application/json"},
@@ -106,19 +106,13 @@ def _storage_delete(token: str, path: str) -> bool:
 
 @router.post("/check-lock")
 def check_lock(req: LockRequest):
-    """Verifica se existe lock ativo. Retorna locked=True se houver sessão ativa não-vencida."""
+    """Verifica se existe lock ativo. Lock persiste até delete-lock explícito (no Sair)."""
     lock_path = f"{req.user_id}/.session_lock"
     raw = _storage_download(req.token, lock_path)
     if raw is None:
         return {"locked": False}
     try:
         lock = json.loads(raw)
-        expires_at = datetime.fromisoformat(lock["expires_at"])
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        if now >= expires_at:
-            return {"locked": False, "stale": True}
         return {"locked": True, "hostname": lock.get("hostname", "")}
     except Exception:
         return {"locked": False}
@@ -126,12 +120,9 @@ def check_lock(req: LockRequest):
 
 @router.post("/create-lock")
 def create_lock(req: LockRequest):
-    """Cria o session lock para este terminal."""
-    now = datetime.now(timezone.utc)
-    expires = now + timedelta(seconds=LOCK_TTL_SECONDS)
+    """Cria o session lock para este terminal. Persiste até delete-lock explícito."""
     lock = {
-        "ts": now.isoformat(),
-        "expires_at": expires.isoformat(),
+        "ts": datetime.now(timezone.utc).isoformat(),
         "hostname": socket.gethostname(),
     }
     lock_path = f"{req.user_id}/.session_lock"

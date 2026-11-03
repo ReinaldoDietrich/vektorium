@@ -53,9 +53,18 @@ function initTela17() {
     try { await api.baixarOuSalvar(`/api/composicao-preco/lista-materiais/exportar/excel?${t17_queryFiltrosAtivos()}`); }
     catch (e) { alert(`Erro ao exportar Excel:\n${e.message}`); }
   });
-  document.getElementById('t17_filtroFab').addEventListener('change', t17_renderBlocosFiltrado);
-  document.getElementById('t17_filtroCC').addEventListener('change', t17_renderBlocosFiltrado);
-  document.getElementById('t17_filtroTipo').addEventListener('change', t17_renderBlocosFiltrado);
+  document.getElementById('t17_filtroFab').addEventListener('change', () => {
+    t17_renderBlocosFiltrado();
+    if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
+  });
+  document.getElementById('t17_filtroCC').addEventListener('change', () => {
+    t17_renderBlocosFiltrado();
+    if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
+  });
+  document.getElementById('t17_filtroTipo').addEventListener('change', () => {
+    t17_renderBlocosFiltrado();
+    if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
+  });
   document.getElementById('t17_orcAgrupar').addEventListener('change', () => {
     t17_atualizarVisibilidadeFiltrosOrcamento();
     if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
@@ -74,6 +83,7 @@ function initTela17() {
 }
 
 async function t17_carregar() {
+  const gen = state.projetoGen;
   const semProjeto = document.getElementById('t17_semProjeto');
   const conteudo = document.getElementById('t17_conteudo');
   if (!state.projetoId) { semProjeto.style.display = 'block'; conteudo.style.display = 'none'; return; }
@@ -86,8 +96,10 @@ async function t17_carregar() {
     (async () => { t17_vendedores = await api.get('/api/composicao-preco/vendedores'); })(),
     api.get(`/api/projetos/${state.projetoId}`),
   ]);
+  if (gen !== state.projetoGen) return;
 
   const margem = await api.get(`/api/composicao-preco/margem-negociacao?projeto_id=${state.projetoId}`);
+  if (gen !== state.projetoGen) return;
   const margemInput = document.getElementById('t17_margemNegociacao');
   margemInput.value = (margem.percentual * 100).toFixed(1);
 
@@ -706,15 +718,22 @@ function t17_renderDre(dre) {
 // de Custo escolhido, mesma causa raiz do backend — ver resumo_por_bloco/valor_total_proposta em
 // composicao_preco.py).
 function t17_calcularTabelaOrcamento(composicao) {
+  const fFab = document.getElementById('t17_filtroFab') ? document.getElementById('t17_filtroFab').value : '';
+  const fCC = document.getElementById('t17_filtroCC') ? document.getElementById('t17_filtroCC').value : '';
+  const fBloco = document.getElementById('t17_filtroTipo') ? document.getElementById('t17_filtroTipo').value : '';
+
+  function passaFiltroOrc(it) {
+    if (fFab && it.fabricante !== fFab) return false;
+    if (fCC && String(it.centro_custo_id || '') !== fCC) return false;
+    return true;
+  }
+
   const resultado = {};
   const ordem = [];
   T17_BLOCOS.forEach(bloco => {
     if (bloco === T17_BLOCO_COMISSOES) return;
-    // Checkbox "considerar no orçamento" (aprovado 2026-08-12): item desmarcado sai daqui, mas
-    // continua no bloco acima normalmente.
-    const brutos = (composicao.blocos[bloco] || []).filter(it => it.incluir_orcamento !== false);
-    // Mesma ordenação dos blocos: por código de centro de custo (menor acima); "Painéis Térmicos"
-    // mantém a ordem própria do backend (aprovado 2026-08-13).
+    if (fBloco && bloco !== fBloco) return;
+    const brutos = (composicao.blocos[bloco] || []).filter(it => it.incluir_orcamento !== false && passaFiltroOrc(it));
     const ordenados = bloco === 'Painéis Térmicos' ? t17_ordenarPorOrdemDoBackend(brutos) : t17_ordenarItens(brutos);
     const itens = ordenados.map(it => ({
       descricao: it.descricao,
@@ -722,27 +741,24 @@ function t17_calcularTabelaOrcamento(composicao) {
       quantidade: it.quantidade,
       cc: it.centro_custo_descricao || null,
       valor: it.valor_venda_negociacao || 0,
-      tipo_faturamento: (t17_fatores.find(f => f.id === it.fator_id) || {}).tipo_faturamento || 'Próprio',
+      tipo_faturamento: ((t17_fatores.find(f => f.id === it.fator_id) || {}).tipo_faturamento || '') === 'Direto' ? 'Direto' : 'Próprio',
     }));
     resultado[bloco] = { itens, total: itens.reduce((s, i) => s + i.valor, 0), extraPorCC: {} };
     ordem.push(bloco);
   });
 
-  // Bloco onde cada Centro de Custo já tem uso real (primeiro bloco, na ordem de T17_BLOCOS, em
-  // que aparece pelo menos 1 item com esse centro_custo_id) — mesmo critério do dropdown "Agrupar
-  // valor em" (ver t17_centrosCustoComUso).
   const blocoPorCC = {};
   ordem.forEach(bloco => {
     (composicao.blocos[bloco] || []).forEach(it => {
-      // Só itens efetivamente incluídos no orçamento definem o bloco alvo das comissões — itens
-      // ocultos (incluir_orcamento=false) não aparecem no orçamento e não devem atrair comissões.
-      if (it.centro_custo_id && it.incluir_orcamento !== false && !(it.centro_custo_id in blocoPorCC))
+      if (it.centro_custo_id && it.incluir_orcamento !== false && passaFiltroOrc(it) && !(it.centro_custo_id in blocoPorCC))
         blocoPorCC[it.centro_custo_id] = bloco;
     });
   });
 
   (composicao.blocos[T17_BLOCO_COMISSOES] || []).forEach(it => {
     if (!it.centro_custo_id || it.incluir_orcamento === false) return;
+    if (fFab) return;
+    if (fCC && String(it.centro_custo_id || '') !== fCC) return;
     const blocoAlvoNome = blocoPorCC[it.centro_custo_id];
     const blocoAlvo = blocoAlvoNome ? resultado[blocoAlvoNome] : null;
     if (!blocoAlvo) return;

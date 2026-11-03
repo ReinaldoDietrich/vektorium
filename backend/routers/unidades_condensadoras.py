@@ -39,11 +39,11 @@ _UPLOADS_DIR = Path(_AD) / "uploads" if _AD else _BASE / "uploads"
 
 
 @router.get("/exportar-bd")
-def exportar_bd(db: Session = Depends(get_db)):
+def exportar_bd(pasta: str = None, db: Session = Depends(get_db)):
     """Exporta o banco de unidades condensadoras em Excel (2 abas: Mecânica e Elétrica+Físico+Dim),
     no mesmo formato visual das planilhas-modelo."""
-    return StreamingResponse(io.BytesIO(exportar_unidades(db)), media_type=_XLSX,
-                             headers={"Content-Disposition": "attachment; filename=BD_Unidades_Condensadoras.xlsx"})
+    from ..utils import resposta_excel_catalogo
+    return resposta_excel_catalogo(exportar_unidades(db), "BD_Unidades_Condensadoras.xlsx", pasta=pasta)
 
 
 def _unidade_dict(u: m.UnidadeCondensadora) -> dict:
@@ -203,19 +203,18 @@ def excluir_catalogo(catalogo_id: int, db: Session = Depends(get_db)):
 # ---------------- Importação ----------------
 
 @router.get("/template")
-def baixar_template():
-    return StreamingResponse(io.BytesIO(gerar_template_uc()),
-                             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=template_uc.xlsx"})
+def baixar_template(pasta: str = None):
+    from ..utils import resposta_excel_catalogo
+    return resposta_excel_catalogo(gerar_template_uc(), "template_uc.xlsx", pasta=pasta)
 
 
 @router.get("/documento")
-def baixar_documento():
+def baixar_documento(pasta: str = None):
     """Documento de Importação (.docx) — alternativa ao fluxo principal (catálogo em PDF + script),
     útil quando só se tem prints/recortes do catálogo em vez do PDF completo."""
-    return StreamingResponse(io.BytesIO(gerar_documento_importacao_uc()),
-                             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                             headers={"Content-Disposition": "attachment; filename=Documento_Importacao_UC.docx"})
+    from ..utils import resposta_arquivo_catalogo
+    return resposta_arquivo_catalogo(gerar_documento_importacao_uc(), "Documento_Importacao_UC.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", pasta=pasta)
 
 
 @router.post("/preview")
@@ -270,6 +269,16 @@ def _parse_tensao_projeto(tensao_str):
     return tensao, fases, freq
 
 
+def _normalizar_tensao(val):
+    """Extrai a porção de voltagem de qualquer formato armazenado: '380V', '380', '380V/3F/60Hz' → '380V'."""
+    if not val:
+        return None
+    parte = val.split("/")[0].strip().upper()
+    if parte and parte[-1] != "V" and parte[-1].isdigit():
+        parte += "V"
+    return parte
+
+
 def _eletrica_da_tensao(u: m.UnidadeCondensadora, tensao_projeto: str):
     """Resolve QUAL linha de EletricaUC usar: a Tensão vem da configuração do projeto (orientação
     #9 — depende do cadastro, não do catálogo). Se houver mais de uma opção de compressor pra
@@ -277,7 +286,8 @@ def _eletrica_da_tensao(u: m.UnidadeCondensadora, tensao_projeto: str):
     tensao, fases, _freq = _parse_tensao_projeto(tensao_projeto)
     if not tensao or not u.eletricas:
         return None
-    candidatas = [e for e in u.eletricas if e.tensao and e.tensao.replace(" ", "").upper() == tensao.replace(" ", "").upper()]
+    tensao_norm = _normalizar_tensao(tensao)
+    candidatas = [e for e in u.eletricas if _normalizar_tensao(e.tensao) == tensao_norm]
     if fases:
         com_fase = [e for e in candidatas if e.fases == fases]
         if com_fase:
@@ -612,7 +622,7 @@ def opcoes(fabricante_uc: str = None, catalogo_id: int = None, tipo_compressor: 
            db: Session = Depends(get_db)):
     def _filtrar(*, ate_fabricante=False, ate_catalogo=False, ate_tipo=False,
                  ate_fabcomp=False, ate_numcomp=False):
-        q = db.query(m.UnidadeCondensadora).join(m.CatalogoUC)
+        q = db.query(m.UnidadeCondensadora).join(m.CatalogoUC).filter(m.CatalogoUC.ativo_comercial.is_(True))
         if ate_fabricante and fabricante_uc:
             q = q.filter(m.CatalogoUC.fabricante_uc == fabricante_uc)
         if ate_catalogo and catalogo_id:

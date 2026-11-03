@@ -116,11 +116,8 @@ def migrar_projetos_legado():
             path_vek = os.path.join(pasta_destino, f"{nome_arq}.vek")
 
             if os.path.exists(path_vek):
-                base, ext = os.path.splitext(path_vek)
-                i = 1
-                while os.path.exists(f"{base}_{i}{ext}"):
-                    i += 1
-                path_vek = f"{base}_{i}{ext}"
+                _log.info("Migração pulada: '%s' já existe no disco.", path_vek)
+                continue
 
             vek_data = {
                 "vek_version": 1,
@@ -426,7 +423,7 @@ class WorkspaceManager:
         erros = 0
         for entry in list(self._abertos.values()):
             try:
-                r = self.fechar_arquivo(entry.path_vek, salvar=True)
+                r = self.fechar_arquivo(entry.path_vek, salvar=False)
                 resultados.append({"path": entry.path_vek, **r})
                 if not r.get("ok"):
                     erros += 1

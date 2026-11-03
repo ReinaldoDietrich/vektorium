@@ -24,6 +24,7 @@ const AUTH = {
   limpar() {
     this._sessao = null;
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem('vektorium_permissoes');
   },
 
   _tokenExpirado() {
@@ -56,11 +57,11 @@ const AUTH = {
         signal: ctrl.signal,
       });
       clearTimeout(timer);
-      if (!r.ok) { this.limpar(); return false; }
+      if (!r.ok) { return false; }
       const dados = await r.json();
       this.salvar(dados);
       return true;
-    } catch (e) { this.limpar(); return false; }
+    } catch (e) { return false; }
   },
 
   async garantirToken() {
@@ -176,6 +177,34 @@ const AUTH = {
       clearTimeout(t);
       this.limpar();
     }
+  },
+
+  async logoutOutros() {
+    const token = this.token();
+    if (!token) return false;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/auth/v1/logout?scope=others`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
+          signal: ctrl.signal
+        }
+      );
+      return r.ok;
+    } catch (e) {
+      console.error('[AUTH.logoutOutros] Erro:', e);
+      return false;
+    } finally { clearTimeout(t); }
+  },
+
+  async verificarSessaoAtiva() {
+    if (!this._sessao || !this._sessao.refresh_token) return true;
+    if (!this._tokenExpirado()) return true;
+    const ok = await this.renovar();
+    return ok;
   },
 };
 

@@ -314,11 +314,14 @@ async function _carregarPainelNomenclaturaCondensador(container, dados, onNomenc
 function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
   let camposApiPath = null;
   let arrastando = null;
+  let _carregado = false;
 
   async function carregar(url) {
     camposApiPath = url;
+    _carregado = false;
     const campos = await api.get(camposApiPath);
     document.getElementById(containerId).dataset.campos = JSON.stringify(campos);
+    _carregado = true;
     redesenhar();
   }
   function estado() { return JSON.parse(document.getElementById(containerId).dataset.campos || '[]'); }
@@ -372,7 +375,7 @@ function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
       const [ci, prop] = inp.dataset.campoProp.split(':');
       c2[Number(ci)][prop] = inp.type === 'checkbox' ? inp.checked : (inp.value || null);
       salvarEstadoLocal(c2);
-      if (prop === 'modo') redesenhar();
+      if (prop === 'modo') requestAnimationFrame(redesenhar);
     }));
     el.querySelectorAll('[data-opcao-prop]').forEach(inp => inp.addEventListener('input', () => {
       const [ci, oi, prop] = inp.dataset.opcaoProp.split(':');
@@ -380,8 +383,20 @@ function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
       c2[Number(ci)].opcoes[Number(oi)][prop] = inp.value;
       salvarEstadoLocal(c2);
     }));
-    // Arrastar o card com o mouse pra reordenar (substitui as setas ←/→) — a ordem final só é
-    // persistida no banco quando o botão Salvar da tela (fora deste componente) é clicado.
+    el.querySelectorAll('[data-campo-card] input, [data-campo-card] select').forEach(ctrl => {
+      ctrl.addEventListener('mousedown', () => {
+        const card = ctrl.closest('[data-campo-card]');
+        if (card) card.setAttribute('draggable', 'false');
+      });
+      ctrl.addEventListener('mouseup', () => {
+        const card = ctrl.closest('[data-campo-card]');
+        if (card) card.setAttribute('draggable', 'true');
+      });
+      ctrl.addEventListener('blur', () => {
+        const card = ctrl.closest('[data-campo-card]');
+        if (card) card.setAttribute('draggable', 'true');
+      });
+    });
     el.querySelectorAll('[data-campo-card]').forEach(card => {
       card.addEventListener('dragstart', (ev) => {
         arrastando = Number(card.dataset.campoCard);
@@ -406,6 +421,8 @@ function nomenc_criarEditorCampos(containerId, buscaOpcoes) {
   // Salva a Nomenclatura junto com o resto do catálogo — chamado pelo botão Salvar da tela que
   // hospeda este editor (Tela A/B), não tem mais botão próprio (item 3: uma única ação de salvar).
   async function salvar() {
+    if (!_carregado && camposApiPath) await carregar(camposApiPath);
+    if (!_carregado || !camposApiPath) throw new Error('Nomenclatura não carregada — salve novamente.');
     await api.put(camposApiPath, { campos: estado() });
   }
 
