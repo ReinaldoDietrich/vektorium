@@ -113,11 +113,11 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
 .t16-bloco{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:14px;overflow:hidden;}
 .t16-bloco-titulo{font-size:12px;font-weight:bold;padding:8px 12px;background:#f9fafb;border-bottom:1px solid var(--line);}
 .t16-sub{font-weight:normal;color:var(--muted);font-size:11px;}
-.t16-tabela{width:100%;font-size:12px;table-layout:fixed;}
+.t16-tabela{width:100%;font-size:12px;table-layout:auto;}
 .t16-tabela th{text-align:left;padding:6px 10px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);}
 .t16-tabela td{padding:5px 10px;border-bottom:1px solid var(--line-light);}
-.t16-tabela td.label{color:var(--muted);width:30%;}
-.t16-tabela td.val{font-variant-numeric:tabular-nums;width:35%;}
+.t16-tabela td.label{color:var(--muted);white-space:nowrap;}
+.t16-tabela td.val{font-variant-numeric:tabular-nums;}
 .t16-tabela td.val.diff{background:#fffbeb;color:var(--amber);font-weight:bold;}
 .t16-tabela .sistema-nome{font-weight:bold;padding-top:10px;}
 
@@ -179,14 +179,14 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
    #tela13/#tela7), a lista/gestão de projetos da Tela 1 (#listaProjetos), as abas de navegação,
    Exportar/Imprimir, Reabrir e Sair — o resto do sistema e os demais projetos continuam livres.
    #formProjetoWrap = o cadastro do próprio projeto aberto (dados dele → congela). */
-body.projeto-bloqueado :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+body.projeto-bloqueado :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
   pointer-events:none !important;
   opacity:.55;
 }
 /* Exceção: Exportar/Imprimir do projeto continuam livres mesmo com o projeto fechado (ids vindos do
    inventário real dos gatilhos de exportação de cada tela). A âncora com o id da tela dá a esta regra
    especificidade maior que a do congelamento acima, garantindo que ela prevaleça. */
-body.projeto-bloqueado :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+body.projeto-bloqueado :is(#tela5,#tela9,#tela10,#tela12,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
   pointer-events:auto !important;
   opacity:1 !important;
 }
@@ -195,11 +195,11 @@ body.projeto-bloqueado #acoesProjetoAtivo .btn-text{
   opacity:1 !important;
 }
 
-body.modo-visualizacao :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+body.modo-visualizacao :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
   pointer-events:none !important;
   opacity:.55;
 }
-body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+body.modo-visualizacao :is(#tela5,#tela9,#tela10,#tela12,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
   pointer-events:auto !important;
   opacity:1 !important;
 }
@@ -209,11 +209,11 @@ body.modo-visualizacao #acoesProjetoAtivo .btn-text{
 }
 
 /* ===== Licença inativa — mesma mecânica do projeto-bloqueado (FASE 3) ===== */
-body.licenca-inativa :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela16,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
+body.licenca-inativa :is(#formProjetoWrap,#tela2,#tela3,#tela4,#tela5,#tela9,#tela10,#tela11,#tela12,#tela17,#tela18) :is(input,select,textarea,button,.btn-text){
   pointer-events:none !important;
   opacity:.55;
 }
-body.licenca-inativa :is(#tela5,#tela9,#tela10,#tela12,#tela16,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t16_btnImprimir,#t16_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
+body.licenca-inativa :is(#tela5,#tela9,#tela10,#tela12,#tela17,#tela18) :is(#btnExportarExcel,#btnExportarPdf,#t9_btnImprimir,#t9_btnExportarExcel,#t10_btnImprimir,#t10_btnExportarExcel,#t12_btnImprimir,#t12_btnExportarExcel,#t17_btnImprimir,#t17_btnExportarExcel,#t18_btnImprimir,#t18_btnExportarExcel){
   pointer-events:auto !important;
   opacity:1 !important;
 }

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Tela 12 — Comparativo de Revisões do Projeto. Somente exportação Excel (a tela em si é
+"""Tela 12 — Comparativo de Revisões / Projetos. Somente exportação Excel (a tela em si é
 somente-leitura no frontend, montada 100% no browser em tela16.js reaproveitando os endpoints já
 existentes). Aqui reaproveitamos as MESMAS fontes de dados que o frontend usa, chamadas
-diretamente em Python (sem HTTP), pra gerar o Excel espelhando a tela -- aprovado 2026-08-10."""
-from fastapi import APIRouter, Depends, HTTPException
+diretamente em Python (sem HTTP), pra gerar o Excel espelhando a tela -- aprovado 2026-08-10.
+Suporta 2 ou 3 projetos (C é opcional) — SE-135."""
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from .. import models as m
 from ..database import get_db
@@ -33,11 +34,20 @@ def _carregar_dados_revisao(db: Session, projeto_id: int) -> dict:
 
 
 @router.get("/exportar/excel")
-def exportar_comparativo_excel(projeto_a_id: int, projeto_b_id: int, db: Session = Depends(get_db)):
-    a = _carregar_dados_revisao(db, projeto_a_id)
-    b = _carregar_dados_revisao(db, projeto_b_id)
-    conteudo = gerar_excel_comparativo(db, a, b)
-    nome_a = a["projeto"]["codigo_projeto"] or projeto_a_id
-    nome_b = b["projeto"]["codigo_projeto"] or projeto_b_id
+def exportar_comparativo_excel(
+    projeto_a_id: int,
+    projeto_b_id: int,
+    projeto_c_id: int = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    revisoes = [
+        _carregar_dados_revisao(db, projeto_a_id),
+        _carregar_dados_revisao(db, projeto_b_id),
+    ]
+    if projeto_c_id is not None:
+        revisoes.append(_carregar_dados_revisao(db, projeto_c_id))
+    conteudo = gerar_excel_comparativo(db, revisoes)
+    nomes = [r["projeto"]["codigo_projeto"] or "?" for r in revisoes]
+    nome_arquivo = "comparativo_revisoes_" + "_x_".join(str(n) for n in nomes) + ".xlsx"
     projeto_ref = db.get(m.Projeto, projeto_b_id)
-    return resposta_excel_projeto(conteudo, f"comparativo_revisoes_{nome_a}_x_{nome_b}.xlsx", projeto_ref)
+    return resposta_excel_projeto(conteudo, nome_arquivo, projeto_ref)
