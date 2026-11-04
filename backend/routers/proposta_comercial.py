@@ -6,7 +6,7 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, Body, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Body, Depends, UploadFile, File, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -55,7 +55,8 @@ def _disponibilidade_tabelas(db: Session, projeto_id: int) -> dict:
 
 
 @router.get("/contexto")
-def contexto(projeto_id: int, db: Session = Depends(get_db)):
+def contexto(projeto_id: int, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
     """Tudo que a tela precisa: dados do projeto, defaults do usuário, árvore de Ids (com os que o
     projeto usa já pré-marcados) e a lista padrão de exceções."""
     projeto = db.get(m.Projeto, projeto_id)

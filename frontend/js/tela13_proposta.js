@@ -69,7 +69,7 @@ async function t19_carregar() {
   conteudo.style.display = 'block';
   document.getElementById('t19_msg').textContent = 'Carregando…';
 
-  t19_ctx = await api.get(`/api/proposta/contexto?projeto_id=${state.projetoId}`);
+  t19_ctx = await api.get(`/api/proposta/contexto?projeto_id=${state.projetoId}&_t=${Date.now()}`);
   if (gen !== state.projetoGen) return;
   const p = t19_ctx.projeto;
   document.getElementById('t19_projetoInfo').innerHTML =

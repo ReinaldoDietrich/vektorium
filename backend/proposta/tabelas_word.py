@@ -447,14 +447,38 @@ def orcamento(sd, orc, filtro=None):
     t = _tabela(sd, nc); cont = _novo_conteudo(cols)
     _cabecalho(t, cols, esq_ate=1)
 
-    def _linha(label, *, unid="", qtd="", valor="", bold=False):
+    SZ = 9
+    n_linha = [0]
+
+    def _linha(label, *, unid="", qtd="", valor="", bold=False, destaque=False):
         row = t.add_row().cells
-        _set(row[0], label, bold=bold, align="l")
+        if destaque:
+            _set(row[0], label, bold=True, white=True, align="l", size=SZ + 1)
+            _shd(row[0], COR_DARK)
+            if show_qtd:
+                _set(row[1], "", size=SZ); _shd(row[1], COR_DARK)
+                _set(row[2], "", size=SZ); _shd(row[2], COR_DARK)
+            _set(row[col_val], valor, bold=True, white=True, align="r", size=SZ + 1)
+            _shd(row[col_val], COR_DARK)
+        else:
+            _set(row[0], label, bold=bold, align="l", size=SZ)
+            if show_qtd:
+                _set(row[1], unid, align="c", size=SZ)
+                _set(row[2], qtd, align="c", size=SZ)
+            _set(row[col_val], valor, bold=bold, align="r", size=SZ)
+            if n_linha[0] % 2 == 1:
+                for ci in range(nc):
+                    _shd(row[ci], COR_ZEBRA)
+        for ci in range(nc):
+            for p in row[ci].paragraphs:
+                p.paragraph_format.space_before = Pt(2)
+                p.paragraph_format.space_after = Pt(2)
         vals = [label]
         if show_qtd:
-            _set(row[1], unid, align="c"); _set(row[2], qtd, align="c"); vals += [unid, qtd]
-        _set(row[col_val], valor, bold=bold, align="c"); vals.append(valor)
+            vals += [unid, qtd]
+        vals.append(valor)
         _ac(cont, vals)
+        n_linha[0] += 1
 
     total_geral = 0.0
     for bloco in orc.get("ordem", []) or []:
@@ -466,6 +490,7 @@ def orcamento(sd, orc, filtro=None):
         total_geral += db.get("total", 0) or 0
         if is_bloco_cc:
             _barra(t, f"{bloco} — R$ {_fmt(db.get('total'), 2)}", nc, COR_DARK)
+            n_linha[0] = 0
         else:
             _linha(bloco, valor="R$ " + _fmt(db.get("total"), 2), bold=True)
             continue
@@ -480,13 +505,14 @@ def orcamento(sd, orc, filtro=None):
                 grupos[cc] = []; ordem_cc.append(cc)
         for cc in ordem_cc:
             _barra(t, cc, nc, COR_LIGHT, white=False)
+            n_linha[0] = 0
             for it in grupos[cc]:
                 _linha(it["descricao"], unid=_txt(it.get("unidade")), qtd=_fmt(it.get("quantidade"), 2),
                        valor=("R$ " + _fmt(it.get("valor"), 2)) if exibir == "individual" else "")
             if exibir == "total_bloco":
                 subtotal = sum(i["valor"] for i in grupos[cc]) + (extra.get(cc) or 0)
                 _linha(f"Subtotal — {cc}", valor="R$ " + _fmt(subtotal, 2))
-    _linha("Valor total da proposta", valor="R$ " + _fmt(orc.get("total_geral", total_geral), 2), bold=True)
+    _linha("Valor total da proposta", valor="R$ " + _fmt(orc.get("total_geral", total_geral), 2), destaque=True)
     aplicar_autofit(t, cont)
 
 
