@@ -284,8 +284,7 @@ async function t2_excluirCamara() {
   t2_carregarLista();
 }
 
-// Copia só dimensionamento (campos básicos + equipamentos + portas) — Forçadores/Válvulas NÃO
-// vêm junto, a câmara nova nasce sem forçador selecionado. Abre já pronta pra renomear.
+// Duplica a câmara (campos básicos + equipamentos + portas + forçadores + válvulas).
 async function t2_duplicarCamara() {
   if (!t2_editandoId) return;
   const nova = await api.post(`/api/camaras-completo/${t2_editandoId}/duplicar`, {});

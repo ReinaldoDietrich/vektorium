@@ -437,10 +437,12 @@ def paineis(sd, resumo):
 # ----------------------------------------------------------------- Orçamento (Tela 10, com filtro)
 def orcamento(sd, orc, filtro=None):
     filtro = filtro or {}
-    agrupar = filtro.get("agrupar") or "bloco_cc"
+    agrupar = filtro.get("agrupar") or "lista_cc"
     exibir = filtro.get("exibir") or "individual"
-    is_bloco_cc = agrupar == "bloco_cc"
-    show_qtd = is_bloco_cc and not filtro.get("ocultar_qtd")
+    faturamento = filtro.get("faturamento") or "completo"
+    mostra_itens = agrupar != "lista"
+    mostra_cc = agrupar == "lista_cc"
+    show_qtd = mostra_itens and not filtro.get("ocultar_qtd")
 
     cols = ["Descrição"] + (["Unid.", "Qtd."] if show_qtd else []) + ["Valor (R$)"]
     nc = len(cols); col_val = nc - 1
@@ -480,38 +482,60 @@ def orcamento(sd, orc, filtro=None):
         _ac(cont, vals)
         n_linha[0] += 1
 
-    total_geral = 0.0
-    for bloco in orc.get("ordem", []) or []:
-        db = orc["blocos"][bloco]
-        itens = db.get("itens", []) or []
-        extra = db.get("extra_por_cc", {}) or {}
-        if not itens and not extra:
-            continue
-        total_geral += db.get("total", 0) or 0
-        if is_bloco_cc:
-            _barra(t, f"{bloco} — R$ {_fmt(db.get('total'), 2)}", nc, COR_DARK)
+    def _render_blocos(tipo_fat=None):
+        total_secao = 0.0
+        for bloco in orc.get("ordem", []) or []:
+            db = orc["blocos"][bloco]
+            itens_todos = db.get("itens", []) or []
+            itens = [it for it in itens_todos if not tipo_fat or (it.get("tipo_faturamento") or "Próprio") == tipo_fat] if tipo_fat else itens_todos
+            extra = db.get("extra_por_cc", {}) or {}
+            if tipo_fat and tipo_fat != "Próprio":
+                extra = {}
+            total_itens = sum(it.get("valor", 0) for it in itens)
+            total_extra = sum(extra.values())
+            if not itens and not extra:
+                continue
+            total_bloco = total_itens + total_extra
+            total_secao += total_bloco
+            _barra(t, f"{bloco} — R$ {_fmt(total_bloco, 2)}", nc, COR_DARK)
             n_linha[0] = 0
-        else:
-            _linha(bloco, valor="R$ " + _fmt(db.get("total"), 2), bold=True)
-            continue
-        grupos, ordem_cc = {}, []
-        for it in itens:
-            cc = it.get("cc") or "Sem Centro de Custo"
-            if cc not in grupos:
-                grupos[cc] = []; ordem_cc.append(cc)
-            grupos[cc].append(it)
-        for cc in extra:
-            if cc not in grupos:
-                grupos[cc] = []; ordem_cc.append(cc)
-        for cc in ordem_cc:
-            _barra(t, cc, nc, COR_LIGHT, white=False)
-            n_linha[0] = 0
-            for it in grupos[cc]:
-                _linha(it["descricao"], unid=_txt(it.get("unidade")), qtd=_fmt(it.get("quantidade"), 2),
-                       valor=("R$ " + _fmt(it.get("valor"), 2)) if exibir == "individual" else "")
-            if exibir == "total_bloco":
-                subtotal = sum(i["valor"] for i in grupos[cc]) + (extra.get(cc) or 0)
-                _linha(f"Subtotal — {cc}", valor="R$ " + _fmt(subtotal, 2))
+            if not mostra_itens:
+                continue
+            if mostra_cc:
+                grupos, ordem_cc = {}, []
+                for it in itens:
+                    cc = it.get("cc") or "Sem Centro de Custo"
+                    if cc not in grupos:
+                        grupos[cc] = []; ordem_cc.append(cc)
+                    grupos[cc].append(it)
+                for cc in extra:
+                    if cc not in grupos:
+                        grupos[cc] = []; ordem_cc.append(cc)
+                for cc in ordem_cc:
+                    _barra(t, cc, nc, COR_LIGHT, white=False)
+                    n_linha[0] = 0
+                    for it in grupos[cc]:
+                        valor_txt = ("R$ " + _fmt(it.get("valor"), 2)) if exibir == "individual" else ""
+                        _linha(it["descricao"], unid=_txt(it.get("unidade")), qtd=_fmt(it.get("quantidade"), 2), valor=valor_txt)
+            else:
+                for it in itens:
+                    valor_txt = ("R$ " + _fmt(it.get("valor"), 2)) if exibir == "individual" else ""
+                    _linha(it["descricao"], unid=_txt(it.get("unidade")), qtd=_fmt(it.get("quantidade"), 2), valor=valor_txt)
+        return total_secao
+
+    if faturamento == "proprio":
+        total_geral = _render_blocos("Próprio")
+    elif faturamento == "direto":
+        total_geral = _render_blocos("Direto")
+    else:
+        total_proprio = _render_blocos("Próprio")
+        if total_proprio:
+            _linha("Subtotal Faturamento Próprio", valor="R$ " + _fmt(total_proprio, 2), bold=True)
+        total_direto = _render_blocos("Direto")
+        if total_direto:
+            _linha("Subtotal Faturamento Direto", valor="R$ " + _fmt(total_direto, 2), bold=True)
+        total_geral = total_proprio + total_direto
+
     _linha("Valor total da proposta", valor="R$ " + _fmt(orc.get("total_geral", total_geral), 2), destaque=True)
     aplicar_autofit(t, cont)
 

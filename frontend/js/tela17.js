@@ -776,9 +776,10 @@ function t17_renderTabelaOrcamento(composicao) {
   const dados = t17_calcularTabelaOrcamento(composicao);
   const agrupar = document.getElementById('t17_orcAgrupar').value;
   const exibir = document.getElementById('t17_orcExibir').value;
-  const filtroFat = document.getElementById('t17_orcFaturamento').value; // 'completo'|'proprio'|'direto'
-  const isBlocoCC = agrupar === 'bloco_cc';
-  const showQtd = isBlocoCC && !document.getElementById('t17_orcOcultarQtd').checked;
+  const filtroFat = document.getElementById('t17_orcFaturamento').value;
+  const mostraItens = agrupar !== 'lista';
+  const mostraCC = agrupar === 'lista_cc';
+  const showQtd = mostraItens && !document.getElementById('t17_orcOcultarQtd').checked;
 
   const larguraQtd = showQtd
     ? '<div style="width:52px;flex-shrink:0;font-size:12px;color:var(--muted,#888);font-weight:bold;">Unid.</div>' +
@@ -803,45 +804,44 @@ function t17_renderTabelaOrcamento(composicao) {
     '</div>';
   }
 
-  // Renderiza os blocos filtrando por tipo_faturamento
-  // tipoFat: 'Próprio' | 'Direto' | null (todos, sem filtro)
   function renderBlocos(tipoFat) {
     let totalSecao = 0;
     const html = dados.ordem.map(bloco => {
       const info = dados.blocos[bloco];
       const itens = tipoFat ? info.itens.filter(it => (it.tipo_faturamento || 'Próprio') === tipoFat) : info.itens;
-      // extraPorCC (comissões por indicação) — incluídos apenas no bloco Próprio para evitar dupla contagem
       const extraPorCC = (!tipoFat || tipoFat === 'Próprio') ? info.extraPorCC : {};
       const totalItens = itens.reduce((s, i) => s + i.valor, 0);
       const totalExtra = Object.values(extraPorCC).reduce((s, v) => s + v, 0);
       if (!itens.length && !Object.keys(extraPorCC).length) return '';
       totalSecao += totalItens + totalExtra;
       let body = '';
-      if (isBlocoCC) {
-        const porCC = {};
-        const ordemCC = [];
-        itens.forEach(it => {
-          const cc = it.cc || 'Sem Centro de Custo';
-          if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
-          porCC[cc].push(it);
-        });
-        Object.keys(extraPorCC).forEach(cc => {
-          if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
-        });
-        body = ordemCC.map(cc => {
-          const ccExtra = extraPorCC[cc] || 0;
-          const subtotalItens = porCC[cc].reduce((s, it) => s + it.valor, 0);
-          const subtotal = subtotalItens + ccExtra;
-          const itensHtml = porCC[cc].map((it, idx) => {
-            const isLast = idx === porCC[cc].length - 1;
-            const valorDisplay = exibir === 'individual' ? t17_brl(it.valor + (isLast ? ccExtra : 0)) : '';
+      if (mostraItens) {
+        if (mostraCC) {
+          const porCC = {};
+          const ordemCC = [];
+          itens.forEach(it => {
+            const cc = it.cc || 'Sem Centro de Custo';
+            if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
+            porCC[cc].push(it);
+          });
+          Object.keys(extraPorCC).forEach(cc => {
+            if (!porCC[cc]) { porCC[cc] = []; ordemCC.push(cc); }
+          });
+          body = ordemCC.map(cc => {
+            const ccExtra = extraPorCC[cc] || 0;
+            const itensHtml = porCC[cc].map((it, idx) => {
+              const isLast = idx === porCC[cc].length - 1;
+              const valorDisplay = exibir === 'individual' ? t17_brl(it.valor + (isLast ? ccExtra : 0)) : '';
+              return linha(it.descricao, valorDisplay, { u: it.unidade, q: it.quantidade });
+            }).join('');
+            return `<div style="padding:6px 4px 0;font-size:12px;color:var(--muted,#888);">${cc}</div>` + itensHtml;
+          }).join('');
+        } else {
+          body = itens.map(it => {
+            const valorDisplay = exibir === 'individual' ? t17_brl(it.valor) : '';
             return linha(it.descricao, valorDisplay, { u: it.unidade, q: it.quantidade });
           }).join('');
-          const subtotalHtml = exibir === 'total_bloco'
-            ? linha('Subtotal — ' + cc, t17_brl(subtotal), { fs: 12, muted: true })
-            : '';
-          return `<div style="padding:6px 4px 0;font-size:12px;color:var(--muted,#888);">${cc}</div>` + itensHtml + subtotalHtml;
-        }).join('');
+        }
       }
       const header = '<div style="display:flex;align-items:baseline;gap:10px;padding:10px 4px 6px;border-top:1px solid var(--line);">' +
         `<div style="flex:1;min-width:0;font-size:14px;font-weight:bold;">${bloco}</div>` +
@@ -876,7 +876,7 @@ function t17_renderTabelaOrcamento(composicao) {
     const secao = renderBlocos('Direto');
     htmlSecoes = secao.html;
     totalProposta = secao.total;
-  } else { // completo
+  } else {
     const proprio = renderBlocos('Próprio');
     const direto = renderBlocos('Direto');
     htmlSecoes = tituloSecao('TABELA ORÇAMENTO — FATURAMENTO PRÓPRIO') + proprio.html +
@@ -898,11 +898,11 @@ function t17_renderTabelaOrcamento(composicao) {
 }
 
 function t17_atualizarVisibilidadeFiltrosOrcamento() {
-  const isBlocoCC = document.getElementById('t17_orcAgrupar').value === 'bloco_cc';
-  document.getElementById('t17_orcWrapExibir').style.display = isBlocoCC ? '' : 'none';
+  const mostraItens = document.getElementById('t17_orcAgrupar').value !== 'lista';
+  document.getElementById('t17_orcWrapExibir').style.display = '';
   const chk = document.getElementById('t17_orcOcultarQtd');
-  chk.disabled = !isBlocoCC;
-  document.getElementById('t17_orcWrapOcultar').style.opacity = isBlocoCC ? '1' : '0.4';
+  chk.disabled = !mostraItens;
+  document.getElementById('t17_orcWrapOcultar').style.opacity = mostraItens ? '1' : '0.4';
 }
 
 // Condições de Pagamento — agenda de Sinal de Negócio + parcelas sobre o Valor Total da Proposta

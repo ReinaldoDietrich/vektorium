@@ -268,7 +268,8 @@ def exportar_resumo_excel(projeto_id: int, modo: str = "total", db: Session = De
         raise HTTPException(400, "modo inválido — use total | painel_portas | painel_portas_geral | camara")
     resumo_dados = montar_resumo(db, projeto, modo)
     conteudo = gerar_excel_paineis_portas(projeto, resumo_dados)
-    return resposta_excel_projeto(conteudo, f"paineis_portas_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Painéis e Portas", "xlsx"), projeto)
 
 
 # ---------------- Lookup (Configurações — aba única) ----------------

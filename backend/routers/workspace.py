@@ -90,8 +90,8 @@ def novo_projeto(payload: dict = Body(...), db: Session = Depends(get_db)):
     db.commit()
     db.refresh(obj)
 
-    nome_arq = re.sub(r'[\\/:*?"<>|]', "-", codigo_projeto)
-    path_vek = str(Path(pasta) / f"{nome_arq}.vek")
+    from ..utils import nome_vek_projeto
+    path_vek = str(Path(pasta) / nome_vek_projeto(obj))
 
     workspace.registrar_projeto_novo(obj.id, path_vek, obj.codigo_base)
     workspace.salvar_arquivo(path_vek)

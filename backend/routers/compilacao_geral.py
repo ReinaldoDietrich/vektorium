@@ -499,4 +499,5 @@ def compilacao_geral(projeto_id: int, db: Session = Depends(get_db)):
 def exportar_compilacao_geral_excel(projeto_id: int, db: Session = Depends(get_db)):
     projeto, dados = _montar_compilacao_geral(db, projeto_id)
     conteudo = gerar_excel_compilacao_geral(projeto, dados)
-    return resposta_excel_projeto(conteudo, f"compilacao_geral_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Compilação Geral", "xlsx"), projeto)

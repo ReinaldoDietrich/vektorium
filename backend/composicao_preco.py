@@ -163,6 +163,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         # Orçamento/DRE/Comissionamento quando False (ver resumo_por_bloco, dre_projeto,
         # comissionamento, valor_total_proposta — todos filtram por esse campo).
         "incluir_orcamento": item.incluir_orcamento,
+        "tipo_faturamento": (item.fator.tipo_faturamento if item.fator else None) or "Próprio",
         # CPC 47 (Res. CFC NBC TG 47) B34-B38 — empresa age como AGENTE nesse item (repasse a
         # preço de fábrica): não reconhece receita nem custo pelo valor bruto do negócio, só pela
         # comissão líquida (linha agregada em BLOCO_COMISSOES_INDICACAO). Usado pra excluir este
@@ -875,7 +876,8 @@ def tabela_orcamento(dados: dict, filtro: dict | None = None) -> dict:
         itens = _ordenar_itens_orcamento([it for it in itens_brutos if _passa_filtro(it)], bloco)
         linhas = [{"descricao": it["descricao"], "unidade": it.get("unidade") or "-",
                     "quantidade": it["quantidade"], "cc": it.get("centro_custo_descricao"),
-                    "valor": it["valor_venda_negociacao"] or 0} for it in itens]
+                    "valor": it["valor_venda_negociacao"] or 0,
+                    "tipo_faturamento": it.get("tipo_faturamento") or "Próprio"} for it in itens]
         resultado[bloco] = {"itens": linhas, "total": sum(i["valor"] for i in linhas), "extra_por_cc": {}}
         ordem.append(bloco)
 

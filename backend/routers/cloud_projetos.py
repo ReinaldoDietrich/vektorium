@@ -449,3 +449,24 @@ def pull_novos(req: SyncRequest):
         db.commit()
 
     return {"ok": True, "importados": importados, "erros": erros}
+
+
+@router.post("/limpar-projetos-nuvem")
+def limpar_projetos_nuvem(req: SyncRequest):
+    """SE-137: remove todos os .json de projeto do Supabase Storage do usuário."""
+    arquivos = _storage_list(req.token, f"{req.user_id}/")
+    deletados = 0
+    erros = 0
+    for arq in arquivos:
+        nome: str = arq.get("name", "")
+        if not nome.endswith(".json") or nome == ".session_lock":
+            continue
+        path = f"{req.user_id}/{nome}"
+        try:
+            if _storage_delete(req.token, path):
+                deletados += 1
+            else:
+                erros += 1
+        except Exception:
+            erros += 1
+    return {"ok": erros == 0, "deletados": deletados, "erros": erros}

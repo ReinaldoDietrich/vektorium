@@ -130,9 +130,7 @@ def fechar_entidade(camara_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{camara_id}/duplicar")
 def duplicar(camara_id: int, db: Session = Depends(get_db)):
-    """Copia só os dados de dimensionamento (campos básicos + equipamentos + portas) — Forçadores e
-    Válvulas NÃO entram, a câmara nova nasce sem forçador selecionado (orientação explícita do
-    usuário: isso é seleção de equipamento, não dado de dimensionamento)."""
+    """Copia dados de dimensionamento (campos básicos + equipamentos + portas + forçadores + válvulas)."""
     orig = db.get(m.CamaraCompleto, camara_id)
     if not orig:
         raise HTTPException(404, "Câmara não encontrada")
@@ -150,6 +148,25 @@ def duplicar(camara_id: int, db: Session = Depends(get_db)):
                               freq_abertura_min_h=p.freq_abertura_min_h, protecao=p.protecao,
                               fonte_ar=p.fonte_ar, temp_adjacente=p.temp_adjacente,
                               umidade_adjacente=p.umidade_adjacente, ordem=p.ordem))
+    for f in orig.forcadores:
+        nf = m.ForcadorSelecaoCompleto(
+            camara_id=nova.id, fabricante_id=f.fabricante_id, linha_id=f.linha_id,
+            folga_desejada=f.folga_desejada, considerado=f.considerado,
+            quantidade=f.quantidade, tipo_degelo=f.tipo_degelo,
+            nomenclatura_selecionada=f.nomenclatura_selecionada,
+            codigo_curto=f.codigo_curto)
+        db.add(nf)
+        db.flush()
+        for v in f.valvulas:
+            db.add(m.ValvulaSelecaoCompleto(
+                forcador_selecao_id=nf.id, fabricante=v.fabricante,
+                tipo_expansao=v.tipo_expansao, modelo_selecao=v.modelo_selecao,
+                carga_abertura_pct=v.carga_abertura_pct,
+                conexao_entrada=v.conexao_entrada, conexao_saida=v.conexao_saida,
+                folga_desejada=v.folga_desejada, considerado=v.considerado,
+                capacidade_unit_kcal_h=v.capacidade_unit_kcal_h,
+                orificio=v.orificio, tensao=v.tensao,
+                tipo_motor=v.tipo_motor, controlador=v.controlador))
     db.commit()
     db.refresh(nova)
     return {**model_to_dict(nova), "codigo": _codigo(nova)}

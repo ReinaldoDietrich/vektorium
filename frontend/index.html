@@ -7,6 +7,22 @@
 <link rel="stylesheet" href="/css/style.css?v=20260907140000">
 <link rel="stylesheet" href="/css/sidebar.css?v=20261006153500">
 <style>body{visibility:hidden}</style>
+<script>
+// SE-140: Electron/Chromium perde foco de teclado após alert()/confirm() no Windows (PR #54380).
+(function(){
+  var _na = window.alert.bind(window);
+  var _nc = window.confirm.bind(window);
+  function _restaurarFoco(){
+    setTimeout(function(){
+      window.focus();
+      var el = document.activeElement;
+      if(el && el !== document.body){ el.blur(); el.focus(); }
+    }, 50);
+  }
+  window.alert = function(m){ _na(m); _restaurarFoco(); };
+  window.confirm = function(m){ var r = _nc(m); _restaurarFoco(); return r; };
+})();
+</script>
 <script>setTimeout(function(){ document.body.style.visibility='visible'; }, 1500);</script>
 </head>
 <body autocomplete="off">
@@ -1211,6 +1227,7 @@
         <div id="t11_racksLista" style="width:fit-content;max-width:100%;"></div>
         <p style="margin:4px 0 12px;"><span class="btn-text" id="t11_btnAddRack">+ Adicionar rack</span></p>
 
+        <div id="t11_rackForm" style="display:none;">
         <div class="sec-title" style="margin-top:16px;">Informações Rack</div>
         <div class="grid g3" style="grid-auto-flow:row;row-gap:10px;">
           <div><label class="lbl">Tipo de Equipamento <span class="readonly-tag">Sistema — Tela 1</span></label><input type="text" id="t11_tipoEquipamento" disabled></div>
@@ -1301,6 +1318,7 @@ CP/SP — com / sem supervisão</pre>
 
         <div class="sec-title" style="margin-top:20px;">Lista de Materiais Rack</div>
         <div id="t11_materiais" style="overflow-x:auto;"></div>
+        </div><!-- /t11_rackForm -->
       </div>
     </div>
   </div>
@@ -1525,17 +1543,18 @@ CP/SP — com / sem supervisão</pre>
           <div style="font-weight:bold;margin-bottom:8px;">TABELA DE ORÇAMENTO</div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
             <div>
-              <label class="lbl">Agrupar por</label>
+              <label class="lbl">Tipo de visualização</label>
               <select id="t17_orcAgrupar">
-                <option value="bloco">Bloco apenas</option>
-                <option value="bloco_cc" selected>Bloco + Centro de Custo</option>
+                <option value="lista">Lista apenas</option>
+                <option value="lista_cc" selected>Lista + Centro de Custo</option>
+                <option value="lista_itens">Lista + Itens</option>
               </select>
             </div>
             <div id="t17_orcWrapExibir">
               <label class="lbl">Mostrar valores</label>
               <select id="t17_orcExibir">
-                <option value="individual">Individual (com total do bloco)</option>
-                <option value="total_bloco">Apenas total do bloco</option>
+                <option value="individual">Individual (com total da lista)</option>
+                <option value="total_lista">Apenas total da lista</option>
               </select>
             </div>
             <div id="t17_orcWrapOcultar" style="display:flex;align-items:center;gap:6px;height:32px;">

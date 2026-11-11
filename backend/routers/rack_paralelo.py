@@ -263,9 +263,11 @@ def _garantir_um_considerado(db: Session, sistema: "m.SistemaRefrigeracao"):
 
 @router.get("")
 def obter(sistema_id: int, db: Session = Depends(get_db)):
-    """Lista TODOS os racks do sistema (alternativas com `considerado`). Cria o 1º se não houver."""
-    _get_or_create(db, sistema_id)                       # garante ao menos 1 rack
+    """Lista TODOS os racks do sistema (alternativas com `considerado`). Retorna lista vazia se
+    nenhum rack foi adicionado — SE-136: rack não é mais auto-criado."""
     sistema = db.get(m.SistemaRefrigeracao, sistema_id)
+    if not sistema:
+        raise HTTPException(404, "Sistema não encontrado")
     _garantir_um_considerado(db, sistema)
     return {"racks": [_serializar(db, r) for r in sistema.racks]}
 
@@ -308,8 +310,6 @@ def excluir_rack(rack_id: int, db: Session = Depends(get_db)):
     bp.verificar_projeto_da(rack)
     bf.verificar_entidade_aberta(rack)
     sistema = rack.sistema
-    if len(sistema.racks) <= 1:
-        raise HTTPException(400, "O sistema precisa ter ao menos um rack.")
     era = rack.considerado
     db.delete(rack)
     db.flush()

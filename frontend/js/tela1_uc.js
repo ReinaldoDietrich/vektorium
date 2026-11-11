@@ -179,7 +179,8 @@ async function t1uc_render() {
     if (!t1uc_addFiltros[s.sistema_id]) t1uc_addFiltros[s.sistema_id] = {};
     const opcoesAdd = await t1uc_fetchOpcoes(t1uc_addFiltros[s.sistema_id]);
     if (meuGen !== _t1uc_renderGen) return;
-    html += `<p style="margin:6px 0 0;"><button class="btn-wide" data-uc-revelar="${s.sistema_id}" type="button">+ Adicionar opção de UC</button></p>
+    const isRack = (state.sistemas.find(x => x.id === s.sistema_id) || {}).tipo_compressao === '4.1.2';
+    html += `<p style="margin:6px 0 0;"><button class="btn-wide" data-uc-revelar="${s.sistema_id}" type="button"${isRack ? ' disabled style="opacity:0.4;pointer-events:none;"' : ''}>+ Adicionar opção de UC</button></p>
       <div data-uc-addwrap="${s.sistema_id}" style="display:none;">
       <div class="uc-cascata-fields" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:6px;" data-uc-addfields="${s.sistema_id}">
         ${t1uc_camposCascata('add', s.sistema_id, t1uc_addFiltros[s.sistema_id], opcoesAdd)}

@@ -708,7 +708,8 @@ def exportar_compilacao_excel(projeto_id: int, fator_potencia: float = 0.92, col
                                        _colunas_resumo_selecionadas(colunas), resumo_compressao,
                                        _colunas_resumo_compressao_selecionadas(colunas_compressao), totais_gerais,
                                        eh_qd, disjuntor_geral_quadro_linhas, disjuntor_geral_compressao)
-    return resposta_excel_projeto(conteudo, f"compilacao_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Compilação de Linhas", "xlsx"), projeto)
 
 
 @router.get("/compilacao/status-fechada")

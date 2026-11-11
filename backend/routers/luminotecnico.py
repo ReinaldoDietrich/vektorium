@@ -186,4 +186,5 @@ def exportar_luminotecnico_excel(projeto_id: int, db: Session = Depends(get_db))
         raise HTTPException(404, "Projeto não encontrado")
     dados = montar_estudo(db, projeto_id)
     conteudo = gerar_excel_luminotecnico(projeto, dados)
-    return resposta_excel_projeto(conteudo, f"estudo_luminotecnico_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Estudo Luminotécnico", "xlsx"), projeto)

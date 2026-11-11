@@ -243,8 +243,7 @@ async function t3_excluirCamara() {
   t3_carregarLista();
 }
 
-// Copia só dimensionamento (campos básicos) — Forçadores/Válvulas NÃO vêm junto, a câmara nova
-// nasce sem forçador selecionado. Abre já pronta pra renomear.
+// Duplica a câmara (campos básicos + forçadores + válvulas).
 async function t3_duplicarCamara() {
   if (!t3_editandoId) return;
   const nova = await api.post(`/api/camaras-simples/${t3_editandoId}/duplicar`, {});

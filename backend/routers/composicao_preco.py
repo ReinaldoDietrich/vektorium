@@ -138,7 +138,8 @@ def exportar_excel(projeto_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Projeto não encontrado")
     composicao = cp.montar_composicao(db, projeto_id)
     conteudo = gerar_excel_composicao_preco(projeto, composicao)
-    return resposta_excel_projeto(conteudo, f"composicao_preco_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Composição de Preço", "xlsx"), projeto)
 
 
 @router.get("/lista-materiais")
@@ -160,7 +161,8 @@ def exportar_lista_materiais_excel(projeto_id: int, bloco: str | None = None,
         raise HTTPException(404, "Projeto não encontrado")
     linhas = cp.lista_materiais(db, projeto_id, bloco, centro_custo_id, fabricante)
     conteudo = gerar_excel_lista_materiais(projeto, linhas)
-    return resposta_excel_projeto(conteudo, f"lista_materiais_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Lista de Materiais", "xlsx"), projeto)
 
 
 @router.get("/comissionamento")

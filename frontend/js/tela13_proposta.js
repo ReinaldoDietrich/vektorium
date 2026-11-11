@@ -185,6 +185,7 @@ function t19_coletarOpcoes() {
   return {
     campos: t19_coletarCampos(), tabelas, ids_selecionados: ids, excecoes,
     planta_path: t19_plantaPath, orcamento_filtro: t19_filtroOrcamento(),
+    paineis_modo: (typeof t10_modoResumo !== 'undefined') ? t10_modoResumo : 'total',
   };
 }
 
@@ -193,9 +194,10 @@ function t19_coletarOpcoes() {
 function t19_filtroOrcamento() {
   const g = (id) => document.getElementById(id);
   const f = {
-    agrupar: g('t17_orcAgrupar') ? g('t17_orcAgrupar').value : 'bloco_cc',
+    agrupar: g('t17_orcAgrupar') ? g('t17_orcAgrupar').value : 'lista_cc',
     exibir: g('t17_orcExibir') ? g('t17_orcExibir').value : 'individual',
     ocultar_qtd: g('t17_orcOcultarQtd') ? g('t17_orcOcultarQtd').checked : false,
+    faturamento: g('t17_orcFaturamento') ? g('t17_orcFaturamento').value : 'completo',
   };
   const fab = g('t17_filtroFab') ? g('t17_filtroFab').value : '';
   const cc = g('t17_filtroCC') ? g('t17_filtroCC').value : '';

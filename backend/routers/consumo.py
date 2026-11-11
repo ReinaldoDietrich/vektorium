@@ -96,7 +96,8 @@ def consumo_projeto(projeto_id: int, db: Session = Depends(get_db)):
 def exportar_consumo_excel(projeto_id: int, db: Session = Depends(get_db)):
     projeto, dados = _montar_consumo(db, projeto_id)
     conteudo = gerar_excel_consumo(projeto, dados)
-    return resposta_excel_projeto(conteudo, f"consumo_eletrico_{projeto.codigo_projeto or projeto_id}.xlsx", projeto)
+    from ..utils import nome_arquivo_projeto
+    return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Consumo Elétrico", "xlsx"), projeto)
 
 
 @router.put("/observacao")

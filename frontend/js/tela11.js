@@ -91,6 +91,13 @@ async function t11_trocarSistema() {
     document.getElementById('t11_tipoPartida').value = t1_nomePorCodigo(sistema.partida) || '—';
     document.getElementById('t11_tipoOperacao').value = t1_nomePorCodigo(sistema.modo_operacao) || '—';
 
+    const isUC = sistema.tipo_compressao === '4.1.1';
+    document.getElementById('t11_btnAddRack').classList.toggle('disabled', isUC);
+    document.getElementById('t11_btnAddRack').style.pointerEvents = isUC ? 'none' : '';
+    document.getElementById('t11_btnAddRack').style.opacity = isUC ? '0.4' : '';
+    const condBtn = document.getElementById('t11_cond_btnAdd');
+    if (condBtn) { condBtn.disabled = isUC; condBtn.style.opacity = isUC ? '0.4' : ''; }
+
     t11_rackEditandoId = null;
     await t11_recarregarRacks(false);
     if (gen !== state.projetoGen) return;
@@ -109,7 +116,14 @@ async function t11_recarregarRacks(manterEdicao = false) {
   if (!alvo) alvo = t11_racks.find(x => x.considerado) || t11_racks[0] || null;
   t11_rackEditandoId = alvo ? alvo.id : null;
   t11_renderRacks();
-  if (alvo) await t11_carregarRackNoForm(alvo);
+  const rackForm = document.getElementById('t11_rackForm');
+  if (t11_racks.length === 0) {
+    if (rackForm) rackForm.style.display = 'none';
+    t11_rackAtual = null;
+  } else {
+    if (rackForm) rackForm.style.display = '';
+    if (alvo) await t11_carregarRackNoForm(alvo);
+  }
 }
 
 async function t11_carregarRackNoForm(r) {
@@ -147,7 +161,7 @@ function t11_renderRacks() {
     return `<div style="display:flex;align-items:center;gap:10px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:4px;${r.considerado ? 'background:#eff6ff;' : ''}${editando ? 'box-shadow:inset 3px 0 0 0 #2563eb;' : ''}">
       <input type="radio" name="t11_rack_considerado" ${r.considerado ? 'checked' : ''} data-considerar-rack="${r.id}" style="cursor:pointer;">
       <span data-editar-rack="${r.id}" style="cursor:pointer;white-space:nowrap;font-weight:${r.considerado ? 'bold' : 'normal'};">${resumo}${badge}</span>
-      ${t11_racks.length > 1 ? `<span class="btn-text danger" data-excluir-rack="${r.id}" style="margin-left:auto;">Excluir</span>` : ''}
+      <span class="btn-text danger" data-excluir-rack="${r.id}" style="margin-left:auto;">Excluir</span>
     </div>`;
   }).join('');
   el.querySelectorAll('[data-considerar-rack]').forEach(rd => rd.addEventListener('change', async () => {

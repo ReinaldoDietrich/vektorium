@@ -7,6 +7,31 @@ from sqlalchemy import inspect
 
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+_SANITIZE = re.compile(r'[\\/:*?"<>|]')
+
+
+def nome_arquivo_projeto(projeto, sufixo: str, ext: str) -> str:
+    codigo = getattr(projeto, "codigo_projeto", None) or f"proj_{projeto.id}"
+    rev = int(getattr(projeto, "revisao", 0) or 0)
+    cliente = (getattr(projeto, "cliente", None) or "").strip()[:60]
+    partes = [f"{codigo}.R{rev:02d}"]
+    if cliente:
+        partes.append(cliente)
+    partes.append(sufixo)
+    nome = " - ".join(partes) + f".{ext}"
+    return _SANITIZE.sub("-", nome)
+
+
+def nome_vek_projeto(projeto) -> str:
+    codigo = getattr(projeto, "codigo_projeto", None) or f"proj_{projeto.id}"
+    cliente = (getattr(projeto, "cliente", None) or "").strip()[:60]
+    partes = [codigo]
+    if cliente:
+        partes.append(cliente)
+    partes.append("Memorial")
+    nome = " - ".join(partes) + ".vek"
+    return _SANITIZE.sub("-", nome)
+
 
 def resposta_excel_projeto(conteudo: bytes, nome_arquivo: str, projeto):
     """Devolve a exportação Excel de uma tela do PROJETO sempre salvando em disco

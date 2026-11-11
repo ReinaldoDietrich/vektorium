@@ -123,7 +123,7 @@ def _coletar(db, projeto_id, opcoes=None):
         "lumino": tenta(luminotecnico.estudo_luminotecnico, projeto_id=projeto_id, db=db),
         "orcamento_tab": tenta(_orcamento_filtrado, db, projeto_id, filtro=filtro_dados or None),
         "pagamento": tenta(composicao_preco.obter_condicao_pagamento, projeto_id=projeto_id, db=db),
-        "resumo_paineis": tenta(paineis_portas.resumo, projeto_id=projeto_id, modo="total", db=db),
+        "resumo_paineis": tenta(paineis_portas.resumo, projeto_id=projeto_id, modo=(opcoes or {}).get("paineis_modo") or "total", db=db),
         "memorial": tenta(id_comercial.montar_memorial_projeto, db, projeto_id),
     }
 
@@ -840,4 +840,5 @@ def gerar(db, projeto_id, opcoes=None):
         _aplicar_papel_carta(doc, campos.get("papel_carta_path"))
     saida = BytesIO()
     doc.save(saida)
-    return saida.getvalue(), f"Proposta {codigo} R{rev:02d}.docx".replace("/", "-")
+    from ..utils import nome_arquivo_projeto
+    return saida.getvalue(), nome_arquivo_projeto(projeto, "Proposta", "docx")

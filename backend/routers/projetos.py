@@ -639,8 +639,8 @@ def exportar_tudo(projeto_id: int, db: Session = Depends(get_db)):
     conteudo = gerar_excel_resumo_orcamento(projeto, resumo_cp, orcamento_cp, dre_cp)
     adicionar_workbook(wb, conteudo, "Resumo de Equipamentos")
 
-    titulo = f"{projeto.codigo_projeto or projeto_id} — {projeto.cliente}" if projeto.cliente else f"{projeto.codigo_projeto or projeto_id}"
-    nome_arquivo = re.sub(r'[\\/:*?"<>|]', "-", f"{titulo}_R{(projeto.revisao or 0):02d}.xlsx")
+    from ..utils import nome_arquivo_projeto
+    nome_arquivo = nome_arquivo_projeto(projeto, "Memorial", "xlsx")
     destino = Path(projeto.pasta_salvamento)
     try:
         destino.mkdir(parents=True, exist_ok=True)

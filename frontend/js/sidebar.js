@@ -707,8 +707,10 @@ function initLoginUI() {
         }
         try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         _iniciarHeartbeat(_uid, _jwt);
-        btnEntrar.textContent = 'Sincronizando projetos...';
-        try { await api.post('/api/cloud/pull-novos', { user_id: _uid, token: _jwt }); } catch (_) {}
+        // SE-137: pull-novos desativado — projeto 100% local; pull reimportava projetos da nuvem
+        // como órfãos, causando projetos fantasma na sidebar a cada login.
+        // try { await api.post('/api/cloud/pull-novos', { user_id: _uid, token: _jwt }); } catch (_) {}
+        try { await api.post('/api/cloud/limpar-projetos-nuvem', { user_id: _uid, token: _jwt }); } catch (_) {}
       }
       _mostrarOverlay('Preparando o sistema...');
       _esconderTelaLogin();

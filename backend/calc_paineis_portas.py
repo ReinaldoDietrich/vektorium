@@ -284,7 +284,7 @@ def _valvulas_por_camara(db, projeto: m.Projeto):
     por_id_planta = {}
     for camara in camaras.values():
         vol = _volume_camara(camara) or 0
-        qtd = math.ceil(vol / limite_m3) if vol else 0
+        qtd = int(vol / limite_m3) if vol else 0
         com = camara.temp_interna is not None and camara.temp_interna <= 0
         if com:
             com_aquec += qtd
@@ -352,11 +352,12 @@ def _paineis_por_id(itens, desc_por_espessura=None):
 
 def _linhas_acessorios(parede_teto, sem_aquec, com_aquec):
     area_total = sum(p.get("area_considerada_m2") or 0 for p in parede_teto)
-    return [
-        _linha("Acessórios de Montagem", "m²", area_total),
-        _linha("Válvula Equalização de Pressão sem Aquecimento", "un", sem_aquec),
-        _linha("Válvula Equalização de Pressão com Aquecimento", "un", com_aquec),
-    ]
+    linhas = [_linha("Acessórios de Montagem", "m²", area_total)]
+    if sem_aquec:
+        linhas.append(_linha("Válvula Equalização de Pressão sem Aquecimento", "un", sem_aquec))
+    if com_aquec:
+        linhas.append(_linha("Válvula Equalização de Pressão com Aquecimento", "un", com_aquec))
+    return linhas
 
 
 def _linha_barreira_vapor(piso):
@@ -672,7 +673,7 @@ def _valvulas_por_camara_de_dados(db, dados):
     por_id_planta = {}
     for cam in camaras.values():
         vol = _volume_camara_dados(cam) or 0
-        qtd = math.ceil(vol / limite_m3) if vol else 0
+        qtd = int(vol / limite_m3) if vol else 0
         com = cam.get("temp_interna") is not None and cam["temp_interna"] <= 0
         if com:
             com_aquec += qtd
