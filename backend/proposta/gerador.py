@@ -93,6 +93,20 @@ def _orcamento_filtrado(db, projeto_id, filtro=None):
     return cp.tabela_orcamento({"blocos": blocos, "margem_negociacao_pct": margem}, filtro=filtro)
 
 
+def _preparar_comp_geral(db, dados):
+    from .. import models as m
+    for s in (dados.get("sistemas") or []):
+        for c in (s.get("camaras") or []):
+            if c.get("tipo") == "simples":
+                bc = c.get("bloco_carga") or {}
+                if bc.get("largura") is None or bc.get("comprimento") is None:
+                    cam = db.get(m.CamaraSimples, c.get("camara_id"))
+                    if cam:
+                        bc["largura"] = cam.largura
+                        bc["comprimento"] = cam.comprimento
+    return dados
+
+
 def _coletar(db, projeto_id, opcoes=None):
     from .. import models as m
     from .. import id_comercial
@@ -260,6 +274,14 @@ def _pagamento_tab(sd, dados):
         tw._set(row[2], vals[2], align="c"); tw._set(row[3], vals[3], align="c")
         tw._ac(cont, vals)
     tw.aplicar_autofit(t, cont)
+
+
+def _pagamento_fallback(sd):
+    p = sd.add_paragraph()
+    r = p.add_run("À COMBINAR.")
+    r.bold = True
+    r.font.name = FONTE_TEXTO
+    r.font.size = Pt(11)
 
 
 # ------------------------------------------------------------------- motor de estilo do escopo
@@ -751,6 +773,7 @@ def _aplicar_papel_carta(doc, caminho):
 
 # ------------------------------------------------------------------- geração
 def gerar(db, projeto_id, opcoes=None):
+    from .. import models as m
     opcoes = opcoes or {}
     tw._SEQ_TABELA[0] = 0
     tpl = DocxTemplate(str(garantir_template()))
@@ -760,6 +783,31 @@ def gerar(db, projeto_id, opcoes=None):
     defaults = config.carregar_defaults()
     campos = dict(defaults)
     campos.update({k: v for k, v in (opcoes.get("campos") or {}).items() if v is not None})
+
+    vendedor_id = opcoes.get("vendedor_id")
+    if vendedor_id:
+        vend = db.get(m.Vendedor, vendedor_id)
+        if vend:
+            campos["vendedor_nome"] = vend.nome or ""
+            campos["vendedor_cargo"] = vend.cargo or ""
+            campos["vendedor_telefone"] = vend.telefone or ""
+            campos["vendedor_email"] = vend.email or ""
+
+    empresa_id = opcoes.get("empresa_id")
+    if empresa_id:
+        emp = db.get(m.EmpresaFaturamento, empresa_id)
+        if emp:
+            campos["fat_razao_social"] = emp.razao_social or ""
+            campos["fat_cnpj"] = emp.cnpj or ""
+            campos["fat_insc_municipal"] = emp.insc_municipal or ""
+            campos["fat_insc_estadual"] = emp.insc_estadual or ""
+            campos["fat_endereco"] = emp.endereco or ""
+            campos["fat_cidade_uf"] = emp.cidade_uf or ""
+            campos["fat_banco"] = emp.banco or ""
+            campos["fat_agencia"] = emp.agencia or ""
+            campos["fat_conta"] = emp.conta or ""
+            campos["fat_pix"] = emp.pix or ""
+
     empresa = campos.get("empresa_contratada") or "Empresa contratada"
 
     ids_sel = opcoes.get("ids_selecionados")
@@ -795,13 +843,15 @@ def gerar(db, projeto_id, opcoes=None):
         "vendedor_email": campos.get("vendedor_email", ""),
         "imagem_planta": _img_arquivo(tpl, campos.get("planta_path") or opcoes.get("planta_path"), 160),
         "tab_comp_linhas": _sub(tpl, tw.comp_linhas, d.get("comp_linhas") or {}) if liga("comp_linhas") else [],
-        "tab_comp_geral": _sub(tpl, tw.comp_geral, d.get("comp_geral") or {}) if liga("comp_geral") else [],
+        "tab_alim_eletricas": _sub(tpl, tw.alim_eletricas, d.get("comp_linhas") or {}) if liga("alim_eletricas") else [],
+        "tab_comp_geral": _sub(tpl, tw.comp_geral, _preparar_comp_geral(db, d.get("comp_geral") or {}),
+                                                     int(defaults.get("limite_colunas_tabelas") or 7)) if liga("comp_geral") else [],
         "tab_consumo": _sub(tpl, tw.consumo, d.get("consumo") or {}) if liga("consumo") else [],
         "tab_lumino": _sub(tpl, tw.lumino, d.get("lumino") or {}) if liga("lumino") else [],
         "tab_resumo_paineis": _sub(tpl, tw.paineis, d.get("resumo_paineis") or {}) if liga("resumo_paineis") else [],
         "tab_exclusoes": _sub(tpl, tw.excecoes, empresa, _excecoes_linhas(opcoes.get("excecoes"))),
         "tab_orcamento": _sub(tpl, tw.orcamento, d.get("orcamento_tab") or {}, opcoes.get("orcamento_filtro") or {}) if liga("orcamento") else [],
-        "tab_pagamento": _sub(tpl, _pagamento_tab, d.get("pagamento") or {}) if liga("pagamento") else [],
+        "tab_pagamento": _sub(tpl, _pagamento_tab, d.get("pagamento") or {}) if liga("pagamento") and (d.get("pagamento") or {}).get("parcelas") else _sub(tpl, _pagamento_fallback),
         "tab_faturamento": _sub(tpl, tw.faturamento, _fat_pares(campos)),
         "escopo_equipamentos": _blocos_lista(tpl, conteudo.get("equipamentos")),
         "escopo_paineis": _blocos_lista(tpl, conteudo.get("paineis_portas")),
@@ -810,6 +860,7 @@ def gerar(db, projeto_id, opcoes=None):
     _legendas_base = {
         "logo": "", "planta": "",
         "comp_linhas": "",
+        "alim_eletricas": "",
         "comp_geral": "",
         "consumo": "",
         "lumino": "",

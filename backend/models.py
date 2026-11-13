@@ -1738,6 +1738,7 @@ class ItemComposicaoMestre(Base):
     descricao = Column(String, nullable=False)
     fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
     custo_unitario_padrao = Column(Float, default=0)
+    unidade = Column(String, nullable=True)
     ordem = Column(Integer, default=0)
 
     centro_custo = relationship("CentroCusto")
@@ -1745,12 +1746,36 @@ class ItemComposicaoMestre(Base):
 
 
 class Vendedor(Base):
-    """Mestre (global, editado na Tela D) — nome + % de comissão padrão; "default" marca os
-    vendedores que entram automaticamente na tabela de comissionamento de todo projeto novo."""
+    """Mestre (global, editado na Tela D) — nome + dados de contato completos + % de comissão
+    padrão; "default" marca os vendedores que entram automaticamente na tabela de comissionamento
+    de todo projeto novo. Campos de contato usados na Proposta Comercial (seleção na Tela 19)."""
     __tablename__ = "vendedor"
     id = Column(Integer, primary_key=True)
     nome = Column(String, nullable=False)
+    cargo = Column(String)
+    telefone = Column(String)
+    email = Column(String)
     pct_comissao_padrao = Column(Float, default=0)
+    default = Column(Boolean, default=False)
+    ordem = Column(Integer, default=0)
+
+
+class EmpresaFaturamento(Base):
+    """Cadastro de empresas de faturamento (editado na Tela D) — dados bancários/fiscais da
+    empresa do usuário para receber pagamento. Múltiplas empresas; "default" marca a pré-
+    selecionada na Proposta Comercial (Tela 19)."""
+    __tablename__ = "empresa_faturamento"
+    id = Column(Integer, primary_key=True)
+    razao_social = Column(String, nullable=False)
+    cnpj = Column(String)
+    insc_municipal = Column(String)
+    insc_estadual = Column(String)
+    endereco = Column(String)
+    cidade_uf = Column(String)
+    banco = Column(String)
+    agencia = Column(String)
+    conta = Column(String)
+    pix = Column(String)
     default = Column(Boolean, default=False)
     ordem = Column(Integer, default=0)
 

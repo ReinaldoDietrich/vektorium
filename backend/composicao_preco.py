@@ -489,6 +489,7 @@ def restaurar_padroes(db: Session, projeto_id: int, bloco: str | None = None):
         db.add(m.ComposicaoPrecoItem(
             projeto_id=projeto_id, bloco=it.bloco, descricao=it.descricao,
             quantidade=1, custo_unitario=it.custo_unitario_padrao or 0,
+            unidade=it.unidade,
             fator_id=it.fator_id, centro_custo_id=cc_id,
             origem="default", chave_sistema=None, ordem=ordem))
         ordem_por_bloco[it.bloco] = ordem + 1

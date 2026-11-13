@@ -41,6 +41,9 @@ DEFAULTS_INICIAIS = {
     "fat_agencia": "",
     "fat_conta": "",
     "fat_pix": "",
+    # Configs globais de tabelas da proposta
+    "fator_qtd_gas": 1.0,
+    "limite_colunas_tabelas": 7,
     # Caminhos relativos (dentro de uploads/proposta) — None = usar o do template padrão.
     "papel_carta_path": None,
     "logo_path": None,
@@ -64,6 +67,30 @@ def carregar_defaults() -> dict:
         except (json.JSONDecodeError, OSError):
             pass  # arquivo corrompido — cai nos iniciais, não derruba a geração
     return dados
+
+
+def _projeto_config_path(projeto_id: int) -> Path:
+    return DADOS_DIR / f"proposta_projeto_{projeto_id}.json"
+
+
+def carregar_projeto_config(projeto_id: int) -> dict:
+    _garantir_dirs()
+    path = _projeto_config_path(projeto_id)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def salvar_projeto_config(projeto_id: int, dados: dict) -> dict:
+    _garantir_dirs()
+    path = _projeto_config_path(projeto_id)
+    atual = carregar_projeto_config(projeto_id)
+    atual.update(dados)
+    path.write_text(json.dumps(atual, ensure_ascii=False, indent=2), encoding="utf-8")
+    return atual
 
 
 def salvar_defaults(novos: dict) -> dict:

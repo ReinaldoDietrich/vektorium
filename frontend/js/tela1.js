@@ -885,6 +885,10 @@ async function t1_salvarSistema() {
     custo_sistema_simples: parseNumBR(document.getElementById('sCustoSistemaSimples').value),
     custo_sistema_projeto: parseNumBR(document.getElementById('sCustoSistemaProjeto').value),
   };
+  if (payload.tipo_compressao === '4.1.1') {
+    payload.delta_condensacao = 10;
+    payload.selecao_condensador_ar = '4.4.1.2';
+  }
   if (t1_editandoSistemaId) {
     const r = await api.put(`/api/sistemas/${t1_editandoSistemaId}`, payload);
     if (r.vinculos > 0 && r.precisa_revisar) {

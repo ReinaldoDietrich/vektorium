@@ -230,16 +230,21 @@ async function criarJanela() {
     if (fechandoApp) return;
     e.preventDefault();
     fechandoApp = true;
-    if (processoBackend) processoBackend.removeAllListeners('exit');
 
-    // SE-106: cleanup completo via sairDoApp() — sem timeout
-    // sairDoApp() faz: backup-pre-logout → salvar-todos → delete-lock → AUTH.logout → fechar-todos
-    // No final chama window.vektorium.sair() → encerrarApp() que retorna imediatamente (fechandoApp já true)
+    // SE-149: sairDoApp() retorna false se o usuário cancelou no popup de confirmação.
+    let resultado = true;
     try {
-      await janelaPrincipal.webContents.executeJavaScript(
-        'typeof sairDoApp === "function" ? sairDoApp() : Promise.resolve()', true
+      resultado = await janelaPrincipal.webContents.executeJavaScript(
+        'typeof sairDoApp === "function" ? sairDoApp() : Promise.resolve(true)', true
       );
     } catch (_) {}
+
+    if (resultado === false) {
+      fechandoApp = false;
+      return;
+    }
+
+    if (processoBackend) processoBackend.removeAllListeners('exit');
 
     if (janelaPrincipal && !janelaPrincipal.isDestroyed()) {
       janelaPrincipal.destroy();

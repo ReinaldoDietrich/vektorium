@@ -182,7 +182,40 @@ window.verificarLicenca = verificarLicenca;
 window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
 window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
+function _mostrarPopupSair() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+    box.innerHTML = `
+      <h3 style="margin:0 0 16px;font-size:15px;">Deseja salvar as alterações antes de sair?</h3>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <button class="vk-sair-cancelar" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Cancelar</button>
+        <button class="vk-sair-sem" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#b91c1c;">Sair sem Salvar</button>
+        <button class="vk-sair-salvar" style="padding:8px 16px;border:none;border-radius:4px;background:#1668c7;color:#fff;cursor:pointer;font-weight:bold;">Salvar e Sair</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    function fechar(r) { overlay.remove(); resolve(r); }
+    box.querySelector('.vk-sair-cancelar').addEventListener('click', () => fechar('cancelar'));
+    box.querySelector('.vk-sair-sem').addEventListener('click', () => fechar('sem-salvar'));
+    box.querySelector('.vk-sair-salvar').addEventListener('click', () => fechar('salvar'));
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar('cancelar'); });
+    box.querySelector('.vk-sair-salvar').focus();
+  });
+}
+
 async function sairDoApp() {
+  let querSalvar = true;
+  try {
+    const escolha = await _mostrarPopupSair();
+    if (escolha === 'cancelar') return false;
+    querSalvar = (escolha === 'salvar');
+  } catch (_) {
+    querSalvar = true;
+  }
+
   if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
 
   if (typeof state !== 'undefined' && state.isMaster === true) {
@@ -197,11 +230,13 @@ async function sairDoApp() {
   }
 
   try {
-    for (let t = 0; t < 3; t++) {
-      try {
-        const r = await api.post('/api/workspace/salvar-todos');
-        if (r.ok) break;
-      } catch (_) {}
+    if (querSalvar) {
+      for (let t = 0; t < 3; t++) {
+        try {
+          const r = await api.post('/api/workspace/salvar-todos');
+          if (r.ok) break;
+        } catch (_) {}
+      }
     }
     if (typeof AUTH !== 'undefined') {
       try { await AUTH.garantirToken(); } catch (_) {}
@@ -233,6 +268,7 @@ async function sairDoApp() {
       location.reload();
     }
   }
+  return true;
 }
 
 

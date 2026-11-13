@@ -20,13 +20,14 @@ def folga_percentual(capacidade_instalada, capacidade_requerida_un):
     return (capacidade_instalada - capacidade_requerida_un) / capacidade_requerida_un * 100
 
 
-def carga_gas_estimada(soma_forcadores_kg, tanque_liquido_l=None):
+def carga_gas_estimada(soma_forcadores_kg, tanque_liquido_l=None, fator_qtd_gas=1.0):
     """Estimativa de carga de gás refrigerante do sistema: soma da carga de cada forçador
-    (catálogo, por unidade x quantidade) + tanque de líquido, quando dimensionado; sem tanque
-    dimensionado, a mesma soma x1,5 -- aprovado 2026-08-11 (usado no Resumo do Rack, Tela 6, e na
-    Compilação Geral, Tela 8 — mesma fórmula nos dois lugares)."""
+    (catálogo, por unidade x quantidade) × fator_qtd_gas + tanque de líquido, quando dimensionado;
+    sem tanque dimensionado, a mesma soma x1,5 -- aprovado 2026-08-11 (usado no Resumo do Rack,
+    Tela 6, e na Compilação Geral, Tela 8 — mesma fórmula nos dois lugares)."""
     if not soma_forcadores_kg:
         return None
+    soma_forcadores_kg *= (fator_qtd_gas or 1.0)
     if tanque_liquido_l:
         return round(soma_forcadores_kg + tanque_liquido_l, 1)
     return round(soma_forcadores_kg * 1.5, 1)

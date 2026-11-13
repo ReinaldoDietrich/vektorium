@@ -2,14 +2,15 @@
 """Tabelas da proposta em TABELA NATIVA do Word, reproduzindo as tabelas das telas. Fonte Arial
 Narrow 8, tabela centralizada e AutoFit to Contents via XML OOXML (tblLayout autofit + tcW
 type=auto w=0 em cada célula). Ref: ECMA-376 §17.4.53 (tblLayout), §17.4.72 (tcW)."""
-from docx.shared import Pt, RGBColor, Twips
+from docx.shared import Pt, RGBColor, Twips, Emu
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
 from ..exportacao.compilacao_export import (_agrupar, COLUNAS_BASE, ELET_LABELS,
-                                            COLUNAS_RESUMO_DEFAULT, COLUNAS_RESUMO_COMPRESSAO_DEFAULT)
+                                            COLUNAS_RESUMO_DEFAULT, COLUNAS_RESUMO_COMPRESSAO_DEFAULT,
+                                            BLOCO_CORES)
 from ..exportacao.consumo_export import COLUNAS as CONSUMO_COLUNAS, _linha_cenario
 from ..exportacao.compilacao_geral_export import (BLOCO_CARGA, BLOCO_DADOS_ENTRADA,
                                                   BLOCO_FORCADORES, BLOCO_RACK, BLOCO_CONDENSADOR)
@@ -21,6 +22,63 @@ COR_SUB = "374151"
 COR_LIGHT = "D9D9D9"
 COR_ZEBRA = "F3F4F6"
 COR_PRETO = "000000"
+
+_LARGURA_PAGINA_DXA = 9072
+
+
+def _proporcionar(chars_excel, total_dxa=_LARGURA_PAGINA_DXA):
+    soma = sum(chars_excel)
+    return [int(c / soma * total_dxa) for c in chars_excel]
+
+
+def _larguras_fixas(t, larguras_dxa):
+    tblPr = t._tbl.tblPr
+    layout = tblPr.find(qn("w:tblLayout"))
+    if layout is None:
+        layout = OxmlElement("w:tblLayout")
+        tblPr.append(layout)
+    layout.set(qn("w:type"), "fixed")
+    tblW = tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblW = OxmlElement("w:tblW")
+        tblPr.append(tblW)
+    tblW.set(qn("w:w"), str(sum(larguras_dxa)))
+    tblW.set(qn("w:type"), "dxa")
+    for row in t.rows:
+        for i, cell in enumerate(row.cells):
+            idx = min(i, len(larguras_dxa) - 1)
+            tcPr = cell._tc.get_or_add_tcPr()
+            tcW = tcPr.find(qn("w:tcW"))
+            if tcW is None:
+                tcW = OxmlElement("w:tcW")
+                tcPr.append(tcW)
+            tcW.set(qn("w:w"), str(larguras_dxa[idx]))
+            tcW.set(qn("w:type"), "dxa")
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _manter_tabela_junta(t)
+
+_COLUNAS_MECANICA = ["Sistema", "Gabinete/Câmara", "Modulação/Área", "Carga Térmica",
+                     "Forçadores", "Folga Real", "Nº Trocas de Ar"]
+_LARGURAS_MECANICA = _proporcionar([20.78, 45.78, 12.78, 8.43, 20.78, 10.78, 8.43])
+
+_LARGURAS_ELETRICA = _proporcionar([20.78, 45.78] + [6.78, 8.43] * 5)
+
+_LARGURAS_ALIM_ELET = _proporcionar([40.78, 15.78] + [8.43] * 7)
+
+_LARGURAS_COMP_GERAL_2COL = _proporcionar([35.78, 25.78])
+
+_DEFAULT_CHAR = 8.43
+
+_BLOCO_FORCADORES_WORD = [(c, l) for c, l in BLOCO_FORCADORES if c != "modelo_comercial"]
+
+_BLOCO_RACK_WORD = [(c, l) for c, l in BLOCO_RACK
+                    if c not in ("modelo_tecnico", "temp_linha_liquido", "tanque_liquido_l")]
+
+_BLOCO_CONDENSADOR_WORD = []
+for _c, _l in BLOCO_CONDENSADOR:
+    _BLOCO_CONDENSADOR_WORD.append((_c, _l))
+    if _c == "temp_condensacao":
+        _BLOCO_CONDENSADOR_WORD.append(("temp_linha_liquido", "Temp. Linha de Líquido (°C)"))
 
 # Estudo Luminotécnico — 11 colunas fixas em retrato (decisão do usuário 2026-08-18).
 LUMINO_COLUNAS = [
@@ -35,7 +93,7 @@ LUMINO_COLUNAS = [
 
 def _fmt(n, dec=0):
     if n is None or n == "":
-        return "—"
+        return "-"
     try:
         return f"{float(n):,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except (TypeError, ValueError):
@@ -43,7 +101,7 @@ def _fmt(n, dec=0):
 
 
 def _txt(v):
-    return "—" if v is None or v == "" else str(v)
+    return "-" if v is None or v == "" else str(v)
 
 
 def _shd(cell, cor):
@@ -135,13 +193,14 @@ def _cabecalho(t, rotulos, esq_ate=1):
         _shd(row[i], COR_DARK)
 
 
-def _barra(t, texto, ncols, cor, white=True):
+def _barra(t, texto, ncols, cor, white=True, align="l"):
     row = t.add_row()
     c = row.cells[0]
     for i in range(1, ncols):
         c = c.merge(row.cells[i])
-    _set(c, texto, bold=True, white=white, align="l")
-    _shd(c, cor)
+    _set(c, texto, bold=True, white=white, align=align)
+    if cor:
+        _shd(c, cor)
 
 
 def _titulo(sd, texto):
@@ -181,9 +240,22 @@ def _titulo_abnt(sd, texto):
 
 
 
-def _cell_val(v):
+_FORMATO_CAMPO = {
+    "temp_ambiente": 1, "delta_condensacao": 1, "temp_condensacao": 1,
+    "temp_evaporacao": 1, "temp_interna": 1, "dt_evaporacao": 1,
+    "largura": 2, "comprimento": 2, "pedireito": 2,
+    "carga_termica_kcal_h": 2,
+    "capacidade_unit_kcal_h": 2, "capacidade_condensador_kcal_h": 2,
+    "folga_tecnica_pct": 1,
+    "temp_linha_liquido": 1,
+}
+
+
+def _cell_val(v, campo=None):
     if v is None or v == "":
-        return "—"
+        return "-"
+    if campo and campo in _FORMATO_CAMPO:
+        return _fmt(v, _FORMATO_CAMPO[campo])
     if isinstance(v, float):
         return _fmt(v, 0) if float(v).is_integer() else _fmt(v, 1)
     return str(v)
@@ -198,56 +270,89 @@ def _linha_dados(t, valores, alinhas):
 # ----------------------------------------------------------------- Compilação de Linhas (Tela 5)
 def comp_linhas(sd, cl):
     itens = cl.get("itens", []) or []
-    grupos, _gt, _ge = _agrupar(itens)
+    grupos, gran_t, _ge = _agrupar(itens)
 
-    _titulo_abnt(sd,"Distribuição de Linhas — Dados Mecânicos")
-    nc = len(COLUNAS_BASE)
+    _titulo_abnt(sd, "Distribuição de Linhas — Dados Mecânicos")
+    nc = len(_COLUNAS_MECANICA)
     t = _tabela(sd, nc)
-    _cabecalho(t, list(COLUNAS_BASE), esq_ate=2)
-    alin = ["l", "l", "c", "c", "l", "c", "c", "l"]
-    cont = _novo_conteudo(list(COLUNAS_BASE))
+    _cabecalho(t, list(_COLUNAS_MECANICA), esq_ate=0)
+    alin = ["c", "l", "c", "c", "c", "c", "c"]
     for g in grupos:
-        _barra(t, f"SISTEMA {g['sistema']} — Temp. Evaporação: {_fmt(g['temp_evaporacao'],1)}°C — Gás: {g['gas_refrigerante']}", nc, COR_DARK)
+        _barra(t, f"SISTEMA {g['sistema']} — Evap. {_fmt(g['temp_evaporacao'],1)}°C — Gás {g['gas_refrigerante']}", nc, COR_SUB)
         for r in g["ramais"]:
-            _barra(t, f"Linha de Sucção {r['ramal']}", nc, COR_LIGHT, white=False)
+            row = t.add_row()
+            c0 = row.cells[0]
+            for i in range(1, nc):
+                c0 = c0.merge(row.cells[i])
+            _set(c0, f"Linha de Sucção {r['ramal']}", bold=True, align="l")
             for c in r["itens"]:
-                vals = [c["codigo"], c["nome"], c["modulacao_area"], f"{_fmt(c.get('carga_termica'))} kcal/h",
-                        c["forcadores"], c["folga_real"], c["trocas_ar"], c["valvulas"]]
-                _linha_dados(t, vals, alin); _ac(cont, vals)
-            _barra(t, f"Subtotal Linha {r['ramal']}: {_fmt(r['subtotal_carga'])} kcal/h · {_fmt(r['subtotal_eletrica'])} W", nc, COR_ZEBRA, white=False)
-        _barra(t, f"TOTAL SISTEMA {g['sistema']}: {_fmt(g['total_carga'])} kcal/h", nc, COR_DARK)
-    aplicar_autofit(t, cont)
+                vals = [c["codigo"], c["nome"], c["modulacao_area"], _fmt(c.get("carga_termica"), 1),
+                        c["forcadores"], c["folga_real"], c["trocas_ar"]]
+                row2 = t.add_row().cells
+                for i, v in enumerate(vals):
+                    _set(row2[i], v, bold=(i == 0), align=alin[i])
+            _barra(t, f"Subtotal Linha {r['ramal']}: {_fmt(r['subtotal_carga'])} kcal/h", nc, COR_ZEBRA, white=False, align="r")
+        _barra(t, f"TOTAL SISTEMA {g['sistema']}: {_fmt(g['total_carga'])} kcal/h", nc, COR_DARK, align="r")
+    _barra(t, f"TOTAL GERAL DO PROJETO: {_fmt(gran_t)} kcal/h", nc, COR_DARK, white=True, align="r")
+    _larguras_fixas(t, _LARGURAS_MECANICA)
 
     sd.add_paragraph()
-    _titulo_abnt(sd,"Distribuição de Linhas — Dados Elétricos")
-    cols_e = ["Sistema", "Gabinete/Câmara"]
-    for lbl, _, _, _ in ELET_LABELS:
-        cols_e += [f"{lbl} (W)"]
-    nce = len(cols_e)
+    _titulo_abnt(sd, "Distribuição de Linhas — Dados Elétricos")
+    _ELET_LABELS_SHORT = list(ELET_LABELS)
+    _ELET_LABELS_SHORT[4] = ("Ilum. Expos./ Ilum. Amb. Câm.", ELET_LABELS[4][1], ELET_LABELS[4][2], ELET_LABELS[4][3])
+    nce = 2 + len(_ELET_LABELS_SHORT) * 2
     te = _tabela(sd, nce)
-    _cabecalho(te, cols_e, esq_ate=2)
-    aline = ["l", "l"] + ["c"] * (nce - 2)
-    conte = _novo_conteudo(cols_e)
+    hdr1 = te.add_row().cells
+    hdr2 = te.add_row().cells
+    for i, lbl in enumerate(["Sistema", "Gabinete/Câmara"]):
+        _set(hdr1[i], lbl, bold=True, white=True, align="c")
+        _shd(hdr1[i], COR_DARK)
+        _set(hdr2[i], "", white=True)
+        _shd(hdr2[i], COR_DARK)
+        hdr1[i].merge(hdr2[i])
+    col = 2
+    for idx_el, (lbl, _, _, _) in enumerate(_ELET_LABELS_SHORT):
+        orig_lbl = ELET_LABELS[idx_el][0]
+        cor = BLOCO_CORES.get(orig_lbl, COR_SUB)
+        merged = hdr1[col]
+        merged = merged.merge(hdr1[col + 1])
+        _set(merged, lbl, bold=True, align="c")
+        _shd(merged, cor)
+        for j, sub in enumerate(("W", "A")):
+            _set(hdr2[col + j], sub, bold=True, align="c")
+            _shd(hdr2[col + j], cor)
+        col += 2
     resumo_por_sistema = {r["sistema_nome"]: r for r in (cl.get("resumo_sistemas") or [])}
+    gran_e_total = 0
     for g in grupos:
-        _barra(te, f"SISTEMA {g['sistema']} — Temp. Evaporação: {_fmt(g['temp_evaporacao'],1)}°C — Gás: {g['gas_refrigerante']}", nce, COR_DARK)
+        tensao = g.get("tensao_eletrica", "")
+        tensao_txt = f" — Tensão Elétrica: {tensao}" if tensao else ""
+        _barra(te, f"SISTEMA {g['sistema']}{tensao_txt}", nce, COR_SUB)
         for r in g["ramais"]:
-            _barra(te, f"Linha de Sucção {r['ramal']}", nce, COR_LIGHT, white=False)
+            row_ls = te.add_row()
+            c0 = row_ls.cells[0]
+            for i in range(1, nce):
+                c0 = c0.merge(row_ls.cells[i])
+            _set(c0, f"Linha de Sucção {r['ramal']}", bold=True, align="l")
             for c in r["itens"]:
-                vals = [c["codigo"], c["nome"]]
-                for _, w, a, dj in ELET_LABELS:
-                    vals += [_fmt(c.get(w))]
-                _linha_dados(te, vals, aline); _ac(conte, vals)
+                row_d = te.add_row().cells
+                _set(row_d[0], c["codigo"], bold=True, align="c")
+                _set(row_d[1], c["nome"], align="l")
+                col = 2
+                for _, w, a, dj in _ELET_LABELS_SHORT:
+                    _set(row_d[col], _fmt(c.get(w)), align="c")
+                    _set(row_d[col + 1], _fmt(c.get(a), 1) if c.get(a) else "-", align="c")
+                    col += 2
+            sub_e = r.get("subtotal_eletrica") or 0
+            _barra(te, f"Subtotal Linha {r['ramal']}: {_fmt(sub_e)} W", nce, COR_ZEBRA, white=False, align="r")
         rs = resumo_por_sistema.get(g["sistema"], {})
-        _barra(te, f"TOTAL SISTEMA {g['sistema']}: Potência Máxima Instalada {_fmt(rs.get('potencia_total_w'))} W · Potência em Operação {_fmt(rs.get('potencia_demandada_w'))} W", nce, COR_DARK)
-    aplicar_autofit(te, conte)
+        pot_max = rs.get("potencia_total_w") or g.get("total_eletrica") or 0
+        pot_op = rs.get("potencia_demandada_w") or 0
+        gran_e_total += pot_max
+        _barra(te, f"Pot. Máx. Instalada {_fmt(pot_max)} W · Pot. em Operação {_fmt(pot_op)} W", nce, COR_DARK, align="r")
+    _barra(te, f"TOTAL GERAL DO PROJETO: {_fmt(gran_e_total)} W", nce, COR_DARK, white=True, align="r")
+    _larguras_fixas(te, _LARGURAS_ELETRICA)
 
-    _resumo_potencia(sd, "Resumo de Potência por Sistema — Quadros de Linhas",
-                     cl.get("colunas_resumo") or [{"rotulo": r[1], "campo": r[2]} for r in COLUNAS_RESUMO_DEFAULT],
-                     cl.get("resumo_sistemas") or [], "Quadro de Linhas - {sistema_nome}", "Sistema")
-    _resumo_potencia(sd, "Resumo de Potência por Sistema — Compressão e Condensação",
-                     cl.get("colunas_resumo_compressao") or [{"rotulo": r[1], "campo": r[2]} for r in COLUNAS_RESUMO_COMPRESSAO_DEFAULT],
-                     cl.get("resumo_compressao") or [], "{sistema_nome} — {equipamento}", "Sistema / Equipamento")
 
 
 def _resumo_potencia(sd, titulo, colunas, linhas, rotulo_fmt, rotulo_col1):
@@ -272,70 +377,288 @@ def _resumo_potencia(sd, titulo, colunas, linhas, rotulo_fmt, rotulo_col1):
     aplicar_autofit(t, cont)
 
 
-# ----------------------------------------------------------------- Compilação Geral (4 tabelas)
-_DADOS_ENTRADA_PROPOSTA = [(c, l) for c, l in BLOCO_DADOS_ENTRADA if c not in ("equipamentos", "portas")]
+# ----------------------------------------------------------------- Alim. Elétricas (tabela separada)
+def alim_eletricas(sd, cl):
+    resumo_sistemas = cl.get("resumo_sistemas") or []
+    resumo_compressao = cl.get("resumo_compressao") or []
+    if not resumo_sistemas and not resumo_compressao:
+        return
 
+    _LABEL_OVERRIDE = {"Disjuntor Alimentação (Sugerido)": "Disj. Alim. (Sugerido)"}
+    colunas_resumo = cl.get("colunas_resumo") or [{"rotulo": r[1], "campo": r[2]} for r in COLUNAS_RESUMO_DEFAULT]
+    colunas_resumo_comp = cl.get("colunas_resumo_compressao") or [{"rotulo": r[1], "campo": r[2]} for r in COLUNAS_RESUMO_COMPRESSAO_DEFAULT]
+    for _cr in colunas_resumo + colunas_resumo_comp:
+        _cr["rotulo"] = _LABEL_OVERRIDE.get(_cr["rotulo"], _cr["rotulo"])
 
-def _cab_camaras(sd, camaras):
-    nc = 1 + len(camaras)
+    _titulo_abnt(sd, "Alimentações Elétricas")
+    nc = 1 + len(colunas_resumo)
     t = _tabela(sd, nc)
+
+    _barra(t, "RESUMO DE POTÊNCIA POR SISTEMA — QUADROS DE LINHAS", nc, None, white=False)
+    row_h = t.add_row().cells
+    _set(row_h[0], "Sistema", bold=True, white=True, align="l"); _shd(row_h[0], COR_SUB)
+    for i, c in enumerate(colunas_resumo, start=1):
+        _set(row_h[i], c["rotulo"], bold=True, white=True, align="c"); _shd(row_h[i], COR_SUB)
+
+    tot_ql = {}
+    for r in resumo_sistemas:
+        row = t.add_row().cells
+        _set(row[0], f"Quadro de Linhas - {r['sistema_nome']}", align="l")
+        for i, c in enumerate(colunas_resumo, start=1):
+            v = r.get(c["campo"])
+            txt = _fmt(v, 2) if str(c.get("campo", "")).endswith("kva") else _fmt(v)
+            _set(row[i], txt, align="c")
+            if str(c.get("campo", "")).endswith(("_w", "_kva")) and v:
+                tot_ql[c["campo"]] = tot_ql.get(c["campo"], 0) + (v or 0)
+
+    row_tot = t.add_row().cells
+    _set(row_tot[0], "Alimentação Geral - Quadro de Linhas", bold=True, align="l"); _shd(row_tot[0], COR_ZEBRA)
+    for i, c in enumerate(colunas_resumo, start=1):
+        v = tot_ql.get(c["campo"])
+        txt = _fmt(v, 2) if v and str(c.get("campo", "")).endswith("kva") else _fmt(v) if v else "-"
+        _set(row_tot[i], txt, bold=True, align="c"); _shd(row_tot[i], COR_ZEBRA)
+
+    _barra(t, "", nc, None, white=False)
+
+    _barra(t, "RESUMO DE POTÊNCIA POR SISTEMA — COMPRESSÃO E CONDENSAÇÃO", nc, None, white=False)
+    row_h2 = t.add_row().cells
+    merged_h2 = row_h2[0]
+    merged_h2 = merged_h2.merge(row_h2[1])
+    _set(merged_h2, "Sistema / Equipamento", bold=True, white=True, align="l"); _shd(merged_h2, COR_SUB)
+    for i, c in enumerate(colunas_resumo_comp, start=2):
+        _set(row_h2[i], c["rotulo"], bold=True, white=True, align="c"); _shd(row_h2[i], COR_SUB)
+
+    tot_cc = {}
+    for r in resumo_compressao:
+        row = t.add_row().cells
+        _set(row[0], f"{r['sistema_nome']} — {r.get('equipamento', '')}", align="l")
+        _set(row[1], "", align="c")
+        for i, c in enumerate(colunas_resumo_comp, start=2):
+            v = r.get(c["campo"])
+            txt = _fmt(v, 2) if str(c.get("campo", "")).endswith("kva") else _fmt(v)
+            _set(row[i], txt, align="c")
+            if str(c.get("campo", "")).endswith(("_w", "_kva")) and v:
+                tot_cc[c["campo"]] = tot_cc.get(c["campo"], 0) + (v or 0)
+
+    row_tot2 = t.add_row().cells
+    _set(row_tot2[0], "Alimentação Geral - Compressão e Condensação", bold=True, align="l"); _shd(row_tot2[0], COR_ZEBRA)
+    _set(row_tot2[1], "", bold=True, align="c"); _shd(row_tot2[1], COR_ZEBRA)
+    for i, c in enumerate(colunas_resumo_comp, start=2):
+        v = tot_cc.get(c["campo"])
+        txt = _fmt(v, 2) if v and str(c.get("campo", "")).endswith("kva") else _fmt(v) if v else "-"
+        _set(row_tot2[i], txt, bold=True, align="c"); _shd(row_tot2[i], COR_ZEBRA)
+
+    _barra(t, "", nc, None, white=False)
+
+    max_w = (tot_ql.get("potencia_total_w", 0) or 0) + (tot_cc.get("potencia_maxima_w", 0) or 0)
+    max_kva = (tot_ql.get("potencia_total_kva", 0) or 0) + (tot_cc.get("potencia_maxima_kva", 0) or 0)
+    op_w = (tot_ql.get("potencia_demandada_w", 0) or 0) + (tot_cc.get("potencia_demandada_w", 0) or 0)
+    op_kva = (tot_ql.get("potencia_demandada_kva", 0) or 0) + (tot_cc.get("potencia_demandada_kva", 0) or 0)
+    texto_total = (f"TOTAL GERAL — QUADRO DE LINHAS + COMPRESSÃO E CONDENSAÇÃO: "
+                   f"Pot. Máxima: {_fmt(max_w)} W ({_fmt(max_kva, 2)} kVA) · "
+                   f"Pot. em Operação: {_fmt(op_w)} W ({_fmt(op_kva, 2)} kVA)")
+    _barra(t, texto_total, nc, COR_DARK, align="r")
+
+    _barra(t, "", nc, None, white=False)
+
+    obs = [
+        "A iluminação calculada conforme estudo luminotécnico específico quando disponível no projeto, ou pelo valor padrão de potência configurado pelo projetista no projeto.",
+        "As quantidades e tempos de degelo são aqueles configurados pelo projetista no projeto; a potência de degelo refere-se apenas às resistências de degelo dos forçadores de ar, e quando aplicável, resistência de degelo nas linhas de sucção e de líquido dos forçadores de ar.",
+        "Potência Máxima: soma de todas as cargas elétricas das câmaras, considerando a corrente de rotor bloqueado (MCC) dos compressores das Unidades Condensadoras.",
+        "Potência em Operação (demandada): estimativa de consumo em regime de operação, considerando a corrente nominal de trabalho (RLA) dos compressores das Unidades Condensadoras.",
+        "Os valores apresentados são estimativas de projeto e devem ser verificados pelo engenheiro eletricista responsável pelo projeto e dimensionamento de instalações elétricas.",
+        "Fator de potência considerado: 0,92 (padrão, salvo quando configurado individualmente).",
+    ]
+    row_obs_title = t.add_row()
+    c_obs = row_obs_title.cells[0]
+    for i in range(1, nc):
+        c_obs = c_obs.merge(row_obs_title.cells[i])
+    _set(c_obs, "OBSERVAÇÕES TÉCNICAS", bold=True, align="l")
+    for ob in obs:
+        row_ob = t.add_row()
+        c_ob = row_ob.cells[0]
+        for i in range(1, nc):
+            c_ob = c_ob.merge(row_ob.cells[i])
+        _set(c_ob, ob, align="l")
+
+    _larguras_fixas(t, _LARGURAS_ALIM_ELET)
+
+
+# ----------------------------------------------------------------- Compilação Geral (4 tabelas)
+
+
+def _cg_header_sistema(t, texto, nc, cor=COR_DARK):
+    row = t.add_row()
+    c = row.cells[0]
+    for i in range(1, nc):
+        c = c.merge(row.cells[i])
+    _set(c, texto, bold=True, white=True, align="l")
+    _shd(c, cor)
+
+
+def _cg_header_camaras(t, camaras):
     row = t.add_row().cells
-    _set(row[0], "", white=True); _shd(row[0], COR_DARK)
+    _set(row[0], "", white=True); _shd(row[0], COR_SUB)
+    for i, cam in enumerate(camaras, start=1):
+        _set(row[i], cam["nome"], bold=True, white=True, align="c")
+        _shd(row[i], COR_SUB)
+
+
+def _cg_linha_cam(t, bloco_key, campo, label, camaras, nc):
+    r = t.add_row().cells
+    _set(r[0], label, bold=True, align="l")
     for i, c in enumerate(camaras, start=1):
-        _set(row[i], c["nome"], bold=True, white=True, align="c"); _shd(row[i], COR_DARK)
-    return t, nc
+        v = _cell_val((c.get(bloco_key) or {}).get(campo), campo=campo)
+        _set(r[i], v, align="c")
 
 
-def comp_geral(sd, dados):
+def _cg_linha_sis(t, label, bloco, campo, nc):
+    r = t.add_row().cells
+    _set(r[0], label, bold=True, align="l")
+    v = _cell_val((bloco or {}).get(campo), campo=campo)
+    for i in range(1, nc):
+        _set(r[i], v, align="c")
+
+
+def _cg_total_sistema(t, nc, totais_sis):
+    _barra(t, "Total do Sistema", nc, COR_SUB)
+    qt_kcal = totais_sis.get("carga_termica_kcal_h")
+    qt_w = totais_sis.get("qt_w")
+    for label, val in [("Carga Térmica Total Requerida (kcal/h)", _fmt(qt_kcal, 2) if qt_kcal else "-"),
+                       ("Qt (W)", _fmt(qt_w, 2) if qt_w else "-")]:
+        r = t.add_row().cells
+        _set(r[0], label, bold=True, align="l")
+        if nc == 2:
+            _set(r[1], val, align="c")
+        else:
+            c = r[1]
+            for i in range(2, nc):
+                c = c.merge(r[i])
+            _set(c, val, align="c")
+
+
+def _comp_geral_carga_completo(sd, sistema, camara, totais_sis):
+    nc = 2
+    larguras = _LARGURAS_COMP_GERAL_2COL
+    _titulo_abnt(sd, f"Sistema {sistema['sistema_nome']} — Informações de Carga e Dados de Entrada")
+    t = _tabela(sd, nc)
+    _cg_header_sistema(t, f"SISTEMA {sistema['sistema_nome']}", nc)
+    _cg_header_camaras(t, [camara])
+    _barra(t, "Informações Carga", nc, COR_SUB)
+    for campo, label in BLOCO_CARGA:
+        _cg_linha_cam(t, "bloco_carga", campo, label, [camara], nc)
+    _barra(t, "Dados de Entrada — Produto e Operação (fornecidos pelo cliente)", nc, COR_SUB)
+    for campo, label in BLOCO_DADOS_ENTRADA:
+        _cg_linha_cam(t, "dados_entrada", campo, label, [camara], nc)
+    if totais_sis:
+        _cg_total_sistema(t, nc, totais_sis)
+    _larguras_fixas(t, larguras)
+    sd.add_paragraph()
+
+
+def _comp_geral_carga_simples(sd, sistema, camaras, limite, totais_sis):
+    nome_sis = sistema["sistema_nome"]
+    chunks = [camaras[i:i + limite] for i in range(0, len(camaras), limite)]
+    for idx, chunk in enumerate(chunks):
+        nc = 1 + len(chunk)
+        larguras = _proporcionar([35.78] + [25.78] * len(chunk))
+        is_first = idx == 0
+        is_last = idx == len(chunks) - 1
+        titulo_tab = f"SISTEMA {nome_sis}" if is_first else f"CONTINUA... SISTEMA {nome_sis}"
+        if is_first:
+            _titulo_abnt(sd, f"Sistema {nome_sis} — Informações de Carga")
+        t = _tabela(sd, nc)
+        _cg_header_sistema(t, titulo_tab, nc)
+        _cg_header_camaras(t, chunk)
+        _barra(t, "Informações Carga", nc, COR_SUB)
+        for campo, label in BLOCO_CARGA:
+            _cg_linha_cam(t, "bloco_carga", campo, label, chunk, nc)
+        if is_last:
+            _cg_total_sistema(t, nc, totais_sis)
+        _larguras_fixas(t, larguras)
+        sd.add_paragraph()
+
+
+def _cg_tab_forcadores(sd, sistema, camaras, limite):
+    nome_sis = sistema["sistema_nome"]
+    chunks = [camaras[i:i + limite] for i in range(0, len(camaras), limite)]
+    for idx, chunk in enumerate(chunks):
+        nc = 1 + len(chunk)
+        larguras = _proporcionar([35.78] + [25.78] * len(chunk))
+        if idx == 0:
+            _titulo_abnt(sd, f"Sistema {nome_sis} — Informações Forçador de Ar")
+        t = _tabela(sd, nc)
+        titulo_tab = f"SISTEMA {nome_sis}" if idx == 0 else f"CONTINUA... SISTEMA {nome_sis}"
+        _cg_header_sistema(t, titulo_tab, nc)
+        _cg_header_camaras(t, chunk)
+        _barra(t, "Informações Forçadores de Ar", nc, COR_SUB)
+        for campo, label in _BLOCO_FORCADORES_WORD:
+            _cg_linha_cam(t, "forcador", campo, label, chunk, nc)
+        _larguras_fixas(t, larguras)
+        sd.add_paragraph()
+
+
+def _cg_tab_equipamentos(sd, sistemas):
+    nomes = [s["sistema_nome"] for s in sistemas]
+    nc = 1 + len(nomes)
+    larguras = _proporcionar([35.78] + [25.78] * len(nomes))
+    _titulo_abnt(sd, "Informações Equipamentos — Unidades/Rack e Condensadores")
+    t = _tabela(sd, nc)
+    hdr = t.add_row().cells
+    _set(hdr[0], "", white=True); _shd(hdr[0], COR_DARK)
+    for i, nm in enumerate(nomes, start=1):
+        _set(hdr[i], f"SISTEMA {nm}", bold=True, white=True, align="c")
+        _shd(hdr[i], COR_DARK)
+    _barra(t, "Informações Unidades/Rack", nc, COR_SUB)
+    for campo, label in _BLOCO_RACK_WORD:
+        r = t.add_row().cells
+        _set(r[0], label, bold=True, align="l")
+        for i, s in enumerate(sistemas, start=1):
+            v = _cell_val((s.get("rack_uc") or {}).get(campo), campo=campo)
+            _set(r[i], v, align="c")
+    _barra(t, "Informações Condensadores", nc, COR_SUB)
+    for campo, label in _BLOCO_CONDENSADOR_WORD:
+        r = t.add_row().cells
+        _set(r[0], label, bold=True, align="l")
+        for i, s in enumerate(sistemas, start=1):
+            v = _cell_val((s.get("condensador") or {}).get(campo), campo=campo)
+            _set(r[i], v, align="c")
+    _larguras_fixas(t, larguras)
+    sd.add_paragraph()
+
+
+def comp_geral(sd, dados, limite=7):
     sistemas = [s for s in (dados.get("sistemas") or []) if s.get("camaras")]
+    totais_map = {}
+    for ts in ((dados.get("totais") or {}).get("carga_termica_por_sistema") or []):
+        totais_map[ts.get("sistema_id")] = ts
     for s in sistemas:
         camaras = s["camaras"]
-        cab = [""] + [c["nome"] for c in camaras]
-
-        def linha_cam(t, cont, label, bloco_key, campo):
-            r = t.add_row().cells
-            _set(r[0], label, bold=True, align="l")
-            vals = [label]
-            for i, c in enumerate(camaras, start=1):
-                v = _cell_val((c.get(bloco_key) or {}).get(campo))
-                _set(r[i], v, align="c"); vals.append(v)
-            _ac(cont, vals)
-
-        def linha_sis(t, nc, cont, label, bloco, campo):
-            r = t.add_row().cells
-            _set(r[0], label, bold=True, align="l")
-            v = _cell_val((bloco or {}).get(campo))
-            for i in range(1, nc):
-                _set(r[i], v, align="c")
-            _ac(cont, [label] + [v] * (nc - 1))
-
-        _titulo_abnt(sd,f"Sistema {s['sistema_nome']} — Informações de Carga e Dados de Entrada")
-        t1, nc1 = _cab_camaras(sd, camaras); c1 = _novo_conteudo(cab)
-        _barra(t1, "Informações Carga", nc1, COR_SUB)
-        for campo, label in BLOCO_CARGA:
-            linha_cam(t1, c1, label, "bloco_carga", campo)
-        _barra(t1, "Dados de Entrada — Produto e Operação (fornecidos pelo cliente)", nc1, COR_SUB)
-        for campo, label in _DADOS_ENTRADA_PROPOSTA:
-            linha_cam(t1, c1, label, "dados_entrada", campo)
-        aplicar_autofit(t1, c1); sd.add_paragraph()
-
-        _titulo_abnt(sd,f"Sistema {s['sistema_nome']} — Informações Forçador de Ar")
-        t2, nc2 = _cab_camaras(sd, camaras); c2 = _novo_conteudo(cab)
-        for campo, label in BLOCO_FORCADORES:
-            linha_cam(t2, c2, label, "forcador", campo)
-        aplicar_autofit(t2, c2); sd.add_paragraph()
-
-        _titulo_abnt(sd,f"Sistema {s['sistema_nome']} — Informações Unidades/Rack")
-        t3, nc3 = _cab_camaras(sd, camaras); c3 = _novo_conteudo(cab)
-        for campo, label in BLOCO_RACK:
-            linha_sis(t3, nc3, c3, label, s.get("rack_uc"), campo)
-        aplicar_autofit(t3, c3); sd.add_paragraph()
-
-        _titulo_abnt(sd,f"Sistema {s['sistema_nome']} — Informações Condensadores")
-        t4, nc4 = _cab_camaras(sd, camaras); c4 = _novo_conteudo(cab)
-        for campo, label in BLOCO_CONDENSADOR:
-            linha_sis(t4, nc4, c4, label, s.get("condensador"), campo)
-        aplicar_autofit(t4, c4); sd.add_paragraph()
+        totais_sis = totais_map.get(s.get("sistema_id")) or {}
+        completos = [c for c in camaras if c.get("tipo") == "completo"]
+        simples = [c for c in camaras if c.get("tipo") != "completo"]
+        total_no_completo = not simples
+        for i, cam in enumerate(completos):
+            mostrar_total = total_no_completo and (i == len(completos) - 1)
+            _comp_geral_carga_completo(sd, s, cam, totais_sis if mostrar_total else None)
+        if simples:
+            _comp_geral_carga_simples(sd, s, simples, limite, totais_sis)
+        todas = camaras
+        _cg_tab_forcadores(sd, s, todas, limite)
+    if sistemas:
+        _cg_tab_equipamentos(sd, sistemas)
+    resp = (dados.get("responsabilidade_dados_entrada") or "")
+    if resp:
+        p = sd.add_paragraph()
+        r = p.add_run(f"Responsabilidade dos dados de entrada: {resp}")
+        r.font.name = FONTE_NOME
+        r.font.size = Pt(FONTE)
+        rpr = r._element.get_or_add_rPr()
+        rfonts = rpr.find(qn("w:rFonts"))
+        if rfonts is None:
+            rfonts = OxmlElement("w:rFonts"); rpr.insert(0, rfonts)
+        for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+            rfonts.set(qn(attr), FONTE_NOME)
 
 
 # ----------------------------------------------------------------- Consumo (Tela 9)

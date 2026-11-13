@@ -196,6 +196,8 @@ def _carga_gas_estimada_sistema(db: Session, sistema: m.SistemaRefrigeracao, tan
     Compilação Geral, Tela 8)."""
     from ..calc_service import calcular_camara_completo_seguro as calcular_camara_completo, calcular_camara_simples_seguro as calcular_camara_simples
     from ..calculos.comum import carga_gas_estimada
+    from ..proposta.config import carregar_defaults as _carregar_defaults_proposta
+    fator_qtd_gas = float((_carregar_defaults_proposta().get("fator_qtd_gas")) or 1.0)
     soma = 0.0
     tem_dado = False
     for c in sistema.camaras_completo:
@@ -212,7 +214,7 @@ def _carga_gas_estimada_sistema(db: Session, sistema: m.SistemaRefrigeracao, tan
             tem_dado = True
     if not tem_dado:
         return None
-    return carga_gas_estimada(soma, tanque_liquido_l)
+    return carga_gas_estimada(soma, tanque_liquido_l, fator_qtd_gas=fator_qtd_gas)
 
 
 def _serializar(db: Session, rack: m.RackParalelo) -> dict:

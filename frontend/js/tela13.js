@@ -9,10 +9,12 @@ function initTela13() {
     t13_carregarFatores();
     t13_carregarItensDefault();
     t13_carregarVendedores();
+    t13_carregarEmpresas();
   };
   document.getElementById('t13_btnAddFator').addEventListener('click', t13_addFator);
   document.getElementById('t13_btnAddItemDefault').addEventListener('click', t13_addItemDefault);
   document.getElementById('t13_btnAddVendedor').addEventListener('click', t13_addVendedorMestre);
+  document.getElementById('t13_btnAddEmpresa').addEventListener('click', t13_addEmpresa);
 }
 
 // Monta as <option> do seletor de Id Comercial: uma linha por nó da árvore (categoria OU item
@@ -248,6 +250,7 @@ async function t13_carregarItensDefault() {
       <td><input data-campo="descricao" value="${it.descricao}" style="width:100%;"></td>
       <td><select data-campo="centro_custo_id">${opcoesCC(it.centro_custo_id)}</select></td>
       <td><select data-campo="fator_id">${opcoesFator(it.fator_id)}</select></td>
+      <td><input data-campo="unidade" value="${it.unidade || ''}" style="width:100%;"></td>
       <td><input data-campo="custo_unitario_padrao" type="number" step="0.01" value="${it.custo_unitario_padrao || 0}" style="width:100%;text-align:right;"></td>
       <td><span class="btn-text danger" data-del-item>x</span></td>
     </tr>`).join('');
@@ -286,6 +289,9 @@ async function t13_carregarVendedores() {
   tbody.innerHTML = vendedores.map(v => `
     <tr data-vendedor-id="${v.id}">
       <td><input data-campo="nome" value="${v.nome}" style="width:100%;"></td>
+      <td><input data-campo="cargo" value="${v.cargo || ''}" style="width:100%;"></td>
+      <td><input data-campo="telefone" value="${v.telefone || ''}" style="width:100%;"></td>
+      <td><input data-campo="email" value="${v.email || ''}" style="width:100%;"></td>
       <td><input data-campo="pct_comissao_padrao" value="${(v.pct_comissao_padrao * 100).toFixed(1)}" style="width:70px;"></td>
       <td style="text-align:center;"><input type="checkbox" data-campo="default" ${v.default ? 'checked' : ''}></td>
       <td><span class="btn-text danger" data-del-vendedor>x</span></td>
@@ -310,6 +316,66 @@ function t13_addVendedorMestre() {
     try {
       await api.post('/api/composicao-preco/vendedores', { nome: v.nome.trim(), pct_comissao_padrao: 0, default: false });
       t13_carregarVendedores();
+    } catch (err) { alert('Erro ao adicionar: ' + err.message); }
+  });
+}
+
+// ---------------- Empresas de Faturamento ----------------
+
+async function t13_carregarEmpresas() {
+  const empresas = await api.get('/api/composicao-preco/empresas');
+  const tbody = document.getElementById('t13_empresas');
+  tbody.innerHTML = empresas.map(e => `
+    <tr data-empresa-id="${e.id}">
+      <td><input data-campo="razao_social" value="${e.razao_social || ''}" style="width:100%;"></td>
+      <td><input data-campo="cnpj" value="${e.cnpj || ''}" style="width:100%;"></td>
+      <td><input data-campo="endereco" value="${e.endereco || ''}" style="width:100%;"></td>
+      <td><input data-campo="cidade_uf" value="${e.cidade_uf || ''}" style="width:90px;"></td>
+      <td><input data-campo="banco" value="${e.banco || ''}" style="width:80px;"></td>
+      <td><input data-campo="pix" value="${e.pix || ''}" style="width:100%;"></td>
+      <td style="text-align:center;"><input type="checkbox" data-campo="default" ${e.default ? 'checked' : ''}></td>
+      <td><span class="btn-text" data-emp-detalhe="${e.id}" style="font-size:11px;">···</span>
+        <span class="btn-text danger" data-del-empresa>x</span></td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (ev) => {
+    const tr = ev.target.closest('tr');
+    const campo = inp.dataset.campo;
+    const valor = inp.type === 'checkbox' ? inp.checked : inp.value;
+    await api.put(`/api/composicao-preco/empresas/${tr.dataset.empresaId}`, { [campo]: valor });
+  }));
+  tbody.querySelectorAll('[data-del-empresa]').forEach(b => b.addEventListener('click', async (ev) => {
+    const tr = ev.target.closest('tr');
+    if (!confirm('Excluir esta empresa?')) return;
+    try { await api.del(`/api/composicao-preco/empresas/${tr.dataset.empresaId}`); t13_carregarEmpresas(); }
+    catch (err) { alert('Erro ao excluir: ' + err.message); }
+  }));
+  tbody.querySelectorAll('[data-emp-detalhe]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.empDetalhe;
+    const emp = empresas.find(e => String(e.id) === id);
+    if (!emp) return;
+    vkPrompt('Detalhes — ' + (emp.razao_social || 'Empresa'), [
+      {label: 'Inscrição Municipal', name: 'insc_municipal', value: emp.insc_municipal || ''},
+      {label: 'Inscrição Estadual', name: 'insc_estadual', value: emp.insc_estadual || ''},
+      {label: 'Agência', name: 'agencia', value: emp.agencia || ''},
+      {label: 'Conta Corrente', name: 'conta', value: emp.conta || ''},
+    ], async (v) => {
+      await api.put(`/api/composicao-preco/empresas/${id}`, v);
+      t13_carregarEmpresas();
+    });
+  }));
+}
+
+function t13_addEmpresa() {
+  vkPrompt('Adicionar Empresa de Faturamento', [
+    {label: 'Razão Social', name: 'razao_social'},
+    {label: 'CNPJ', name: 'cnpj'},
+  ], async (v) => {
+    if (!v.razao_social || !v.razao_social.trim()) return;
+    try {
+      await api.post('/api/composicao-preco/empresas', {
+        razao_social: v.razao_social.trim(), cnpj: (v.cnpj || '').trim(),
+      });
+      t13_carregarEmpresas();
     } catch (err) { alert('Erro ao adicionar: ' + err.message); }
   });
 }

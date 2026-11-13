@@ -3,18 +3,12 @@
 // .docx sobre o papel de carta. Nunca exibe "Flexbox" — o rótulo é sempre "empresa contratada".
 
 // Obs.: tipo_painel NÃO é campo manual — é puxado da Tela 7 (só leitura), preenchido em t19_carregar.
+// Campos de vendedor/faturamento NÃO são manuais — vêm do cadastro selecionado (Tela D).
 const T19_CAMPOS = {
   t19_titulo: 'titulo_fornecimento', t19_empresa: 'empresa_contratada',
   t19_dias: 'dias_proposta', t19_garantia: 'meses_garantia',
   t19_embEquip: 'embarque_equipamentos', t19_embIso: 'embarque_isopainel',
-  t19_vendNome: 'vendedor_nome', t19_vendCargo: 'vendedor_cargo',
-  t19_vendTel: 'vendedor_telefone', t19_vendEmail: 'vendedor_email',
-  // Dados de Faturamento (dados do usuário para receber o pagamento)
-  t19_fatRazao: 'fat_razao_social', t19_fatCnpj: 'fat_cnpj',
-  t19_fatIscMun: 'fat_insc_municipal', t19_fatIscEst: 'fat_insc_estadual',
-  t19_fatEndereco: 'fat_endereco', t19_fatCidadeUf: 'fat_cidade_uf',
-  t19_fatBanco: 'fat_banco', t19_fatAgencia: 'fat_agencia',
-  t19_fatConta: 'fat_conta', t19_fatPix: 'fat_pix',
+  t19_fatorGas: 'fator_qtd_gas', t19_limiteColunas: 'limite_colunas_tabelas',
 };
 
 let t19_ctx = null;
@@ -55,8 +49,6 @@ function t19_maskTel(el) {
 function t19_maskDigitos(el) { el.value = el.value.replace(/\D/g, ''); }
 function t19_ligarMascaras() {
   const on = (id, fn) => { const e = document.getElementById(id); if (e) e.addEventListener('input', () => fn(e)); };
-  on('t19_fatCnpj', t19_maskCnpj);
-  on('t19_vendTel', t19_maskTel);
   ['t19_dias', 't19_garantia', 't19_embEquip', 't19_embIso'].forEach(id => on(id, t19_maskDigitos));
 }
 
@@ -75,22 +67,91 @@ async function t19_carregar() {
   document.getElementById('t19_projetoInfo').innerHTML =
     `<b>${p.codigo_revisao}</b> · ${p.razao_social || p.cliente || '—'} · ${p.cidade_estado} · A/C ${p.contato || '—'}`;
 
-  // Campos manuais (default por usuário)
   const d = t19_ctx.defaults || {};
   for (const [id, chave] of Object.entries(T19_CAMPOS)) {
     document.getElementById(id).value = d[chave] || '';
   }
-  // Tipo de painel: automático da Tela 7 (só leitura).
   document.getElementById('t19_tipoPainel').value = p.tipo_painel || '';
   document.getElementById('t19_papelCartaAtual').textContent = d.papel_carta_path ? `Atual: ${d.papel_carta_path}` : 'Usando papel de carta padrão.';
   document.getElementById('t19_logoAtual').textContent = d.logo_path ? `Atual: ${d.logo_path}` : 'Sem logomarca enviada.';
+
+  // Planta: restaurar da config do projeto (persistida por projeto)
+  const projCfg = t19_ctx.projeto_config || {};
+  t19_plantaPath = projCfg.planta_path || null;
   document.getElementById('t19_plantaAtual').textContent = t19_plantaPath ? `Atual: ${t19_plantaPath}` : 'Nenhuma imagem de planta enviada.';
+
   document.getElementById('t19_exEmpresaHdr').textContent = d.empresa_contratada || 'Empresa contratada';
 
+  t19_popularVendedores();
+  t19_popularEmpresas();
   t19_renderTabelas();
   t19_renderArvore();
   t19_renderExcecoes();
   document.getElementById('t19_msg').textContent = '';
+}
+
+// Popula dropdown de vendedores e seleciona o default ou o salvo na config do projeto.
+function t19_popularVendedores() {
+  const sel = document.getElementById('t19_selVendedor');
+  const vendedores = t19_ctx.vendedores || [];
+  const projCfg = t19_ctx.projeto_config || {};
+  sel.innerHTML = '<option value="">— nenhum (usar padrão) —</option>' +
+    vendedores.map(v => `<option value="${v.id}">${v.nome}${v.cargo ? ' — ' + v.cargo : ''}</option>`).join('');
+  const salvo = projCfg.vendedor_id;
+  if (salvo) {
+    sel.value = String(salvo);
+  } else {
+    const def = vendedores.find(v => v.default);
+    if (def) sel.value = String(def.id);
+  }
+  t19_atualizarPreviewVendedor();
+  sel.addEventListener('change', t19_atualizarPreviewVendedor);
+}
+
+function t19_atualizarPreviewVendedor() {
+  const sel = document.getElementById('t19_selVendedor');
+  const vendedores = t19_ctx.vendedores || [];
+  const d = t19_ctx.defaults || {};
+  const v = vendedores.find(x => String(x.id) === sel.value);
+  document.getElementById('t19_vendNome').value = v ? (v.nome || '') : (d.vendedor_nome || '');
+  document.getElementById('t19_vendCargo').value = v ? (v.cargo || '') : (d.vendedor_cargo || '');
+  document.getElementById('t19_vendTel').value = v ? (v.telefone || '') : (d.vendedor_telefone || '');
+  document.getElementById('t19_vendEmail').value = v ? (v.email || '') : (d.vendedor_email || '');
+}
+
+// Popula dropdown de empresas e seleciona a default ou a salva na config do projeto.
+function t19_popularEmpresas() {
+  const sel = document.getElementById('t19_selEmpresa');
+  const empresas = t19_ctx.empresas || [];
+  const projCfg = t19_ctx.projeto_config || {};
+  sel.innerHTML = '<option value="">— nenhuma (usar padrão) —</option>' +
+    empresas.map(e => `<option value="${e.id}">${e.razao_social}${e.cnpj ? ' — ' + e.cnpj : ''}</option>`).join('');
+  const salvo = projCfg.empresa_id;
+  if (salvo) {
+    sel.value = String(salvo);
+  } else {
+    const def = empresas.find(e => e.default);
+    if (def) sel.value = String(def.id);
+  }
+  t19_atualizarPreviewEmpresa();
+  sel.addEventListener('change', t19_atualizarPreviewEmpresa);
+}
+
+function t19_atualizarPreviewEmpresa() {
+  const sel = document.getElementById('t19_selEmpresa');
+  const empresas = t19_ctx.empresas || [];
+  const d = t19_ctx.defaults || {};
+  const e = empresas.find(x => String(x.id) === sel.value);
+  document.getElementById('t19_fatRazao').value = e ? (e.razao_social || '') : (d.fat_razao_social || '');
+  document.getElementById('t19_fatCnpj').value = e ? (e.cnpj || '') : (d.fat_cnpj || '');
+  document.getElementById('t19_fatIscMun').value = e ? (e.insc_municipal || '') : (d.fat_insc_municipal || '');
+  document.getElementById('t19_fatIscEst').value = e ? (e.insc_estadual || '') : (d.fat_insc_estadual || '');
+  document.getElementById('t19_fatEndereco').value = e ? (e.endereco || '') : (d.fat_endereco || '');
+  document.getElementById('t19_fatCidadeUf').value = e ? (e.cidade_uf || '') : (d.fat_cidade_uf || '');
+  document.getElementById('t19_fatBanco').value = e ? (e.banco || '') : (d.fat_banco || '');
+  document.getElementById('t19_fatAgencia').value = e ? (e.agencia || '') : (d.fat_agencia || '');
+  document.getElementById('t19_fatConta').value = e ? (e.conta || '') : (d.fat_conta || '');
+  document.getElementById('t19_fatPix').value = e ? (e.pix || '') : (d.fat_pix || '');
 }
 
 function t19_renderTabelas() {
@@ -112,6 +173,13 @@ function t19_renderExcecoes() {
       <td style="text-align:center;"><input type="checkbox" class="t19-ex-emp" data-i="${i}" ${r.empresa ? 'checked' : ''}></td>
       <td style="text-align:center;"><input type="checkbox" class="t19-ex-cli" data-i="${i}" ${r.cliente ? 'checked' : ''}></td>
     </tr>`).join('');
+  // Exclusividade: empresa e cliente são mutuamente exclusivos por atividade.
+  tb.querySelectorAll('.t19-ex-emp').forEach(cb => cb.addEventListener('change', () => {
+    if (cb.checked) { const outro = tb.querySelector(`.t19-ex-cli[data-i="${cb.dataset.i}"]`); if (outro) outro.checked = false; }
+  }));
+  tb.querySelectorAll('.t19-ex-cli').forEach(cb => cb.addEventListener('change', () => {
+    if (cb.checked) { const outro = tb.querySelector(`.t19-ex-emp[data-i="${cb.dataset.i}"]`); if (outro) outro.checked = false; }
+  }));
 }
 
 function t19_renderArvore() {
@@ -155,7 +223,8 @@ function t19_ligarUpload(inputId, tipo, alvoId) {
     if (!inp.files.length) return;
     document.getElementById(alvoId).textContent = 'Enviando…';
     try {
-      const r = await api.upload(`/api/proposta/upload?tipo=${tipo}`, inp.files[0]);
+      const pid = state.projetoId || '';
+      const r = await api.upload(`/api/proposta/upload?tipo=${tipo}&projeto_id=${pid}`, inp.files[0]);
       if (tipo === 'planta') t19_plantaPath = r.path;
       document.getElementById(alvoId).textContent = `Atual: ${r.path}`;
     } catch (e) {
@@ -172,21 +241,30 @@ function t19_coletarCampos() {
   return campos;
 }
 
+function t19_coletarExcecoes() {
+  return (t19_ctx.excecoes_padrao || []).map((r, i) => ({
+    atividade: r.atividade,
+    empresa: document.querySelector(`.t19-ex-emp[data-i="${i}"]`).checked,
+    cliente: document.querySelector(`.t19-ex-cli[data-i="${i}"]`).checked,
+  }));
+}
+
 function t19_coletarOpcoes() {
   const tabelas = {};
   document.querySelectorAll('.t19-tab').forEach(c => { tabelas[c.dataset.chave] = c.checked; });
   const ids = [];
   document.querySelectorAll('.t19-id:checked').forEach(c => ids.push(c.dataset.codigo));
-  const excecoes = (t19_ctx.excecoes_padrao || []).map((r, i) => ({
-    atividade: r.atividade,
-    empresa: document.querySelector(`.t19-ex-emp[data-i="${i}"]`).checked,
-    cliente: document.querySelector(`.t19-ex-cli[data-i="${i}"]`).checked,
-  }));
-  return {
+  const excecoes = t19_coletarExcecoes();
+  const opcoes = {
     campos: t19_coletarCampos(), tabelas, ids_selecionados: ids, excecoes,
     planta_path: t19_plantaPath, orcamento_filtro: t19_filtroOrcamento(),
     paineis_modo: (typeof t10_modoResumo !== 'undefined') ? t10_modoResumo : 'total',
   };
+  const vendedorId = document.getElementById('t19_selVendedor').value;
+  if (vendedorId) opcoes.vendedor_id = Number(vendedorId);
+  const empresaId = document.getElementById('t19_selEmpresa').value;
+  if (empresaId) opcoes.empresa_id = Number(empresaId);
+  return opcoes;
 }
 
 // Lê o filtro AO VIVO da Tabela de Orçamento da Tela 10 (mesmos controles), para a proposta sair
@@ -224,7 +302,14 @@ async function t19_gerar() {
   if (!state.projetoId) { msg.textContent = 'Nenhum projeto ativo. Selecione um projeto primeiro.'; return; }
   msg.textContent = 'Gerando proposta… (pode levar alguns segundos)';
   try {
-    // Salva na Pasta de Salvamento do projeto (ou Downloads) — o backend devolve {salvo_em}.
+    // Salvar exceções e seleções na config do projeto (persistência por projeto).
+    const projCfg = {
+      excecoes: t19_coletarExcecoes(),
+      vendedor_id: Number(document.getElementById('t19_selVendedor').value) || null,
+      empresa_id: Number(document.getElementById('t19_selEmpresa').value) || null,
+    };
+    await api.put(`/api/proposta/projeto-config?projeto_id=${state.projetoId}`, projCfg);
+
     const r = await fetch(`/api/proposta/gerar?projeto_id=${state.projetoId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(t19_coletarOpcoes()),

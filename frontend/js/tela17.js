@@ -21,6 +21,15 @@ function t17_pct(v) {
 
 function initTela17() {
   window.telaShowHandlers[17] = t17_carregar;
+  document.addEventListener('projeto-changed', () => {
+    t17_composicaoAtual = null;
+    t17_fatores = [];
+    t17_centrosCusto = [];
+    t17_vendedores = [];
+    t17_itemPorId = new Map();
+    t17_primeiroRender = true;
+    t17_blocosRetraidos.clear();
+  });
   document.getElementById('t17_margemNegociacao').addEventListener('change', t17_salvarMargemNegociacao);
   document.getElementById('t17_btnAtualizarCcFv').addEventListener('click', async () => {
     if (!state.projetoId) return;
@@ -45,6 +54,29 @@ function initTela17() {
     t17_blocosRetraidos.clear();
     t17_primeiroRender = true;
     t17_carregar();
+  });
+  document.getElementById('t17_btnAtualizarValores').addEventListener('click', async () => {
+    if (!state.projetoId) return;
+    mostrarLoading('Sincronizando e recalculando valores...');
+    try {
+      const tudo = await t17_carregarTudo(true);
+      t17_renderBlocos(tudo.composicao);
+      t17_renderResumo(tudo.resumo);
+      t17_renderTabelaOrcamento(tudo.composicao);
+      t17_renderComissionamento(tudo.comissionamento);
+      t17_renderDre(tudo.dre);
+    } catch (e) { alert('Erro ao atualizar valores: ' + (e.message || e)); }
+    finally { esconderLoading(); }
+  });
+  document.getElementById('t17_btnExpandirTudo').addEventListener('click', () => {
+    t17_blocosRetraidos.clear();
+    document.querySelectorAll('[data-bloco-corpo]').forEach(el => el.style.display = '');
+    document.querySelectorAll('[data-toggle-bloco]').forEach(b => b.textContent = '▾ Retrair');
+  });
+  document.getElementById('t17_btnRetrairTudo').addEventListener('click', () => {
+    T17_BLOCOS.forEach(b => t17_blocosRetraidos.add(b));
+    document.querySelectorAll('[data-bloco-corpo]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('[data-toggle-bloco]').forEach(b => b.textContent = '▸ Expandir');
   });
   document.getElementById('t17_btnAddVendedor').addEventListener('click', t17_vincularVendedor);
   document.getElementById('t17_btnImprimir').addEventListener('click', t17_imprimirListaMateriais);

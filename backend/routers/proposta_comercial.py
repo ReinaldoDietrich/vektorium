@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import models as m
 from .. import id_comercial
 from ..database import get_db
-from ..utils import list_to_dict
+from ..utils import list_to_dict, model_to_dict
 from ..proposta import config, gerador
 
 router = APIRouter(prefix="/api/proposta", tags=["proposta-comercial"])
@@ -45,6 +45,7 @@ def _disponibilidade_tabelas(db: Session, projeto_id: int) -> dict:
     tem_pagamento = db.query(m.CondicaoPagamentoProjeto).filter_by(projeto_id=projeto_id).first() is not None
     return {
         "comp_linhas": tem_camaras and tem_forcadores,
+        "alim_eletricas": tem_camaras and tem_forcadores,
         "comp_geral": tem_camaras or tem_racks,
         "consumo": tem_sistemas and tem_forcadores,
         "lumino": tem_camaras and n_completo > 0,
@@ -71,9 +72,13 @@ def contexto(projeto_id: int, response: Response, db: Session = Depends(get_db))
     ids_projeto = set(str(x) for x in (memorial.get("ids_resolvidos") or []))
     itens_com_texto = {str(i.get("id_comercial")) for i in (memorial.get("itens") or [])}
 
-    excecoes = gerador._excecoes_linhas(None)
+    proj_cfg = config.carregar_projeto_config(projeto_id)
+    excecoes = proj_cfg.get("excecoes") or gerador._excecoes_linhas(None)
 
     disp = _disponibilidade_tabelas(db, projeto_id)
+
+    vendedores = list_to_dict(db.query(m.Vendedor).order_by(m.Vendedor.ordem, m.Vendedor.id).all())
+    empresas = list_to_dict(db.query(m.EmpresaFaturamento).order_by(m.EmpresaFaturamento.ordem, m.EmpresaFaturamento.id).all())
 
     return {
         "projeto": {
@@ -84,15 +89,19 @@ def contexto(projeto_id: int, response: Response, db: Session = Depends(get_db))
             "razao_social": getattr(projeto, "razao_social_faturamento", None) or projeto.cliente,
             "cnpj": getattr(projeto, "cnpj_faturamento", None),
             "cidade_estado": f"{projeto.cidade_instalacao or ''}/{projeto.estado_uf or ''}",
-            "tipo_painel": gerador._tipos_painel(db, projeto_id),  # da Tela 7 (só leitura)
+            "tipo_painel": gerador._tipos_painel(db, projeto_id),
         },
         "defaults": config.carregar_defaults(),
+        "projeto_config": proj_cfg,
+        "vendedores": vendedores,
+        "empresas": empresas,
         "arvore_ids": list_to_dict(arvore),
         "ids_projeto": sorted(ids_projeto),
         "ids_com_texto": sorted(itens_com_texto),
         "excecoes_padrao": excecoes,
         "tabelas": [
             {"chave": "comp_linhas",    "rotulo": "Compilação de Linhas",       "disponivel": disp["comp_linhas"]},
+            {"chave": "alim_eletricas", "rotulo": "Alimentações Elétricas",     "disponivel": disp["alim_eletricas"]},
             {"chave": "comp_geral",     "rotulo": "Compilação Geral",           "disponivel": disp["comp_geral"]},
             {"chave": "consumo",        "rotulo": "Consumo Elétrico",           "disponivel": disp["consumo"]},
             {"chave": "lumino",         "rotulo": "Estudo Luminotécnico",       "disponivel": disp["lumino"]},
@@ -113,10 +122,20 @@ def salvar_defaults(payload: dict = Body(...)):
     return config.salvar_defaults(payload or {})
 
 
+@router.get("/projeto-config")
+def obter_projeto_config(projeto_id: int):
+    return config.carregar_projeto_config(projeto_id)
+
+
+@router.put("/projeto-config")
+def gravar_projeto_config(projeto_id: int, payload: dict = Body(...)):
+    return config.salvar_projeto_config(projeto_id, payload or {})
+
+
 @router.post("/upload")
-async def upload_arquivo(tipo: str, arquivo: UploadFile = File(...)):
+async def upload_arquivo(tipo: str, arquivo: UploadFile = File(...), projeto_id: int = None):
     """Recebe papel de carta / logomarca / planta. Salva em uploads/proposta e devolve o caminho
-    relativo. papel_carta e logo viram default do usuário; a planta é usada por proposta."""
+    relativo. papel_carta e logo viram default do usuário; planta é salva na config do projeto."""
     if tipo not in ("papel_carta", "logo", "planta"):
         raise HTTPException(400, "tipo inválido")
     config._garantir_dirs()
@@ -126,6 +145,8 @@ async def upload_arquivo(tipo: str, arquivo: UploadFile = File(...)):
     destino.write_bytes(await arquivo.read())
     if tipo in ("papel_carta", "logo"):
         config.salvar_defaults({f"{tipo}_path": nome})
+    elif tipo == "planta" and projeto_id:
+        config.salvar_projeto_config(projeto_id, {"planta_path": nome})
     return {"path": nome}
 
 

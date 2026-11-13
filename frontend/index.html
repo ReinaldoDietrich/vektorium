@@ -1364,17 +1364,26 @@ CP/SP — com / sem supervisão</pre>
       <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddItemDefault">+ Item</span></div>
       <div style="overflow-x:auto;">
       <table class="list" style="min-width:850px;">
-        <thead><tr><th style="width:170px;">Bloco</th><th>Descrição</th><th style="width:180px;">Centro de Custo</th><th style="width:150px;">Fator Padrão</th><th style="width:120px;">Custo Padrão</th><th style="width:30px;"></th></tr></thead>
+        <thead><tr><th style="width:170px;">Bloco</th><th>Descrição</th><th style="width:180px;">Centro de Custo</th><th style="width:150px;">Fator Padrão</th><th style="width:70px;">Unid</th><th style="width:120px;">Custo Padrão</th><th style="width:30px;"></th></tr></thead>
         <tbody id="t13_itensDefault"></tbody>
       </table>
       </div>
 
-      <div class="sec-title" style="margin-top:24px;">VENDEDORES <span class="sub">— comissionamento da Composição de Preço; "Default" entra automaticamente em todo projeto novo</span></div>
+      <div class="sec-title" style="margin-top:24px;">VENDEDORES <span class="sub">— dados completos para a Proposta Comercial + comissionamento; "Default" entra automaticamente em todo projeto novo</span></div>
       <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddVendedor">+ Vendedor</span></div>
       <div style="overflow-x:auto;">
-      <table class="list" style="min-width:500px;">
-        <thead><tr><th>Nome</th><th style="width:110px;">% Padrão</th><th style="width:70px;">Default</th><th style="width:30px;"></th></tr></thead>
+      <table class="list" style="min-width:750px;">
+        <thead><tr><th>Nome</th><th style="width:120px;">Cargo</th><th style="width:130px;">Telefone</th><th style="width:180px;">E-mail</th><th style="width:90px;">% Padrão</th><th style="width:60px;">Default</th><th style="width:30px;"></th></tr></thead>
         <tbody id="t13_vendedores"></tbody>
+      </table>
+      </div>
+
+      <div class="sec-title" style="margin-top:24px;">EMPRESAS DE FATURAMENTO <span class="sub">— seus dados bancários/fiscais para receber pagamento; "Default" é a pré-selecionada na Proposta</span></div>
+      <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddEmpresa">+ Empresa</span></div>
+      <div style="overflow-x:auto;">
+      <table class="list" style="min-width:900px;">
+        <thead><tr><th>Razão Social</th><th style="width:140px;">CNPJ</th><th>Endereço</th><th style="width:100px;">Cidade/UF</th><th style="width:90px;">Banco</th><th style="width:120px;">PIX</th><th style="width:60px;">Default</th><th style="width:55px;"></th></tr></thead>
+        <tbody id="t13_empresas"></tbody>
       </table>
       </div>
     </div>
@@ -1508,8 +1517,11 @@ CP/SP — com / sem supervisão</pre>
           <input type="text" id="t17_margemNegociacao" style="width:70px;">
         </div>
         <span style="display:flex;gap:12px;align-items:center;">
+          <span class="btn-text" id="t17_btnAtualizarValores" style="font-weight:bold;">⟳ Atualizar Valores</span>
           <span class="btn-text" id="t17_btnAtualizarCcFv">Atualizar CC/FV</span>
           <span class="btn-text" id="t17_btnRestaurarPadroes">Restaurar Padrões</span>
+          <span class="btn-text" id="t17_btnExpandirTudo">Expandir Tudo</span>
+          <span class="btn-text" id="t17_btnRetrairTudo">Retrair Tudo</span>
         </span>
       </div>
 
@@ -1640,29 +1652,36 @@ CP/SP — com / sem supervisão</pre>
           <div><label class="lbl">Embarque equipamentos (dias)</label><input type="text" id="t19_embEquip"></div>
           <div><label class="lbl">Embarque isopainel (dias)</label><input type="text" id="t19_embIso"></div>
           <div></div>
-          <div><label class="lbl">Vendedor</label><input type="text" id="t19_vendNome"></div>
-          <div><label class="lbl">Cargo</label><input type="text" id="t19_vendCargo"></div>
+          <div><label class="lbl">Fator Qtd. Gás</label><input type="text" id="t19_fatorGas"></div>
+          <div><label class="lbl">Limite Colunas Tabelas</label><input type="text" id="t19_limiteColunas"></div>
           <div></div>
-          <div><label class="lbl">Telefone</label><input type="text" id="t19_vendTel"></div>
-          <div><label class="lbl">E-mail</label><input type="text" id="t19_vendEmail"></div>
+          <div style="grid-column:span 2;"><label class="lbl">Vendedor <span class="sub">— cadastrado na Tela D</span></label><select id="t19_selVendedor" style="width:100%;"><option value="">— nenhum (usar padrão) —</option></select></div>
+          <div></div>
+          <div><label class="lbl">Nome</label><input type="text" id="t19_vendNome" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Cargo</label><input type="text" id="t19_vendCargo" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div></div>
+          <div><label class="lbl">Telefone</label><input type="text" id="t19_vendTel" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">E-mail</label><input type="text" id="t19_vendEmail" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
           <div></div>
         </div>
       </details>
 
       <details class="cfg-accordion" open>
-        <summary class="sec-title">Dados de Faturamento <span class="sub">— seus dados para receber o pagamento; viram padrão do usuário</span></summary>
+        <summary class="sec-title">Dados de Faturamento <span class="sub">— empresa cadastrada na Tela D; selecione qual usar nesta proposta</span></summary>
         <div class="grid g3">
-          <div style="grid-column:span 2;"><label class="lbl">Razão Social</label><input type="text" id="t19_fatRazao"></div>
-          <div><label class="lbl">CNPJ</label><input type="text" id="t19_fatCnpj"></div>
-          <div><label class="lbl">Inscrição Municipal</label><input type="text" id="t19_fatIscMun"></div>
-          <div><label class="lbl">Inscrição Estadual</label><input type="text" id="t19_fatIscEst"></div>
+          <div style="grid-column:span 2;"><label class="lbl">Empresa de Faturamento</label><select id="t19_selEmpresa" style="width:100%;"><option value="">— nenhuma (usar padrão) —</option></select></div>
           <div></div>
-          <div style="grid-column:span 2;"><label class="lbl">Endereço</label><input type="text" id="t19_fatEndereco"></div>
-          <div><label class="lbl">Cidade / UF</label><input type="text" id="t19_fatCidadeUf"></div>
-          <div><label class="lbl">Banco</label><input type="text" id="t19_fatBanco"></div>
-          <div><label class="lbl">Agência</label><input type="text" id="t19_fatAgencia"></div>
-          <div><label class="lbl">Conta Corrente</label><input type="text" id="t19_fatConta"></div>
-          <div><label class="lbl">PIX</label><input type="text" id="t19_fatPix"></div>
+          <div style="grid-column:span 2;"><label class="lbl">Razão Social</label><input type="text" id="t19_fatRazao" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">CNPJ</label><input type="text" id="t19_fatCnpj" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Inscrição Municipal</label><input type="text" id="t19_fatIscMun" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Inscrição Estadual</label><input type="text" id="t19_fatIscEst" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div></div>
+          <div style="grid-column:span 2;"><label class="lbl">Endereço</label><input type="text" id="t19_fatEndereco" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Cidade / UF</label><input type="text" id="t19_fatCidadeUf" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Banco</label><input type="text" id="t19_fatBanco" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Agência</label><input type="text" id="t19_fatAgencia" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">Conta Corrente</label><input type="text" id="t19_fatConta" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
+          <div><label class="lbl">PIX</label><input type="text" id="t19_fatPix" readonly disabled style="background:#f3f4f6;color:#374151;"></div>
         </div>
       </details>
 

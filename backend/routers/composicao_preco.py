@@ -431,6 +431,44 @@ def excluir_vendedor(vendedor_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+# ---------------- Mestre: Empresas de Faturamento (Tela D) ----------------
+
+@router.get("/empresas")
+def listar_empresas(db: Session = Depends(get_db)):
+    return list_to_dict(db.query(m.EmpresaFaturamento).order_by(m.EmpresaFaturamento.ordem, m.EmpresaFaturamento.id).all())
+
+
+@router.post("/empresas")
+def criar_empresa(payload: dict = Body(...), db: Session = Depends(get_db)):
+    if not payload.get("razao_social"):
+        raise HTTPException(400, "razao_social obrigatória")
+    obj = m.EmpresaFaturamento(**{k: v for k, v in payload.items() if hasattr(m.EmpresaFaturamento, k) and k != "id"})
+    db.add(obj)
+    db.commit()
+    return model_to_dict(obj)
+
+
+@router.put("/empresas/{empresa_id}")
+def atualizar_empresa(empresa_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    obj = db.get(m.EmpresaFaturamento, empresa_id)
+    if not obj:
+        raise HTTPException(404)
+    for k, v in payload.items():
+        if hasattr(obj, k) and k != "id":
+            setattr(obj, k, v)
+    db.commit()
+    return model_to_dict(obj)
+
+
+@router.delete("/empresas/{empresa_id}")
+def excluir_empresa(empresa_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.EmpresaFaturamento, empresa_id)
+    if obj:
+        db.delete(obj)
+        db.commit()
+    return {"ok": True}
+
+
 # ---------------- Condições de Pagamento (por projeto) ----------------
 
 @router.get("/condicao-pagamento")

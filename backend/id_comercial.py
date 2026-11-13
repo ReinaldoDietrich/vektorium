@@ -446,6 +446,13 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
                 if catalogo and catalogo.id_comercial:
                     ids.add(catalogo.id_comercial)
 
+        for rack in s.racks:
+            for cond_sel in rack.condensadores:
+                if cond_sel.considerado and cond_sel.linha_id_condensador:
+                    linha_cond = db.get(m.LinhaCondensadorRemoto, cond_sel.linha_id_condensador)
+                    if linha_cond and linha_cond.id_comercial:
+                        ids.add(linha_cond.id_comercial)
+
         for camara in s.camaras_completo:
             for f in camara.forcadores:
                 if f.considerado:
@@ -477,5 +484,9 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
             itens.append({"id": f"uc-{cat.id}", "id_comercial": cat.id_comercial, "categoria": "Unidade Condensadora Comercial",
                           "fabricante": cat.fabricante_uc, "nome": cat.nome,
                           "descricao_comercial": cat.descricao_comercial, "imagem_path": cat.imagem_path})
+        for linha in db.query(m.LinhaCondensadorRemoto).filter(m.LinhaCondensadorRemoto.id_comercial.in_(ids)).all():
+            itens.append({"id": f"cr-{linha.id}", "id_comercial": linha.id_comercial, "categoria": "Condensador Remoto",
+                          "fabricante": linha.fabricante.nome if linha.fabricante else None, "nome": linha.nome,
+                          "descricao_comercial": linha.descricao_comercial, "imagem_path": linha.imagem_path})
 
     return {"ids_resolvidos": sorted(ids, key=chave_codigo), "itens": itens}

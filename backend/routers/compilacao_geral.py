@@ -18,6 +18,7 @@ from .compilacao import _eletrica_forcador
 from .unidades_condensadoras import _eletrica_da_tensao
 from .. import campo_catalogo as cc
 from .. import id_comercial as idc
+from ..proposta.config import carregar_defaults as _carregar_defaults_proposta
 
 router = APIRouter(prefix="/api", tags=["compilacao-geral"])
 
@@ -214,7 +215,7 @@ def _carga_requerida_sistema(itens_camaras):
     return round(sum((c["bloco_carga"]["carga_termica_kcal_h"] or 0) for c in itens_camaras), 1)
 
 
-def _carga_gas_estimada_sistema(camaras_out, tanque_liquido_l):
+def _carga_gas_estimada_sistema(camaras_out, tanque_liquido_l, fator_qtd_gas=1.0):
     """Soma da carga de gás de TODOS os forçadores considerados do sistema (por unidade x
     quantidade de cada câmara), usada pela fórmula de carga_gas_estimada (comum.py) — mesmo
     espírito de _forcadores_sistema_total, mas somando quantidade_gas_kg em vez de capacidade
@@ -228,7 +229,7 @@ def _carga_gas_estimada_sistema(camaras_out, tanque_liquido_l):
             tem_dado = True
     if not tem_dado:
         return None
-    return carga_gas_estimada(soma, tanque_liquido_l)
+    return carga_gas_estimada(soma, tanque_liquido_l, fator_qtd_gas=fator_qtd_gas)
 
 
 def _forcadores_sistema_total(camaras_out, carga_termica_kcal_h):
@@ -250,7 +251,7 @@ def _forcadores_sistema_total(camaras_out, carga_termica_kcal_h):
     }
 
 
-def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out):
+def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out, fator_qtd_gas=1.0):
     """Rack Paralelo (dado próprio, Tela 6) ou Unidade Condensadora (dado já existente na seleção
     da Tela 1 — parcial: falta COP, capacidade unitária, vazão mássica nesse caso)."""
     if sistema.tipo_compressao == "4.1.2":  # Rack Paralelo
@@ -309,7 +310,7 @@ def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out):
             "gas_refrigerante": sistema.gas_refrigerante,
             "temp_linha_liquido": sistema.temp_apos_subresfriamento or sistema.temp_apos_condensador,
             "tanque_liquido_l": rack.tanque_liquido_l,
-            "carga_gas_estimada_kg": _carga_gas_estimada_sistema(camaras_out, rack.tanque_liquido_l),
+            "carga_gas_estimada_kg": _carga_gas_estimada_sistema(camaras_out, rack.tanque_liquido_l, fator_qtd_gas),
             "tipo_partida": idc.nome_por_codigo(db, sistema.partida), "folga_tecnica_pct": folga,
         }
 
@@ -446,6 +447,9 @@ def _montar_compilacao_geral(db: Session, projeto_id: int):
                       .all(), key=lambda s: chave_ordem_camara(s.nome, "", ""))
     tensao_comando = projeto.tensao_comando
 
+    _defaults_prop = _carregar_defaults_proposta()
+    _fator_gas = float(_defaults_prop.get("fator_qtd_gas") or 1.0)
+
     saida_sistemas = []
     carga_por_sistema = []
     for sistema in sistemas:
@@ -475,7 +479,7 @@ def _montar_compilacao_geral(db: Session, projeto_id: int):
         saida_sistemas.append({
             "sistema_id": sistema.id, "sistema_nome": sistema.nome,
             "camaras": camaras_out,
-            "rack_uc": _bloco_rack_uc(db, sistema, carga_requerida_sistema, camaras_out),
+            "rack_uc": _bloco_rack_uc(db, sistema, carga_requerida_sistema, camaras_out, _fator_gas),
             "condensador": _bloco_condensador(db, sistema),
             "forcadores_total": _forcadores_sistema_total(camaras_out, carga_requerida_sistema),
         })

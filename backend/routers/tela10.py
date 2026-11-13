@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from .. import models as m
 from ..database import get_db
 from .. import id_comercial as idc
+from ..proposta.config import carregar_defaults as _carregar_defaults_proposta
 
 router = APIRouter(prefix="/api/tela10", tags=["tela10"])
 
@@ -74,13 +75,13 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                 uc_id_com = cat.id_comercial if cat else None
             # N unidades idênticas em paralelo (aprovado 2026-08-13) — a quantidade do BOM = N.
             add("Unidade Condensadora",
-                f'Unidade Condensadora - {_t(fab_uc)} - {_t(ru.get("modelo_tecnico"))} - {_t(tensao_eq)}',
+                f'Unidade Condensadora - {_t(fab_uc)} - {_t(ru.get("modelo_tecnico"))} - {_t(tensao_eq)} — Sistema {sistema.nome}',
                 fab_uc, ru.get("quantidade_paralelo") or 1, id_comercial=uc_id_com)
         elif ru.get("fonte") == "rack":
             cap = ru.get("carga_total_fornecida_kcal_h")
             # N racks idênticos em paralelo — quantidade do BOM = N.
             add("Rack Paralelo",
-                f'Rack Paralelo - Flexbox - {_t(ru.get("modelo_comercial"))} - {_t(tensao_eq)}',
+                f'Rack Paralelo - Flexbox - {_t(ru.get("modelo_comercial"))} - {_t(tensao_eq)} — Sistema {sistema.nome}',
                 "Flexbox", ru.get("quantidade_paralelo") or 1,
                 chave=f"Rack Paralelo — Sistema {sistema.nome}")
 
@@ -99,21 +100,46 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             # A descrição carrega a qtd de condensadores POR RACK ("Nx modelo", escolha do usuário);
             # a quantidade do BOM = nº de racks em paralelo, então o total = qtd_por_rack × N racks.
             add("Condensador Remoto a Ar",
-                f'Condensador Remoto a Ar - {_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)}',
+                f'Condensador Remoto a Ar - {_t(rack.fabricante_condensador if rack else None)} - {_t(cd.get("modelo_condensador"))} - {_t(tensao_eq)} — Sistema {sistema.nome}',
                 (rack.fabricante_condensador if rack else None), cd.get("quantidade_paralelo") or 1,
                 chave=f"Condensador Remoto — Sistema {sistema.nome}",
                 id_comercial=cond_id_com)
 
+        # Gás Refrigerante — material mecânico, um item por sistema com o tipo de gás.
+        gas_nome = sistema.gas_refrigerante if sistema else None
+        if gas_nome:
+            _defaults = _carregar_defaults_proposta()
+            _fator_gas = float(_defaults.get("fator_qtd_gas") or 1.0)
+            soma_gas_kg = 0.0
+            tem_gas = False
+            for cam in s["camaras"]:
+                f = cam["forcador"]
+                if f.get("quantidade_gas_kg") and f.get("quantidade"):
+                    soma_gas_kg += f["quantidade_gas_kg"] * f["quantidade"]
+                    tem_gas = True
+            qtd_gas = round(soma_gas_kg * _fator_gas, 1) if tem_gas else None
+            raw.append({"tipo": "Gás Refrigerante", "descricao": f"Gás Refrigerante - {gas_nome} — Sistema {sistema.nome}",
+                         "fabricante": None, "quantidade": qtd_gas,
+                         "chave": f"Gás Refrigerante — Sistema {sistema.nome}", "id_comercial": None,
+                         "unidade": "kg"})
+
     # Agrupa por `chave` (identidade estável), não por `descricao` (que pro Rack Paralelo muda a
     # cada recálculo) — mantém a última descrição vista pra exibição/sincronização.
-    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None, "id_comercial": None})
+    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None, "id_comercial": None, "unidade": "un"})
     for item in raw:
         k = item["chave"]
-        agrupado[k]["quantidade"] += item["quantidade"]
+        qtd = item["quantidade"]
+        if qtd is not None:
+            agrupado[k]["quantidade"] = (agrupado[k]["quantidade"] or 0) + qtd
+        else:
+            if agrupado[k]["quantidade"] == 0:
+                agrupado[k]["quantidade"] = None
         agrupado[k]["fabricante"] = item["fabricante"]
         agrupado[k]["tipo"] = item["tipo"]
         agrupado[k]["descricao"] = item["descricao"]
         agrupado[k]["id_comercial"] = item.get("id_comercial")
+        if item.get("unidade"):
+            agrupado[k]["unidade"] = item["unidade"]
 
     resultado = []
     for chave in sorted(agrupado.keys()):
@@ -123,7 +149,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             "chave": chave,
             "fabricante": g["fabricante"],
             "tipo": g["tipo"],
-            "unidade": "un",
+            "unidade": g["unidade"],
             "quantidade": g["quantidade"],
             "id_comercial": g.get("id_comercial"),
         })

@@ -34,6 +34,7 @@ MAPA_INTEIRO = [
     ("CIDADE/", "{{ cidade_estado }}", None),
     ("IMAGEM PLANTA", "{{ imagem_planta }}", "img"),
     ("TABELA COMPILAÇÃO LINHAS", "tab_comp_linhas", "tab"),
+    ("TABELA ALIMENTAÇÕES ELÉTRICAS", "tab_alim_eletricas", "tab"),
     ("TABELA COMPILAÇÃO GERAL", "tab_comp_geral", "tab"),
     ("TABELA CONSUMO", "tab_consumo", "tab"),
     ("TABELA ESTUDO LUMINOTÉCNICO", "tab_lumino", "tab"),
@@ -73,7 +74,8 @@ MAPA_INLINE = [
 # Cada [TABELA ...] gera uma legenda "Tabela N"; cada [IMAGEM ...] gera "Figura N". A legenda usa a
 # chave do último visual para o texto descritivo (legenda_<chave>), definido no gerador.
 _VISUAL_POR_CHAVE = {
-    "tab_comp_linhas": "comp_linhas", "tab_comp_geral": "comp_geral", "tab_consumo": "consumo",
+    "tab_comp_linhas": "comp_linhas", "tab_alim_eletricas": "alim_eletricas",
+    "tab_comp_geral": "comp_geral", "tab_consumo": "consumo",
     "tab_lumino": "lumino", "tab_resumo_paineis": "resumo_paineis", "tab_exclusoes": "exclusoes",
     "tab_orcamento": "orcamento", "tab_pagamento": "pagamento", "tab_faturamento": "faturamento",
 }
@@ -139,6 +141,16 @@ def construir():
         # --- nota instrucional "{...}" do modelo: removida ---
         if txt.startswith("{"):
             _remover(p); continue
+
+        # --- texto condicional de painéis: só aparece se houver tabela de painéis ---
+        if "conforme layout recebido" in txt.lower() and "painéis isotérmicos" in txt.lower():
+            if p.runs:
+                p.runs[0].text = p.runs[0].text.lstrip("(")
+                p.runs[-1].text = p.runs[-1].text.rstrip(")")
+            e_if = _p_element("{%p if tab_resumo_paineis %}")
+            p._p.addprevious(e_if)
+            e_endif = _p_element("{%p endif %}")
+            p._p.addnext(e_endif)
 
         # --- ESCOPO: o conteúdo vem do SISTEMA (não do exemplo do ChatGPT). Os blocos-exemplo do
         #     modelo são substituídos por marcadores que o gerador preenche depois do render, com
@@ -291,6 +303,7 @@ def _colar_titulos(doc):
 
 _TITULO_CONDICIONAL = {
     "DISTRIBUICAO DE LINHAS": "tab_comp_linhas",
+    "ALIMENTACOES ELETRICAS": "tab_alim_eletricas",
     "PARAMETRO DE DIMENSIONAMENTO": "tab_comp_geral",
     "ESTUDO DE CONSUMO ELETRICO": "tab_consumo",
     "ESTUDO LUMINOTECNICO": "tab_lumino",
