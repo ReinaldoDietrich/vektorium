@@ -8,7 +8,6 @@ const T19_CAMPOS = {
   t19_titulo: 'titulo_fornecimento', t19_empresa: 'empresa_contratada',
   t19_dias: 'dias_proposta', t19_garantia: 'meses_garantia',
   t19_embEquip: 'embarque_equipamentos', t19_embIso: 'embarque_isopainel',
-  t19_fatorGas: 'fator_qtd_gas', t19_limiteColunas: 'limite_colunas_tabelas',
 };
 
 let t19_ctx = null;

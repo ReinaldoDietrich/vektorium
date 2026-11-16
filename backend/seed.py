@@ -300,6 +300,16 @@ def run():
 
         db.commit()
 
+        for chave, valor, descricao in [
+            ("fator_qtd_gas", 1.0,
+             "Fator multiplicador da quantidade de gás refrigerante estimada (default 1.0)"),
+            ("limite_colunas_tabelas", 7,
+             "Número máximo de colunas nas tabelas da Proposta Comercial (default 7)"),
+        ]:
+            if not db.query(m.ConfiguracaoGlobal).filter_by(chave=chave).first():
+                db.add(m.ConfiguracaoGlobal(chave=chave, valor=valor, descricao=descricao))
+        db.commit()
+
         # Fabricantes/Forçadores/Válvulas de exemplo/teste foram removidos deste seed em 2026-06-30:
         # o usuário já importa catálogos reais (Excel/Word) e não quer nenhum dado fake reaparecendo
         # depois de limpar o banco — ver [[projeto-carga-termica]] na memória.

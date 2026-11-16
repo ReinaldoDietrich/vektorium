@@ -105,7 +105,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                 chave=f"Condensador Remoto — Sistema {sistema.nome}",
                 id_comercial=cond_id_com)
 
-        # Gás Refrigerante — material mecânico, um item por sistema com o tipo de gás.
+        # Gás Refrigerante — material mecânico, agrupado por tipo de gás (não por sistema).
         gas_nome = sistema.gas_refrigerante if sistema else None
         if gas_nome:
             _defaults = _carregar_defaults_proposta()
@@ -118,14 +118,14 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                     soma_gas_kg += f["quantidade_gas_kg"] * f["quantidade"]
                     tem_gas = True
             qtd_gas = round(soma_gas_kg * _fator_gas, 1) if tem_gas else None
-            raw.append({"tipo": "Gás Refrigerante", "descricao": f"Gás Refrigerante - {gas_nome} — Sistema {sistema.nome}",
+            raw.append({"tipo": "Gás Refrigerante", "descricao": f"Gás Refrigerante - {gas_nome}",
                          "fabricante": None, "quantidade": qtd_gas,
-                         "chave": f"Gás Refrigerante — Sistema {sistema.nome}", "id_comercial": None,
-                         "unidade": "kg"})
+                         "chave": f"Gás Refrigerante — {gas_nome}", "id_comercial": None,
+                         "unidade": "kg", "is_gas": True})
 
     # Agrupa por `chave` (identidade estável), não por `descricao` (que pro Rack Paralelo muda a
     # cada recálculo) — mantém a última descrição vista pra exibição/sincronização.
-    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None, "id_comercial": None, "unidade": "un"})
+    agrupado = defaultdict(lambda: {"quantidade": 0, "fabricante": None, "tipo": None, "descricao": None, "id_comercial": None, "unidade": "un", "is_gas": False})
     for item in raw:
         k = item["chave"]
         qtd = item["quantidade"]
@@ -140,6 +140,8 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
         agrupado[k]["id_comercial"] = item.get("id_comercial")
         if item.get("unidade"):
             agrupado[k]["unidade"] = item["unidade"]
+        if item.get("is_gas"):
+            agrupado[k]["is_gas"] = True
 
     resultado = []
     for chave in sorted(agrupado.keys()):
@@ -152,6 +154,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
             "unidade": g["unidade"],
             "quantidade": g["quantidade"],
             "id_comercial": g.get("id_comercial"),
+            "is_gas": g["is_gas"],
         })
     return projeto, resultado
 

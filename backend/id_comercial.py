@@ -468,7 +468,17 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
 
     itens = []
     if ids:
-        for i in db.query(m.CatalogoComercial).filter(m.CatalogoComercial.id_comercial.in_(ids)).all():
+        # Expandir ids com descendentes para CatalogoComercial — itens avulsos (Válvula, Automação,
+        # etc.) armazenam o código-pai (ex: "3.1.1") mas CatalogoComercial criado via
+        # resolver_no_modelo recebe código-filho (ex: "3.1.1.1").
+        todos_codigos = {str(n.codigo) for n in db.query(m.IdComercial).all()}
+        ids_expandidos = set(ids)
+        for codigo in ids:
+            prefixo = codigo + "."
+            for c in todos_codigos:
+                if c.startswith(prefixo):
+                    ids_expandidos.add(c)
+        for i in db.query(m.CatalogoComercial).filter(m.CatalogoComercial.id_comercial.in_(ids_expandidos)).all():
             itens.append({"id": f"cc-{i.id}", "id_comercial": i.id_comercial,
                           "categoria": nome_pai_por_codigo(db, i.id_comercial) or i.categoria,
                           "fabricante": i.fabricante, "nome": i.nome,

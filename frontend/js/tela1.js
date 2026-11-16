@@ -754,10 +754,12 @@ function t1_limparFormSistema() {
 }
 
 function t1_tempCondensacao(s) {
-  if (s.delta_condensacao == null) return null;
+  let delta = s.delta_condensacao;
+  if (delta == null && s.tipo_compressao === '4.1.1') delta = 10;
+  if (delta == null) return null;
   const tempAmbiente = document.getElementById('p_temp_ambiente').value;
   const base = tempAmbiente !== '' ? parseNumBR(tempAmbiente) : null;
-  return base != null ? base + s.delta_condensacao : null;
+  return base != null ? base + delta : null;
 }
 
 function t1_tempLiquido(s) {
@@ -783,7 +785,7 @@ function t1_renderSistemas() {
     const expansaoResumo = [t1_nomePorCodigo(s.tipo_expansao), s.fabricante_valvula,
       t1_nomePorCodigo(s.tipo_automacao_linhas), t1_nomePorCodigo(s.automacao_linhas_fabricante)]
       .filter(Boolean).join(' · ') || '—';
-    const condensacaoResumo = t1_nomePorCodigo(s.selecao_condensador_ar) || '—';
+    const condensacaoResumo = t1_nomePorCodigo(s.selecao_condensador_ar) || (s.tipo_compressao === '4.1.1' ? 'Plano Onboard' : '—');
     const tCond = t1_tempCondensacao(s);
     const tLiq = t1_tempLiquido(s);
     html += `<tr>

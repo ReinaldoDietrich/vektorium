@@ -69,7 +69,52 @@ _crud("fabricantes", m.Fabricante, permitir_exclusao=False)  # compartilhado ent
 # Condensador — excluir um Fabricante cascateia (models.py) e apaga linhas dos OUTROS módulos junto;
 # sem tela pra excluir fabricante de propósito (2026-07-20)
 _crud("modelos-valvula", m.ModeloValvula)
-_crud("configuracao-global", m.ConfiguracaoGlobal)
+
+# --- ConfiguracaoGlobal: endpoints dedicados (não usa _crud genérico) porque o PUT de
+# fator_qtd_gas / limite_colunas_tabelas precisa sincronizar com proposta_defaults.json ---
+_CHAVES_SYNC_PROPOSTA = {"fator_qtd_gas", "limite_colunas_tabelas"}
+
+
+@router.get("/configuracao-global")
+def _cfg_listar(db: Session = Depends(get_db)):
+    return list_to_dict(db.query(m.ConfiguracaoGlobal).order_by(m.ConfiguracaoGlobal.id).all())
+
+
+@router.post("/configuracao-global")
+def _cfg_criar(payload: dict = Body(...), db: Session = Depends(get_db)):
+    obj = m.ConfiguracaoGlobal(**payload)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return model_to_dict(obj)
+
+
+@router.put("/configuracao-global/{item_id}")
+def _cfg_atualizar(item_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    obj = db.get(m.ConfiguracaoGlobal, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    for k, v in payload.items():
+        if hasattr(obj, k):
+            setattr(obj, k, v)
+    db.commit()
+    db.refresh(obj)
+    if obj.chave in _CHAVES_SYNC_PROPOSTA:
+        from ..proposta.config import salvar_defaults
+        salvar_defaults({obj.chave: obj.valor})
+    return model_to_dict(obj)
+
+
+@router.delete("/configuracao-global/{item_id}")
+def _cfg_excluir(item_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.ConfiguracaoGlobal, item_id)
+    if not obj:
+        raise HTTPException(404, "Não encontrado")
+    db.delete(obj)
+    db.commit()
+    return {"ok": True}
+
+
 _crud("ids-comerciais", m.IdComercial)
 _crud("classificacao-sistema-compressor", m.ClassificacaoSistemaCompressor)
 _crud("lubrificante-compressor", m.LubrificanteCompressor)

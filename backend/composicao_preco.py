@@ -203,19 +203,17 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
     automaticamente — SÓ se ainda estiver com custo_unitario zerado (nunca precificado, lixo
     puro); um órfão com preço já digitado pelo usuário nunca é apagado sozinho, pra não destruir
     precificação real (mesmo padrão de sincronizar_paineis_portas/sincronizar_luminarias —
-    aprovado 2026-08-10, antes esse bloco nunca apagava órfão nenhum)."""
+    aprovado 2026-08-10, antes esse bloco nunca apagava órfão nenhum).
+    Gás Refrigerante é sincronizado separadamente em sincronizar_gas (bloco Materiais Mecânicos)."""
     from .routers.tela10 import _gerar_equipamentos
     _, equipamentos = _gerar_equipamentos(db, projeto_id)
+    equipamentos_sem_gas = [eq for eq in equipamentos if not eq.get("is_gas")]
     existentes = {i.chave_sistema: i for i in
                   db.query(m.ComposicaoPrecoItem)
                   .filter_by(projeto_id=projeto_id, bloco="Equipamentos", origem="sistema").all()}
     ordem_max = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id, bloco="Equipamentos").count()
     chaves_atuais = set()
-    for eq in equipamentos:
-        # `chave` (aprovado 2026-08-08): identidade estável (ex.: "Rack Paralelo — Sistema LTB"),
-        # separada da descrição exibida — antes usava a descrição inteira como chave, e como a
-        # descrição do Rack embute capacidade/modelo recalculados, cada ajuste de Folga Técnica/
-        # Motor criava um item NOVO em vez de atualizar o existente (bug real, projeto 2026.027).
+    for eq in equipamentos_sem_gas:
         chave = eq.get("chave") or eq["descricao"]
         chaves_atuais.add(chave)
         if chave in existentes:
@@ -225,7 +223,6 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             existentes[chave].incluir_orcamento = True
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
-            # Preenche CC/FV se ainda não definidos (existentes criados antes do mapeamento IDC)
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
                 if existentes[chave].centro_custo_id is None and cc_id:
@@ -240,6 +237,43 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
                 quantidade=eq["quantidade"], custo_unitario=0, origem="sistema",
                 chave_sistema=chave, ordem=ordem_max,
                 centro_custo_id=cc_id, fator_id=fator_id))
+            ordem_max += 1
+    for chave, item in existentes.items():
+        if chave not in chaves_atuais:
+            if not item.custo_unitario:
+                db.delete(item)
+            else:
+                item.incluir_orcamento = False
+    db.commit()
+
+
+def sincronizar_gas(db: Session, projeto_id: int):
+    """Sincroniza Gás Refrigerante no bloco "Materiais Mecânicos" com origem "default"
+    (quantidade editável pelo usuário). Agrupado por tipo de gás, não por sistema."""
+    from .routers.tela10 import _gerar_equipamentos
+    _, equipamentos = _gerar_equipamentos(db, projeto_id)
+    itens_gas = [eq for eq in equipamentos if eq.get("is_gas")]
+    existentes = {i.chave_sistema: i for i in
+                  db.query(m.ComposicaoPrecoItem)
+                  .filter_by(projeto_id=projeto_id, bloco="Materiais Mecânicos", origem="default")
+                  .filter(m.ComposicaoPrecoItem.chave_sistema.like("Gás Refrigerante%")).all()}
+    ordem_max = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id, bloco="Materiais Mecânicos").count()
+    chaves_atuais = set()
+    for eq in itens_gas:
+        chave = eq.get("chave") or eq["descricao"]
+        chaves_atuais.add(chave)
+        if chave in existentes:
+            existentes[chave].quantidade = eq["quantidade"]
+            existentes[chave].descricao = eq["descricao"]
+            existentes[chave].incluir_orcamento = True
+            if not existentes[chave].unidade:
+                existentes[chave].unidade = eq.get("unidade", "kg")
+        else:
+            db.add(m.ComposicaoPrecoItem(
+                projeto_id=projeto_id, bloco="Materiais Mecânicos", descricao=eq["descricao"],
+                fabricante=eq.get("fabricante"), unidade=eq.get("unidade", "kg"),
+                quantidade=eq["quantidade"], custo_unitario=0, origem="default",
+                chave_sistema=chave, ordem=ordem_max))
             ordem_max += 1
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
@@ -615,6 +649,7 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
 def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) -> dict:
     if sincronizar:
         sincronizar_equipamentos(db, projeto_id)
+        sincronizar_gas(db, projeto_id)
         sincronizar_paineis_portas(db, projeto_id)
         sincronizar_luminarias(db, projeto_id)
         sincronizar_comissoes_indicacao(db, projeto_id)
