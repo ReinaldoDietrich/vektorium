@@ -329,13 +329,16 @@ async function t13_carregarEmpresas() {
     <tr data-empresa-id="${e.id}">
       <td><input data-campo="razao_social" value="${e.razao_social || ''}" style="width:100%;"></td>
       <td><input data-campo="cnpj" value="${e.cnpj || ''}" style="width:100%;"></td>
+      <td><input data-campo="insc_municipal" value="${e.insc_municipal || ''}" style="width:100%;"></td>
+      <td><input data-campo="insc_estadual" value="${e.insc_estadual || ''}" style="width:100%;"></td>
       <td><input data-campo="endereco" value="${e.endereco || ''}" style="width:100%;"></td>
       <td><input data-campo="cidade_uf" value="${e.cidade_uf || ''}" style="width:90px;"></td>
       <td><input data-campo="banco" value="${e.banco || ''}" style="width:80px;"></td>
+      <td><input data-campo="agencia" value="${e.agencia || ''}" style="width:70px;"></td>
+      <td><input data-campo="conta" value="${e.conta || ''}" style="width:90px;"></td>
       <td><input data-campo="pix" value="${e.pix || ''}" style="width:100%;"></td>
       <td style="text-align:center;"><input type="checkbox" data-campo="default" ${e.default ? 'checked' : ''}></td>
-      <td><span class="btn-text" data-emp-detalhe="${e.id}" style="font-size:11px;">···</span>
-        <span class="btn-text danger" data-del-empresa>x</span></td>
+      <td><span class="btn-text danger" data-del-empresa>x</span></td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (ev) => {
     const tr = ev.target.closest('tr');
@@ -348,20 +351,6 @@ async function t13_carregarEmpresas() {
     if (!confirm('Excluir esta empresa?')) return;
     try { await api.del(`/api/composicao-preco/empresas/${tr.dataset.empresaId}`); t13_carregarEmpresas(); }
     catch (err) { alert('Erro ao excluir: ' + err.message); }
-  }));
-  tbody.querySelectorAll('[data-emp-detalhe]').forEach(b => b.addEventListener('click', () => {
-    const id = b.dataset.empDetalhe;
-    const emp = empresas.find(e => String(e.id) === id);
-    if (!emp) return;
-    vkPrompt('Detalhes — ' + (emp.razao_social || 'Empresa'), [
-      {label: 'Inscrição Municipal', name: 'insc_municipal', value: emp.insc_municipal || ''},
-      {label: 'Inscrição Estadual', name: 'insc_estadual', value: emp.insc_estadual || ''},
-      {label: 'Agência', name: 'agencia', value: emp.agencia || ''},
-      {label: 'Conta Corrente', name: 'conta', value: emp.conta || ''},
-    ], async (v) => {
-      await api.put(`/api/composicao-preco/empresas/${id}`, v);
-      t13_carregarEmpresas();
-    });
   }));
 }
 

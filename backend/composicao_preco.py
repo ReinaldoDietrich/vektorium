@@ -243,6 +243,7 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
+                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -280,6 +281,7 @@ def sincronizar_gas(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
+                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -373,6 +375,7 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
+                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -432,6 +435,7 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
+                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -692,6 +696,7 @@ def lista_materiais(db: Session, projeto_id: int, bloco: str | None = None,
     montar_composicao(db, projeto_id)  # garante Equipamentos/Painéis Térmicos sincronizados
     q = (db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id)
          .filter(m.ComposicaoPrecoItem.bloco != BLOCO_COMISSOES_INDICACAO)
+         .filter(m.ComposicaoPrecoItem.incluir_orcamento != False)
          .order_by(m.ComposicaoPrecoItem.bloco, m.ComposicaoPrecoItem.ordem, m.ComposicaoPrecoItem.id))
     if bloco:
         q = q.filter_by(bloco=bloco)

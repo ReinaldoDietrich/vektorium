@@ -191,7 +191,7 @@ function t17_popularFiltroFab() {
   const atual = sel.value;
   const fabs = new Set();
   Object.values(t17_composicaoAtual.blocos).forEach(itens =>
-    itens.forEach(it => { if (it.fabricante) fabs.add(it.fabricante); }));
+    itens.forEach(it => { if (it.fabricante && it.incluir_orcamento !== false) fabs.add(it.fabricante); }));
   sel.innerHTML = '<option value="">— Todos —</option>' +
     [...fabs].sort().map(f => `<option value="${f}">${f}</option>`).join('');
   sel.value = atual;
