@@ -702,6 +702,8 @@ def montar_resumo_de_dados(db, dados):
             "isolamento_piso": _paineis_por_espessura(piso, "Isolamento de Piso tipo ")
                                 + (_linha_barreira_vapor(piso) if piso else []),
             "portas": _portas_por_padrao(portas),
+            "_sem_aquec": sem_aquec,
+            "_com_aquec": com_aquec,
         }
 
     if modo in ("painel_portas", "painel_portas_geral"):

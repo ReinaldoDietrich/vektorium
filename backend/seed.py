@@ -368,6 +368,7 @@ _TABELAS_MASTER = [
     "lookup_ambiente_luminotecnico", "lookup_lampada",
     "catalogo_versoes",
     "fator_venda", "item_composicao_mestre", "centro_custo",
+    "vendedor", "empresa_faturamento",
 ]
 
 

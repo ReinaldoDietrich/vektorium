@@ -220,7 +220,7 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].fabricante = eq.get("fabricante")
             existentes[chave].descricao = eq["descricao"]
-            existentes[chave].incluir_orcamento = True
+            existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
@@ -243,7 +243,6 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
-                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -266,7 +265,7 @@ def sincronizar_gas(db: Session, projeto_id: int):
         if chave in existentes:
             existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].descricao = eq["descricao"]
-            existentes[chave].incluir_orcamento = True
+            existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
             if not existentes[chave].unidade:
                 existentes[chave].unidade = eq.get("unidade", "kg")
         else:
@@ -281,7 +280,6 @@ def sincronizar_gas(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
-                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -337,14 +335,19 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
     existentes = {i.chave_sistema: i for i in
                   db.query(m.ComposicaoPrecoItem)
                   .filter_by(projeto_id=projeto_id, bloco="Painéis Térmicos", origem="sistema").all()}
+    item_chaves = {l["item"] for l in linhas if "item" in l}
+    _VALV = {
+        "Válvula Equalização de Pressão sem Aquecimento": resumo.get("_sem_aquec", 0),
+        "Válvula Equalização de Pressão com Aquecimento": resumo.get("_com_aquec", 0),
+    }
+    for nome_valv, qtd_valv in _VALV.items():
+        if nome_valv not in item_chaves and nome_valv in existentes:
+            linhas.append({"item": nome_valv, "unidade": "un", "quantidade": qtd_valv})
     chaves_atuais = set()
     for idx, linha in enumerate(linhas):
         if "item" in linha:
             chave = linha["item"]
         else:
-            # Porta: id_porta+descricao sozinhos podem repetir entre grupos com tensão/observação
-            # diferentes (não fazem parte da descrição composta) — a chave/rótulo precisa incluir
-            # os dois pra não colidir duas linhas reais numa só.
             partes = [linha["id_porta"], linha["descricao"]]
             if linha.get("tensao"):
                 partes.append(linha["tensao"])
@@ -356,7 +359,7 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["quantidade"]
             existentes[chave].unidade = linha["unidade"]
             existentes[chave].ordem = idx
-            existentes[chave].incluir_orcamento = True
+            existentes[chave].incluir_orcamento = False if (not linha["quantidade"] and existentes[chave].custo_unitario) else True
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 cc_id, fator_id = _cc_fator_painel_porta(db, linha)
                 if existentes[chave].centro_custo_id is None and cc_id:
@@ -375,7 +378,6 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
-                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -411,7 +413,7 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["qtd_total"]
             existentes[chave].fabricante = linha["fabricante"]
             existentes[chave].ordem = idx
-            existentes[chave].incluir_orcamento = True
+            existentes[chave].incluir_orcamento = False if (not linha["qtd_total"] and existentes[chave].custo_unitario) else True
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
                 if lampada and lampada.id_comercial:
@@ -435,7 +437,6 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
-                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -643,6 +644,9 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
             if mestre.fator_id is not None:
                 item.fator_id = mestre.fator_id
                 alterou = True
+            if mestre.unidade and not item.unidade:
+                item.unidade = mestre.unidade
+                alterou = True
             if alterou:
                 contadores["itens_default"] += 1
 
@@ -657,6 +661,13 @@ def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) ->
         sincronizar_paineis_portas(db, projeto_id)
         sincronizar_luminarias(db, projeto_id)
         sincronizar_comissoes_indicacao(db, projeto_id)
+    for item in (db.query(m.ComposicaoPrecoItem)
+                 .filter_by(projeto_id=projeto_id, origem="default")
+                 .filter(m.ComposicaoPrecoItem.unidade.is_(None)).all()):
+        mestre = db.query(m.ItemComposicaoMestre).filter_by(descricao=item.descricao, bloco=item.bloco).first()
+        if mestre and mestre.unidade:
+            item.unidade = mestre.unidade
+    db.commit()
     margem_neg = _margem_negociacao(db, projeto_id)
     itens = (db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id)
              .order_by(m.ComposicaoPrecoItem.bloco, m.ComposicaoPrecoItem.ordem, m.ComposicaoPrecoItem.id).all())
