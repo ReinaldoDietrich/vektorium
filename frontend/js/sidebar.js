@@ -158,7 +158,7 @@ async function ativarProjetoNaTela(proj) {
   const jaCachado = _revisoesCachadas.has(proj.id);
   const meuGen = ++_ativarGen;
 
-  if (idMudou && state.projetoId) {
+  if (idMudou && state.projetoId && (window.__projetosCache || []).some(p => p.id === state.projetoId)) {
     const formWrap = document.getElementById('formProjetoWrap');
     if (formWrap && formWrap.style.display === 'block') {
       if (confirm('Deseja salvar as alterações do projeto atual antes de trocar?')) {

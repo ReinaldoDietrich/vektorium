@@ -224,7 +224,7 @@ function t16_render(dados) {
   let corpoCusto = '';
   const totais = dados.map(() => 0);
   blocosNomes.forEach(bloco => {
-    const somas = dados.map(d => (d.composicao.blocos[bloco] || []).reduce((acc, it) => acc + (it.valor_venda_negociacao || 0), 0));
+    const somas = dados.map(d => (d.composicao.blocos[bloco] || []).filter(it => it.incluir_orcamento !== false).reduce((acc, it) => acc + (it.valor_venda_negociacao || 0), 0));
     somas.forEach((s, i) => totais[i] += s);
     corpoCusto += t16_linha(bloco, somas, t16_fmtR$);
   });

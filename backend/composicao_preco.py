@@ -263,7 +263,8 @@ def sincronizar_gas(db: Session, projeto_id: int):
         chave = eq.get("chave") or eq["descricao"]
         chaves_atuais.add(chave)
         if chave in existentes:
-            existentes[chave].quantidade = eq["quantidade"]
+            if not existentes[chave].quantidade or not eq["quantidade"]:
+                existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].descricao = eq["descricao"]
             existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
             if not existentes[chave].unidade:
@@ -280,6 +281,7 @@ def sincronizar_gas(db: Session, projeto_id: int):
             if not item.custo_unitario:
                 db.delete(item)
             else:
+                item.quantidade = 0
                 item.incluir_orcamento = False
     db.commit()
 
@@ -341,7 +343,7 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
         "Válvula Equalização de Pressão com Aquecimento": resumo.get("_com_aquec", 0),
     }
     for nome_valv, qtd_valv in _VALV.items():
-        if nome_valv not in item_chaves and nome_valv in existentes:
+        if nome_valv not in item_chaves and qtd_valv:
             linhas.append({"item": nome_valv, "unidade": "un", "quantidade": qtd_valv})
     chaves_atuais = set()
     for idx, linha in enumerate(linhas):

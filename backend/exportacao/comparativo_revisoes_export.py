@@ -201,7 +201,7 @@ def gerar_excel_comparativo(db, revisoes: list) -> bytes:
     ))
     totais = [0.0] * n_revs
     for bloco in blocos_nomes:
-        somas = [sum((it.get("valor_venda_negociacao") or 0) for it in r["composicao"]["blocos"].get(bloco, []))
+        somas = [sum((it.get("valor_venda_negociacao") or 0) for it in r["composicao"]["blocos"].get(bloco, []) if it.get("incluir_orcamento", True))
                  for r in revisoes]
         for i, s in enumerate(somas):
             totais[i] += s
