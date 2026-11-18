@@ -1060,7 +1060,7 @@ async function t7_buildExe() {
   );
   if (!confirma) return;
 
-  mostrarLoading('Gerando instalador... isso pode levar alguns minutos.');
+  mostrarLoading('Gerando instalador... isso pode levar alguns minutos.', true);
   try {
     const r = await fetch('/api/sistema/build-exe', {
       method: 'POST',

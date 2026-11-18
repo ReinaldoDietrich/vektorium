@@ -73,7 +73,7 @@
 (function(){
   var _loadingTimer = null;
   var _loadingCount = 0;
-  window.mostrarLoading = function(msg) {
+  window.mostrarLoading = function(msg, noTimeout) {
     _loadingCount++;
     var el = document.getElementById('overlayCarregamento');
     if (!el) return;
@@ -82,7 +82,9 @@
     var m = document.getElementById('overlayCarregamentoMsg');
     if (m) m.textContent = msg || 'Carregando...';
     if (_loadingTimer) clearTimeout(_loadingTimer);
-    _loadingTimer = setTimeout(function(){ window.esconderLoading(true); }, 15000);
+    if (!noTimeout) {
+      _loadingTimer = setTimeout(function(){ window.esconderLoading(true); }, 15000);
+    }
   };
   window.esconderLoading = function(force) {
     if (!force) _loadingCount = Math.max(0, _loadingCount - 1);

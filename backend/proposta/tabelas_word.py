@@ -72,7 +72,7 @@ _DEFAULT_CHAR = 8.43
 _BLOCO_FORCADORES_WORD = [(c, l) for c, l in BLOCO_FORCADORES if c != "modelo_comercial"]
 
 _BLOCO_RACK_WORD = [(c, l) for c, l in BLOCO_RACK
-                    if c not in ("modelo_tecnico", "temp_linha_liquido", "tanque_liquido_l")]
+                    if c not in ("modelo_comercial", "temp_linha_liquido", "tanque_liquido_l")]
 
 _BLOCO_CONDENSADOR_WORD = []
 for _c, _l in BLOCO_CONDENSADOR:
@@ -537,26 +537,7 @@ def _cg_total_sistema(t, nc, totais_sis):
             _set(c, val, align="c")
 
 
-def _comp_geral_carga_completo(sd, sistema, camara, totais_sis):
-    nc = 2
-    larguras = _LARGURAS_COMP_GERAL_2COL
-    _titulo_abnt(sd, f"Sistema {sistema['sistema_nome']} — Informações de Carga e Dados de Entrada")
-    t = _tabela(sd, nc)
-    _cg_header_sistema(t, f"SISTEMA {sistema['sistema_nome']}", nc)
-    _cg_header_camaras(t, [camara])
-    _barra(t, "Informações Carga", nc, COR_SUB)
-    for campo, label in BLOCO_CARGA:
-        _cg_linha_cam(t, "bloco_carga", campo, label, [camara], nc)
-    _barra(t, "Dados de Entrada — Produto e Operação (fornecidos pelo cliente)", nc, COR_SUB)
-    for campo, label in BLOCO_DADOS_ENTRADA:
-        _cg_linha_cam(t, "dados_entrada", campo, label, [camara], nc)
-    if totais_sis:
-        _cg_total_sistema(t, nc, totais_sis)
-    _larguras_fixas(t, larguras)
-    sd.add_paragraph()
-
-
-def _comp_geral_carga_simples(sd, sistema, camaras, limite, totais_sis):
+def _comp_geral_carga(sd, sistema, camaras, limite, totais_sis):
     nome_sis = sistema["sistema_nome"]
     chunks = [camaras[i:i + limite] for i in range(0, len(camaras), limite)]
     for idx, chunk in enumerate(chunks):
@@ -566,14 +547,17 @@ def _comp_geral_carga_simples(sd, sistema, camaras, limite, totais_sis):
         is_last = idx == len(chunks) - 1
         titulo_tab = f"SISTEMA {nome_sis}" if is_first else f"CONTINUA... SISTEMA {nome_sis}"
         if is_first:
-            _titulo_abnt(sd, f"Sistema {nome_sis} — Informações de Carga")
+            _titulo_abnt(sd, f"Sistema {nome_sis} — Informações de Carga e Dados de Entrada")
         t = _tabela(sd, nc)
         _cg_header_sistema(t, titulo_tab, nc)
         _cg_header_camaras(t, chunk)
         _barra(t, "Informações Carga", nc, COR_SUB)
         for campo, label in BLOCO_CARGA:
             _cg_linha_cam(t, "bloco_carga", campo, label, chunk, nc)
-        if is_last:
+        _barra(t, "Dados de Entrada — Produto e Operação (fornecidos pelo cliente)", nc, COR_SUB)
+        for campo, label in BLOCO_DADOS_ENTRADA:
+            _cg_linha_cam(t, "dados_entrada", campo, label, chunk, nc)
+        if is_last and totais_sis:
             _cg_total_sistema(t, nc, totais_sis)
         _larguras_fixas(t, larguras)
         sd.add_paragraph()
@@ -614,7 +598,11 @@ def _cg_tab_equipamentos(sd, sistemas):
         r = t.add_row().cells
         _set(r[0], label, bold=True, align="l")
         for i, s in enumerate(sistemas, start=1):
-            v = _cell_val((s.get("rack_uc") or {}).get(campo), campo=campo)
+            rack_uc = s.get("rack_uc") or {}
+            if campo == "modelo_tecnico":
+                v = _cell_val(rack_uc.get("modelo_comercial") or rack_uc.get("modelo_tecnico"), campo=campo)
+            else:
+                v = _cell_val(rack_uc.get(campo), campo=campo)
             _set(r[i], v, align="c")
     _barra(t, "Informações Condensadores", nc, COR_SUB)
     for campo, label in _BLOCO_CONDENSADOR_WORD:
@@ -635,16 +623,8 @@ def comp_geral(sd, dados, limite=7):
     for s in sistemas:
         camaras = s["camaras"]
         totais_sis = totais_map.get(s.get("sistema_id")) or {}
-        completos = [c for c in camaras if c.get("tipo") == "completo"]
-        simples = [c for c in camaras if c.get("tipo") != "completo"]
-        total_no_completo = not simples
-        for i, cam in enumerate(completos):
-            mostrar_total = total_no_completo and (i == len(completos) - 1)
-            _comp_geral_carga_completo(sd, s, cam, totais_sis if mostrar_total else None)
-        if simples:
-            _comp_geral_carga_simples(sd, s, simples, limite, totais_sis)
-        todas = camaras
-        _cg_tab_forcadores(sd, s, todas, limite)
+        _comp_geral_carga(sd, s, camaras, limite, totais_sis)
+        _cg_tab_forcadores(sd, s, camaras, limite)
     if sistemas:
         _cg_tab_equipamentos(sd, sistemas)
     resp = (dados.get("responsabilidade_dados_entrada") or "")

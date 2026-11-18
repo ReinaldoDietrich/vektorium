@@ -7,6 +7,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ 
 const _revisoesCachadas = new Set();
 let _carregandoProjetoId = null;
 let _ativarGen = 0;
+let _aguardandoTroca = false;
 
 function clickTab(tabId, skipHandler) {
   if (typeof window.showTab === 'function') window.showTab(Number(tabId), skipHandler);
@@ -154,11 +155,13 @@ async function loadSistemas(proj, kids) {
 async function ativarProjetoNaTela(proj) {
   if (!window.t1_abrirProjeto) return;
   if (_carregandoProjetoId === proj.id) return;
+  if (_aguardandoTroca) return;
   const idMudou = state.projetoId !== proj.id;
   const jaCachado = _revisoesCachadas.has(proj.id);
   const meuGen = ++_ativarGen;
 
   if (idMudou && state.projetoId && (window.__projetosCache || []).some(p => p.id === state.projetoId)) {
+    _aguardandoTroca = true;
     const formWrap = document.getElementById('formProjetoWrap');
     if (formWrap && formWrap.style.display === 'block') {
       if (confirm('Deseja salvar as alterações do projeto atual antes de trocar?')) {
@@ -168,6 +171,7 @@ async function ativarProjetoNaTela(proj) {
         } catch (_) {}
       }
     }
+    _aguardandoTroca = false;
     if (meuGen !== _ativarGen) return;
   }
 

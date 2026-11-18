@@ -207,6 +207,11 @@ function _mostrarPopupSair() {
 }
 
 async function sairDoApp() {
+  if (!state.projetoId) {
+    if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
+    if (typeof window.electronAPI !== 'undefined') window.electronAPI.fecharApp();
+    return true;
+  }
   let querSalvar = true;
   try {
     const escolha = await _mostrarPopupSair();

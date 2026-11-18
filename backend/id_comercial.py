@@ -438,7 +438,7 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
     for s in sistemas:
         ids |= resolver_ids_avulsos_sistema(db, s, projeto.tipo_comando)
 
-        if s.tipo_compressao == "Unidade Condensadora Comercial":
+        if s.tipo_compressao == "4.1.1":
             uc_sel = (db.query(m.UnidadeSelecaoSistema)
                       .filter_by(sistema_id=s.id, considerado=True).first())
             if uc_sel and uc_sel.catalogo_id:
