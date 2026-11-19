@@ -113,10 +113,11 @@ table.list tbody tr.clickable:hover td{background:#eff6ff;}
 .t16-bloco{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:14px;overflow:hidden;}
 .t16-bloco-titulo{font-size:12px;font-weight:bold;padding:8px 12px;background:#f9fafb;border-bottom:1px solid var(--line);}
 .t16-sub{font-weight:normal;color:var(--muted);font-size:11px;}
-.t16-tabela{width:100%;font-size:12px;table-layout:auto;}
+.t16-tabela{width:100%;font-size:12px;table-layout:fixed;}
+.t16-tabela th:first-child,.t16-tabela td:first-child{width:40%;}
 .t16-tabela th{text-align:left;padding:6px 10px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);}
-.t16-tabela td{padding:5px 10px;border-bottom:1px solid var(--line-light);}
-.t16-tabela td.label{color:var(--muted);white-space:nowrap;}
+.t16-tabela td{padding:5px 10px;border-bottom:1px solid var(--line-light);word-wrap:break-word;overflow-wrap:break-word;}
+.t16-tabela td.label{color:var(--muted);}
 .t16-tabela td.val{font-variant-numeric:tabular-nums;}
 .t16-tabela td.val.diff{background:#fffbeb;color:var(--amber);font-weight:bold;}
 .t16-tabela .sistema-nome{font-weight:bold;padding-top:10px;}

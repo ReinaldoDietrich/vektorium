@@ -659,8 +659,9 @@ function initLoginUI() {
 
   btnLogin.addEventListener('click', async () => {
     if (AUTH.logado()) {
-      if (!confirm(`Sair da conta ${AUTH.email() || ''}?`)) return;
-      await sairDoApp();
+      const escolha = await _mostrarPopupUsuario(AUTH.email());
+      if (escolha === 'logout') { await logoutDoApp(); return; }
+      if (escolha === 'fechar') { await sairDoApp(); return; }
       return;
     }
     _mostrarTelaLogin();
