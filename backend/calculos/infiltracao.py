@@ -60,14 +60,28 @@ def calor_infiltracao(num_portas, porta_largura, porta_altura, freq_abertura_min
     h_cam, rho_cam = _psicrometria(temp_interna, ur_interna, pressao)
 
     delta_t = abs(temp_ambiente - temp_interna)
+    if delta_t < 0.01:
+        return 0.0
     fm = 0.8 if delta_t > 11 else 1.1
     g = 9.81
-    razao = max(1 - rho_amb / rho_cam, 0)
-    q_kw = 0.221 * area_total * (h_amb - h_cam) * rho_cam * (razao ** 0.5) * ((g * porta_altura) ** 0.5) * fm
+
+    # ASHRAE / Gosney & Olama (1975): Zona A = mais fria (mais densa), Zona B = mais quente
+    if rho_amb >= rho_cam:
+        rho_A, rho_B = rho_amb, rho_cam
+        h_A, h_B = h_amb, h_cam
+        sinal = -1  # câmara é mais quente → ar frio entra → reduz carga
+    else:
+        rho_A, rho_B = rho_cam, rho_amb
+        h_A, h_B = h_cam, h_amb
+        sinal = 1   # câmara é mais fria → ar quente entra → aumenta carga
+
+    f_density = (2 / (1 + (rho_A / rho_B) ** (1/3))) ** 1.5
+    razao = 1 - rho_B / rho_A
+    q_kw = 0.221 * area_total * (h_B - h_A) * rho_A * f_density * (razao ** 0.5) * ((g * porta_altura) ** 0.5) * fm
 
     dt_fracao = min((freq_abertura_min_h or 0) / 60, 1.0)
     e = EFETIVIDADE_PROTECAO.get(protecao, 0.0)
-    qt_kw = max(q_kw, 0) * dt_fracao * DF_FLUXO_PORTA * (1 - e)
+    qt_kw = sinal * q_kw * dt_fracao * DF_FLUXO_PORTA * (1 - e)
 
     qt_kcal_h = qt_kw * KW_PARA_KCAL_H
     return qt_kcal_h * 24

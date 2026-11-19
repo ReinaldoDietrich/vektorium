@@ -67,15 +67,17 @@ async function t19_carregar() {
     `<b>${p.codigo_revisao}</b> · ${p.razao_social || p.cliente || '—'} · ${p.cidade_estado} · A/C ${p.contato || '—'}`;
 
   const d = t19_ctx.defaults || {};
+  const projCfg = t19_ctx.projeto_config || {};
+  const projCampos = projCfg.campos || {};
   for (const [id, chave] of Object.entries(T19_CAMPOS)) {
-    document.getElementById(id).value = d[chave] || '';
+    document.getElementById(id).value = projCampos[chave] || d[chave] || '';
   }
   document.getElementById('t19_tipoPainel').value = p.tipo_painel || '';
-  document.getElementById('t19_papelCartaAtual').textContent = d.papel_carta_path ? `Atual: ${d.papel_carta_path}` : 'Usando papel de carta padrão.';
-  document.getElementById('t19_logoAtual').textContent = d.logo_path ? `Atual: ${d.logo_path}` : 'Sem logomarca enviada.';
+  const papelCarta = projCfg.papel_carta_path || d.papel_carta_path;
+  const logo = projCfg.logo_path || d.logo_path;
+  document.getElementById('t19_papelCartaAtual').textContent = papelCarta ? `Atual: ${papelCarta}` : 'Usando papel de carta padrão.';
+  document.getElementById('t19_logoAtual').textContent = logo ? `Atual: ${logo}` : 'Sem logomarca enviada.';
 
-  // Planta: restaurar da config do projeto (persistida por projeto)
-  const projCfg = t19_ctx.projeto_config || {};
   t19_plantaPath = projCfg.planta_path || null;
   document.getElementById('t19_plantaAtual').textContent = t19_plantaPath ? `Atual: ${t19_plantaPath}` : 'Nenhuma imagem de planta enviada.';
 
@@ -287,12 +289,25 @@ function t19_filtroOrcamento() {
 
 async function t19_salvarDefaults() {
   const msg = document.getElementById('t19_msg');
-  msg.textContent = 'Salvando padrões…';
+  msg.textContent = 'Salvando opções…';
   try {
-    await api.put('/api/proposta/defaults', t19_coletarCampos());
+    const campos = t19_coletarCampos();
+    await api.put('/api/proposta/defaults', campos);
+    if (state.projetoId) {
+      const projCfg = {
+        campos,
+        excecoes: t19_coletarExcecoes(),
+        vendedor_id: Number(document.getElementById('t19_selVendedor').value) || null,
+        empresa_id: Number(document.getElementById('t19_selEmpresa').value) || null,
+        planta_path: t19_plantaPath,
+        papel_carta_path: (t19_ctx.defaults || {}).papel_carta_path || null,
+        logo_path: (t19_ctx.defaults || {}).logo_path || null,
+      };
+      await api.put(`/api/proposta/projeto-config?projeto_id=${state.projetoId}`, projCfg);
+    }
     document.getElementById('t19_exEmpresaHdr').textContent =
       document.getElementById('t19_empresa').value.trim() || 'Empresa contratada';
-    msg.textContent = 'Padrões salvos.';
+    msg.textContent = 'Opções salvas (global + projeto).';
   } catch (e) { msg.textContent = 'Erro ao salvar: ' + e.message; }
 }
 
@@ -301,11 +316,14 @@ async function t19_gerar() {
   if (!state.projetoId) { msg.textContent = 'Nenhum projeto ativo. Selecione um projeto primeiro.'; return; }
   msg.textContent = 'Gerando proposta… (pode levar alguns segundos)';
   try {
-    // Salvar exceções e seleções na config do projeto (persistência por projeto).
     const projCfg = {
+      campos: t19_coletarCampos(),
       excecoes: t19_coletarExcecoes(),
       vendedor_id: Number(document.getElementById('t19_selVendedor').value) || null,
       empresa_id: Number(document.getElementById('t19_selEmpresa').value) || null,
+      planta_path: t19_plantaPath,
+      papel_carta_path: (t19_ctx.defaults || {}).papel_carta_path || null,
+      logo_path: (t19_ctx.defaults || {}).logo_path || null,
     };
     await api.put(`/api/proposta/projeto-config?projeto_id=${state.projetoId}`, projCfg);
 

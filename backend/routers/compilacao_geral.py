@@ -190,6 +190,8 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
         # Modelo EVP usa a nomenclatura COMPLETA (código comercial composto), não só o código base
         # do catálogo — mesma composição já usada no painel de nomenclatura das Telas 2/3.
         "modelo_evp": _nomenclatura_completa_forcador(db, considerado, tensao_comando) or considerado.get("modelo_resultante"),
+        "modelo_pesquisa": considerado.get("modelo_resultante"),
+        "modelo_exibicao": f"{considerado.get('quantidade') or 1}x {considerado.get('modelo_resultante')}" if considerado.get("modelo_resultante") else None,
         # Modelo Comercial do forçador — ainda sem fonte de dado definida (usuário vai decidir depois
         # qual composição/valor usar aqui, mesmo espírito do Modelo Comercial do Rack).
         "modelo_comercial": None,
@@ -335,6 +337,8 @@ def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out, fator_qtd_gas=1.0)
         "quantidade_paralelo": n_paralelo,
         "carga_total_fornecida_sistema_kcal_h": round(capacidade_kcal_h * n_paralelo, 1) if capacidade_kcal_h else None,
         "modelo_tecnico": escolhida.get("codigo_comercial") or uc.modelo,
+        "modelo_pesquisa": uc.modelo,
+        "modelo_exibicao": f"{n_paralelo}x {uc.modelo}" if uc.modelo else None,
         "modelo_comercial": None,
         "tensao": eletrica.tensao if eletrica else None, "linha_compressor": uc.tipo_compressor,
         "fabricante_compressor": uc.fabricante_compressor,

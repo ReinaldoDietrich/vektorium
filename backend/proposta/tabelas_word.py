@@ -69,7 +69,8 @@ _LARGURAS_COMP_GERAL_2COL = _proporcionar([35.78, 25.78])
 
 _DEFAULT_CHAR = 8.43
 
-_BLOCO_FORCADORES_WORD = [(c, l) for c, l in BLOCO_FORCADORES if c != "modelo_comercial"]
+_BLOCO_FORCADORES_WORD = [("modelo_exibicao", l) if c == "modelo_evp" else (c, l)
+                          for c, l in BLOCO_FORCADORES if c != "modelo_comercial"]
 
 _BLOCO_RACK_WORD = [(c, l) for c, l in BLOCO_RACK
                     if c not in ("modelo_comercial", "temp_linha_liquido", "tanque_liquido_l")]
@@ -600,7 +601,7 @@ def _cg_tab_equipamentos(sd, sistemas):
         for i, s in enumerate(sistemas, start=1):
             rack_uc = s.get("rack_uc") or {}
             if campo == "modelo_tecnico":
-                v = _cell_val(rack_uc.get("modelo_comercial") or rack_uc.get("modelo_tecnico"), campo=campo)
+                v = _cell_val(rack_uc.get("modelo_exibicao") or rack_uc.get("modelo_comercial") or rack_uc.get("modelo_tecnico"), campo=campo)
             else:
                 v = _cell_val(rack_uc.get(campo), campo=campo)
             _set(r[i], v, align="c")
@@ -707,7 +708,7 @@ def paineis(sd, resumo):
     def tab_itens(linhas, titulo):
         if not linhas:
             return
-        _titulo_abnt(sd,titulo)
+        _titulo_abnt(sd, titulo)
         cols = ["Item", "Unid.", "Quantidade"]
         t = _tabela(sd, 3); cont = _novo_conteudo(cols)
         _cabecalho(t, cols, esq_ate=1)
@@ -718,11 +719,10 @@ def paineis(sd, resumo):
             _ac(cont, [a, b, c])
         aplicar_autofit(t, cont)
 
-    tab_itens(resumo.get("paineis_parede_teto") or [], "Painéis — Parede e Teto")
-    tab_itens(resumo.get("isolamento_piso") or [], "Isolamento de Piso")
-    portas = resumo.get("portas") or []
-    if portas:
-        _titulo_abnt(sd,"Portas")
+    def tab_portas(portas, titulo="Portas"):
+        if not portas:
+            return
+        _titulo_abnt(sd, titulo)
         cols = ["Descrição", "Id.", "Unid.", "Quantidade", "Tensão", "Observação"]
         t = _tabela(sd, 6); cont = _novo_conteudo(cols)
         _cabecalho(t, cols, esq_ate=1)
@@ -735,6 +735,32 @@ def paineis(sd, resumo):
             _set(row[4], vals[4], align="c"); _set(row[5], vals[5], align="l")
             _ac(cont, vals)
         aplicar_autofit(t, cont)
+
+    modo = resumo.get("modo", "total")
+
+    if modo in ("total", "painel_portas_geral"):
+        tab_itens(resumo.get("paineis_parede_teto") or [], "Painéis — Parede e Teto")
+        tab_itens(resumo.get("isolamento_piso") or [], "Isolamento de Piso")
+        tab_portas(resumo.get("portas") or [])
+
+    elif modo == "painel_portas":
+        tab_itens(resumo.get("paineis_parede_teto") or [], "Painéis — Parede e Teto")
+        tab_itens(resumo.get("isolamento_piso") or [], "Isolamento de Piso")
+        for g in (resumo.get("portas_por_camara") or []):
+            titulo = f"Portas — {g.get('camara_nome') or g.get('id_planta', '')}"
+            tab_portas(g.get("portas") or [], titulo)
+
+    elif modo == "camara":
+        for g in (resumo.get("camaras") or []):
+            nome = g.get("camara_nome") or g.get("id_planta", "")
+            tab_itens(g.get("paineis_parede_teto") or [], f"Painéis — Parede e Teto — {nome}")
+            tab_itens(g.get("isolamento_piso") or [], f"Isolamento de Piso — {nome}")
+            tab_portas(g.get("portas") or [], f"Portas — {nome}")
+
+    else:
+        tab_itens(resumo.get("paineis_parede_teto") or [], "Painéis — Parede e Teto")
+        tab_itens(resumo.get("isolamento_piso") or [], "Isolamento de Piso")
+        tab_portas(resumo.get("portas") or [])
 
 
 # ----------------------------------------------------------------- Orçamento (Tela 10, com filtro)

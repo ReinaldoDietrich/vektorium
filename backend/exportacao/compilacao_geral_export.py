@@ -35,7 +35,7 @@ BLOCO_MEMORIAL = [
 ]
 BLOCO_FORCADORES = [
     ("quantidade", "Quantidade de Evaporadores/Câmara"), ("fornecedor", "Fornecedor"),
-    ("modelo_evp", "Modelo EVP"), ("modelo_comercial", "Modelo Comercial"),
+    ("modelo_exibicao", "Modelo EVP"), ("modelo_evp", "Nomenclatura Comercial"), ("modelo_comercial", "Modelo Comercial"),
     ("fabricante_valvula", "Fabricante Válvula de Expansão"), ("modelo_valvula", "Modelo Válvula de Expansão"),
     ("gas_refrigerante", "Gás Refrigerante"),
     ("capacidade_unit_kcal_h", "Capacidade unit. (kcal/h)"), ("diametro_ventilador_mm", "Tamanho Ventilador (mm)"),
@@ -48,7 +48,7 @@ BLOCO_FORCADORES = [
 ]
 BLOCO_RACK = [
     ("tipo_equipamento", "Tipo de Equipamento"), ("quantidade_compressores", "Quantidade de Compressores/Rack"),
-    ("modelo_tecnico", "Modelo técnico"), ("modelo_comercial", "Modelo Comercial"), ("tensao", "Tensão"),
+    ("modelo_exibicao", "Modelo técnico"), ("modelo_tecnico", "Nomenclatura Comercial"), ("modelo_comercial", "Modelo Comercial"), ("tensao", "Tensão"),
     ("linha_compressor", "Linha Compressor"), ("fabricante_compressor", "Fabricante Compressor"),
     ("modelo_compressor", "Modelo Compressor"), ("cop_compressor", "COP Compressor"),
     ("capacidade_compressor_kcal_h", "Capacidade Compressor (kcal/h)"),

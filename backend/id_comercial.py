@@ -257,6 +257,17 @@ def resolver_ids_avulsos_sistema(db, sistema, tipo_comando: str) -> set:
                    sistema.automacao_linhas_fabricante, sistema.modelo_controlador_linhas):
         if codigo:
             ids.add(codigo)
+    fab_valv = (sistema.fabricante_valvula or "").strip()
+    tipo_exp = sistema.tipo_expansao
+    if fab_valv and tipo_exp:
+        filhos = db.query(m.IdComercial).filter(
+            m.IdComercial.codigo.like(f"{tipo_exp}.%"),
+            ~m.IdComercial.codigo.like(f"{tipo_exp}.%.%"),
+        ).all()
+        for f in filhos:
+            if (f.nome or "").strip().lower() == fab_valv.lower():
+                ids.add(f.codigo)
+                break
     return ids
 
 
@@ -465,6 +476,14 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
                     linha = db.get(m.LinhaForcador, f.linha_id)
                     if linha and linha.id_comercial:
                         ids.add(linha.id_comercial)
+
+    lamps_proj = (db.query(m.ComposicaoPrecoItem)
+                  .filter_by(projeto_id=projeto_id, bloco="Outros Serviços/ Materiais", origem="sistema")
+                  .all())
+    for lp in lamps_proj:
+        lamp = db.query(m.LookupLampada).filter_by(modelo=lp.chave_sistema).first()
+        if lamp and lamp.id_comercial:
+            ids.add(lamp.id_comercial)
 
     itens = []
     if ids:

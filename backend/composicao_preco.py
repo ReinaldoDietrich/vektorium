@@ -94,7 +94,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
     custo_total = qtd * custo_unit
     repasse = item.bloco != BLOCO_COMISSOES_INDICACAO and _eh_fator_comissao(item.fator)
     faturamento_direto = bool(item.fator) and (item.fator.tipo_faturamento or "") == "Direto"
-    if repasse:
+    if repasse or faturamento_direto:
         fator_venda = 1.0
         margem_r = impostos_r = comissao_r = 0.0
         valor_unit_venda = custo_unit

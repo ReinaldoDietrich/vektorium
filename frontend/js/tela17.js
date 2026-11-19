@@ -112,6 +112,7 @@ function initTela17() {
   });
   t17_atualizarVisibilidadeFiltrosOrcamento();
   document.getElementById('t17_cpBtnGerar').addEventListener('click', t17_atualizarAgendaPagamento);
+  document.getElementById('t17_cpBtnExcluir').addEventListener('click', t17_excluirAgendaPagamento);
 }
 
 async function t17_carregar() {
@@ -1004,6 +1005,14 @@ async function t17_atualizarAgendaPagamento() {
   const agenda = await api.post(`/api/composicao-preco/condicao-pagamento/gerar-agenda?projeto_id=${state.projetoId}`,
     { percentual_sinal, data_sinal, quantidade_parcelas, periodicidade_dias });
   t17_renderCondicaoPagamento(agenda);
+}
+
+async function t17_excluirAgendaPagamento() {
+  const existente = document.querySelectorAll('#t17_condicaoPagamento [data-parcela-id]').length;
+  if (!existente) { alert('Não há condição de pagamento para excluir.'); return; }
+  if (!confirm('Excluir a condição de pagamento? Esta ação não pode ser desfeita.')) return;
+  await api.del(`/api/composicao-preco/condicao-pagamento?projeto_id=${state.projetoId}`);
+  t17_renderCondicaoPagamento({ parcelas: [], total: 0 });
 }
 
 window.initTela17 = initTela17;
