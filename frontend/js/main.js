@@ -182,6 +182,30 @@ window.verificarLicenca = verificarLicenca;
 window.iniciarVerificacaoPeriodicaLicenca = iniciarVerificacaoPeriodicaLicenca;
 window.pararVerificacaoLicenca = pararVerificacaoLicenca;
 
+function _mostrarPopupUsuario() {
+  return new Promise(resolve => {
+    const email = (typeof AUTH !== 'undefined' && AUTH.email()) ? AUTH.email() : '';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+    box.innerHTML = `
+      <h3 style="margin:0 0 16px;font-size:15px;">${email}</h3>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <button class="vk-usr-cancelar" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Cancelar</button>
+        <button class="vk-usr-logout" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#b91c1c;">Fazer Logout</button>
+        <button class="vk-usr-sair" style="padding:8px 16px;border:none;border-radius:4px;background:#1668c7;color:#fff;cursor:pointer;font-weight:bold;">Sair</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    function fechar(r) { overlay.remove(); resolve(r); }
+    box.querySelector('.vk-usr-cancelar').addEventListener('click', () => fechar('cancelar'));
+    box.querySelector('.vk-usr-logout').addEventListener('click', () => fechar('logout'));
+    box.querySelector('.vk-usr-sair').addEventListener('click', () => fechar('sair'));
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar('cancelar'); });
+  });
+}
+
 function _mostrarPopupSair() {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
@@ -206,87 +230,7 @@ function _mostrarPopupSair() {
   });
 }
 
-function _mostrarPopupUsuario(email) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
-    box.innerHTML = `
-      <h3 style="margin:0 0 6px;font-size:15px;">Conta conectada</h3>
-      <p style="margin:0 0 20px;font-size:13px;color:#6b7280;">${email || '—'}</p>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="vk-usr-cancelar" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Cancelar</button>
-        <button class="vk-usr-logout" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#1668c7;">Voltar ao Login</button>
-        <button class="vk-usr-fechar" style="padding:8px 16px;border:none;border-radius:4px;background:#b91c1c;color:#fff;cursor:pointer;font-weight:bold;">Fechar Aplicativo</button>
-      </div>`;
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    function fechar(r) { overlay.remove(); resolve(r); }
-    box.querySelector('.vk-usr-cancelar').addEventListener('click', () => fechar('cancelar'));
-    box.querySelector('.vk-usr-logout').addEventListener('click', () => fechar('logout'));
-    box.querySelector('.vk-usr-fechar').addEventListener('click', () => fechar('fechar'));
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar('cancelar'); });
-    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar('cancelar'); });
-    box.querySelector('.vk-usr-cancelar').focus();
-  });
-}
-
-async function logoutDoApp() {
-  let querSalvar = true;
-  if (state.projetoId) {
-    try {
-      const escolha = await _mostrarPopupSair();
-      if (escolha === 'cancelar') return false;
-      querSalvar = (escolha === 'salvar');
-    } catch (_) {
-      querSalvar = true;
-    }
-  }
-
-  if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
-
-  mostrarLoading('Realizando logout...');
-  try {
-    if (querSalvar && state.projetoId) {
-      for (let t = 0; t < 3; t++) {
-        try {
-          const r = await api.post('/api/workspace/salvar-todos');
-          if (r.ok) break;
-        } catch (_) {}
-      }
-    }
-    if (typeof AUTH !== 'undefined') {
-      try { await AUTH.garantirToken(); } catch (_) {}
-      const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
-      const _jwt = AUTH.token();
-      if (_uid && _jwt) {
-        for (let tentativa = 0; tentativa < 10; tentativa++) {
-          try {
-            const r = await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt });
-            if (r && r.ok) break;
-          } catch (_) {}
-          await new Promise(ok => setTimeout(ok, 1500));
-        }
-      }
-      try { await AUTH.logout(); } catch (_) {}
-    }
-    try { await api.post('/api/workspace/fechar-todos'); } catch (_) {}
-  } finally {
-    esconderLoading();
-    if (typeof _atualizarBotaoLogin === 'function') _atualizarBotaoLogin();
-    if (typeof _mostrarTelaLogin === 'function') _mostrarTelaLogin();
-  }
-  return true;
-}
-window.logoutDoApp = logoutDoApp;
-
 async function sairDoApp() {
-  if (!state.projetoId) {
-    if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
-    if (typeof window.electronAPI !== 'undefined') window.electronAPI.fecharApp();
-    return true;
-  }
   let querSalvar = true;
   try {
     const escolha = await _mostrarPopupSair();
@@ -347,6 +291,64 @@ async function sairDoApp() {
     } else {
       location.reload();
     }
+  }
+  return true;
+}
+
+async function logoutDoApp() {
+  let querSalvar = true;
+  try {
+    const escolha = await _mostrarPopupSair();
+    if (escolha === 'cancelar') return false;
+    querSalvar = (escolha === 'salvar');
+  } catch (_) {
+    querSalvar = true;
+  }
+
+  if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
+
+  if (typeof state !== 'undefined' && state.isMaster === true) {
+    mostrarLoading('Realizando backup pré-logout...');
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 30000);
+      await fetch('/api/sistema/backup-pre-logout', { method: 'POST', signal: ctrl.signal });
+    } catch (_) {
+      console.warn('[logoutDoApp] backup pré-logout falhou (best-effort)');
+    }
+  }
+
+  try {
+    if (querSalvar) {
+      for (let t = 0; t < 3; t++) {
+        try {
+          const r = await api.post('/api/workspace/salvar-todos');
+          if (r.ok) break;
+        } catch (_) {}
+      }
+    }
+    if (typeof AUTH !== 'undefined') {
+      try { await AUTH.garantirToken(); } catch (_) {}
+      const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+      const _jwt = AUTH.token();
+      if (_uid && _jwt) {
+        mostrarLoading('Removendo sessão do servidor...');
+        for (let tentativa = 0; tentativa < 10; tentativa++) {
+          try {
+            const r = await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt });
+            if (r && r.ok) break;
+          } catch (_) {}
+          await new Promise(ok => setTimeout(ok, 1500));
+        }
+      }
+      try { await AUTH.logout(); } catch (_) {}
+    }
+
+    try { await api.post('/api/workspace/fechar-todos'); } catch (_) {}
+
+  } finally {
+    esconderLoading();
+    location.reload();
   }
   return true;
 }
