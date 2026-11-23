@@ -725,17 +725,24 @@ def status_fechada(projeto_id: int, db: Session = Depends(get_db)):
     for nome, fechada in secoes:
         if not fechada:
             abertas.append({"tipo": "secao_projeto", "nome": nome})
-    modelos = [
+    modelos_projeto = [
         (m.SistemaRefrigeracao, "Sistema"),
+        (m.PainelTermico, "Painel Térmico"),
+        (m.PortaFrigorifica, "Porta Frigorífica"),
+    ]
+    modelos_sistema = [
         (m.CamaraCompleto, "Câmara Completa"),
         (m.CamaraSimples, "Câmara Simples"),
         (m.Expositor, "Expositor"),
         (m.RackParalelo, "Rack Paralelo"),
-        (m.PainelTermico, "Painel Térmico"),
-        (m.PortaFrigorifica, "Porta Frigorífica"),
     ]
-    for modelo, rotulo in modelos:
+    for modelo, rotulo in modelos_projeto:
         for ent in db.query(modelo).filter_by(projeto_id=projeto_id).all():
+            if not getattr(ent, "fechada", True):
+                nome = getattr(ent, "nome", None) or getattr(ent, "descricao", None) or str(ent.id)
+                abertas.append({"tipo": rotulo, "nome": nome, "id": ent.id})
+    for modelo, rotulo in modelos_sistema:
+        for ent in db.query(modelo).join(m.SistemaRefrigeracao).filter(m.SistemaRefrigeracao.projeto_id == projeto_id).all():
             if not getattr(ent, "fechada", True):
                 nome = getattr(ent, "nome", None) or getattr(ent, "descricao", None) or str(ent.id)
                 abertas.append({"tipo": rotulo, "nome": nome, "id": ent.id})
