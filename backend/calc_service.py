@@ -168,6 +168,7 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
         "produto_id": camara.produto_id, "qtd_estocada": camara.qtd_estocada,
         "mov_diaria": camara.mov_diaria, "tempo_processo": camara.tempo_processo,
         "temp_entrada": camara.temp_entrada, "temp_saida": camara.temp_saida,
+        "ur_requerida": camara.ur_requerida, "incluir_desumidificacao": camara.incluir_desumidificacao,
         "tipo_embalagem_id": camara.tipo_embalagem_id, "massa_embalagem": camara.massa_embalagem,
         "isolamento_parede_id": camara.isolamento_parede_id, "isolamento_teto_id": camara.isolamento_teto_id,
         "isolamento_piso_id": camara.isolamento_piso_id,
