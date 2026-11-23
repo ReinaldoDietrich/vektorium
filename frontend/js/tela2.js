@@ -2,10 +2,12 @@ let t2_editandoId = null;
 let t2_catalogos = null;
 let t2_fechada = false;
 let t2_debounceTimer = null;
+let t2_protecoes = [];
 
 const T2_CAMPOS = ['nome', 'sistema_id', 'linha_succao', 'linha_eletrica', 'temp_interna', 'largura', 'comprimento',
   'pedireito', 'utilizar_valv_reg_pressao', 'dt_evaporacao_desejado',
   'produto_id', 'qtd_estocada', 'mov_diaria', 'tempo_processo', 'temp_entrada', 'temp_saida',
+  'ur_requerida', 'incluir_desumidificacao',
   'tipo_embalagem_id', 'massa_embalagem', 'isolamento_parede_id', 'isolamento_teto_id', 'isolamento_piso_id',
   'fonte_ar', 'temp_adjacente', 'umidade_adjacente', 'num_pessoas',
   'tempo_pessoas', 'qtd_luminarias', 'tipo_ambiente_lumino_id', 'potencia_luminaria_texto',
@@ -100,13 +102,17 @@ function initTela2() {
 
 async function t2_carregarCatalogos() {
   // Sem cache — recarrega sempre para capturar catálogos recém-adicionados
-  const [produtos, embalagens, paredeTeto, piso, equipamentos, fabricantes, ambientesLumino, arvoreIds] = await Promise.all([
+  const [produtos, embalagens, paredeTeto, piso, equipamentos, fabricantes, ambientesLumino, arvoreIds, protecoes] = await Promise.all([
     api.get('/api/catalogos/produtos'), api.get('/api/catalogos/tipos-embalagem'),
     api.get('/api/catalogos/isolamento-parede-teto'), api.get('/api/catalogos/isolamento-piso'),
     api.get('/api/catalogos/tipos-equipamento'), carregarFabricantes(),
     api.get('/api/catalogos/ambientes-luminotecnico'), api.get('/api/catalogos/ids-comerciais'),
+    api.get('/api/catalogos/tipos-protecao-porta'),
   ]);
   t2_arvoreIds = arvoreIds;
+  t2_protecoes = protecoes;
+  const selProt = document.getElementById('c2_pt_protecao');
+  selProt.innerHTML = protecoes.map(p => `<option>${p.nome}</option>`).join('');
   t2_catalogos = { produtos, embalagens, paredeTeto, piso, equipamentos, fabricantes, ambientesLumino };
   return t2_catalogos;
 }
@@ -181,7 +187,7 @@ function t2_novaCamara() {
   t2_editandoId = null;
   t2_fechada = false;
   t2_aplicarEstadoFechada(null);
-  T2_CAMPOS.forEach(c => { const el = document.getElementById('c2_' + c); if (el) el.value = ''; });
+  T2_CAMPOS.forEach(c => { const el = document.getElementById('c2_' + c); if (!el) return; if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
   t2_popularModeloLuminaria();
   ['c2_evFab', 'c2_evLinha'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('c2_fator_seguranca').value = '10';
@@ -207,9 +213,11 @@ function t2_novaCamara() {
 }
 
 function t2_limparPainel() {
-  ['c2_sideQ1','c2_sideQ2','c2_sideQ3','c2_sideQ4','c2_sideQ5','c2_sideQ6','c2_sideQ7','c2_sideFator','c2_sideTempo','c2_sideCap']
-    .forEach(id => document.getElementById(id).textContent = '—');
+  ['c2_sideQ1','c2_sideQ2','c2_sideQ3','c2_sideQ4','c2_sideQ5','c2_sideQ6','c2_sideQ7','c2_sideQ8','c2_sideQ9','c2_sideFator','c2_sideTempo','c2_sideCap']
+    .forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '—'; });
   document.getElementById('c2_capRequerida').value = '—';
+  const q9row = document.getElementById('c2_sideQ9Row');
+  if (q9row) q9row.style.display = 'none';
 }
 
 function t2_coletarPayload() {
@@ -217,6 +225,7 @@ function t2_coletarPayload() {
   T2_CAMPOS.forEach(c => {
     const el = document.getElementById('c2_' + c);
     if (!el) return;
+    if (el.type === 'checkbox') { p[c] = el.checked; return; }
     if (el.tagName === 'SELECT') p[c] = el.value ? (isNaN(el.value) ? el.value : Number(el.value)) : null;
     else if (['nome', 'linha_succao', 'linha_eletrica', 'protecao_porta'].includes(c)) p[c] = el.value;
     else if (['qtd_estocada', 'mov_diaria'].includes(c)) p[c] = parseNumBRMilhar(el.value);
@@ -302,6 +311,7 @@ async function t2_abrirCamara(id) {
   T2_CAMPOS.forEach(campo => {
     const el = document.getElementById('c2_' + campo);
     if (!el) return;
+    if (el.type === 'checkbox') { el.checked = !!c[campo]; return; }
     if (['qtd_estocada', 'mov_diaria'].includes(campo)) {
       el.value = c[campo] != null ? Number(c[campo]).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
     } else {
@@ -338,6 +348,18 @@ async function t2_atualizarPainel(id) {
   t2_renderCalculo(c.calculo);
 }
 
+function t2_atualizarCheckDesum(ur_projeto) {
+  const wrap = document.getElementById('c2_wrapCheckDesum');
+  if (!wrap) return;
+  const urReq = parseNumBR(document.getElementById('c2_ur_requerida').value);
+  if (ur_projeto != null && urReq != null && urReq < ur_projeto) {
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+    document.getElementById('c2_incluir_desumidificacao').checked = false;
+  }
+}
+
 function t2_renderCalculo(calc) {
   t2_toggleValvReg(calc.dt_camara_real);
   const valvAtiva = document.getElementById('c2_utilizar_valv_reg_pressao').value === 'Sim'
@@ -352,6 +374,17 @@ function t2_renderCalculo(calc) {
   document.getElementById('c2_sideQ6').textContent = fmtKcal(calc.q6_iluminacao);
   document.getElementById('c2_sideQ7').textContent = fmtKcal(calc.q7_equipamentos);
   document.getElementById('c2_sideQ8').textContent = fmtKcal(calc.q8_forcadores);
+  // Q9 Desumidificação
+  const q9val = calc.q9_desumidificacao || 0;
+  const q9row = document.getElementById('c2_sideQ9Row');
+  if (q9row) { q9row.style.display = q9val > 0 ? '' : 'none'; }
+  const q9el = document.getElementById('c2_sideQ9');
+  if (q9el) q9el.textContent = fmtKcal(q9val);
+  // UR de Projeto (calculada)
+  const urProjEl = document.getElementById('c2_ur_projeto');
+  if (urProjEl) urProjEl.value = calc.ur_projeto != null ? fmtNum(calc.ur_projeto, 1) : '—';
+  // Visibilidade do checkbox de desumidificação
+  t2_atualizarCheckDesum(calc.ur_projeto);
   document.getElementById('c2_sideFator').textContent = (document.getElementById('c2_fator_seguranca').value || '—') + '%';
   document.getElementById('c2_sideTempo').textContent = (document.getElementById('c2_tempo_func_compressores').value || '—') + 'h/24h';
   document.getElementById('c2_sideCap').textContent = fmtKcal(calc.capacidade_requerida);
@@ -441,7 +474,7 @@ async function t2_addPorta() {
   await api.post(`/api/camaras-completo/${t2_editandoId}/portas`, {
     quantidade: parseInt(document.getElementById('c2_pt_qtd').value, 10) || 1,
     largura: larg, altura: alt,
-    freq_abertura_min_h: parseNumBR(document.getElementById('c2_pt_freq').value),
+    aberturas_hora: parseNumBR(document.getElementById('c2_pt_freq').value),
     protecao: document.getElementById('c2_pt_protecao').value,
     fonte_ar: fonte,
     temp_adjacente: fonte === 'Adjacente' ? parseNumBR(document.getElementById('c2_pt_temp').value) : null,
@@ -467,13 +500,13 @@ async function t2_atualizarPainelPortas() {
 function t2_renderPortas(portas) {
   const el = document.getElementById('c2_portasList');
   if (!portas || portas.length === 0) { el.innerHTML = '<div style="padding:8px;text-align:center;color:#9ca3af;font-size:12px;">Nenhuma porta adicionada.</div>'; return; }
-  const opcoesProtecao = ['Nenhuma', 'Cortina de tiras', 'Cortina de ar', 'Antecâmara'];
-  el.innerHTML = '<table class="list"><thead><tr><th>Qtd</th><th>Largura (m)</th><th>Altura (m)</th><th>Abertura (min/h)</th><th>Proteção</th><th>Fonte do ar</th><th>Temp./UR Adjacente</th><th></th></tr></thead><tbody>' +
+  const opcoesProtecao = t2_protecoes.map(p => p.nome);
+  el.innerHTML = '<table class="list"><thead><tr><th>Qtd</th><th>Largura (m)</th><th>Altura (m)</th><th>Aberturas/h</th><th>Proteção</th><th>Fonte do ar</th><th>Temp./UR Adjacente</th><th></th></tr></thead><tbody>' +
     portas.map(p => `<tr>
       <td><input type="text" value="${p.quantidade}" data-porta-campo="quantidade" data-porta-id="${p.id}" data-id-campo="T244" style="width:44px;"></td>
       <td><input type="text" value="${p.largura ?? ''}" data-porta-campo="largura" data-porta-id="${p.id}" data-id-campo="T245" style="width:56px;"></td>
       <td><input type="text" value="${p.altura ?? ''}" data-porta-campo="altura" data-porta-id="${p.id}" data-id-campo="T246" style="width:56px;"></td>
-      <td><input type="text" value="${p.freq_abertura_min_h ?? ''}" data-porta-campo="freq_abertura_min_h" data-porta-id="${p.id}" data-id-campo="T247" style="width:56px;"></td>
+      <td><input type="text" value="${p.aberturas_hora ?? ''}" data-porta-campo="aberturas_hora" data-porta-id="${p.id}" data-id-campo="T247" style="width:56px;"></td>
       <td><select data-porta-campo="protecao" data-porta-id="${p.id}" data-id-campo="T248">${opcoesProtecao.map(o => `<option ${o === p.protecao ? 'selected' : ''}>${o}</option>`).join('')}</select></td>
       <td><select data-porta-campo="fonte_ar" data-porta-id="${p.id}" data-id-campo="T249"><option value="Externo" ${p.fonte_ar !== 'Adjacente' ? 'selected' : ''}>Externo</option><option value="Adjacente" ${p.fonte_ar === 'Adjacente' ? 'selected' : ''}>Adjacente</option></select></td>
       <td>${p.fonte_ar === 'Adjacente'
@@ -486,7 +519,7 @@ function t2_renderPortas(portas) {
     const nomeCampo = campo.dataset.portaCampo;
     let valor = campo.value;
     if (['quantidade'].includes(nomeCampo)) valor = parseInt(valor, 10) || 1;
-    else if (['largura', 'altura', 'freq_abertura_min_h', 'temp_adjacente', 'umidade_adjacente'].includes(nomeCampo)) valor = parseNumBR(valor);
+    else if (['largura', 'altura', 'aberturas_hora', 'temp_adjacente', 'umidade_adjacente'].includes(nomeCampo)) valor = parseNumBR(valor);
     await api.put(`/api/camaras-completo/portas/${id}`, { [nomeCampo]: valor });
     await t2_atualizarPainelPortas();
   }));

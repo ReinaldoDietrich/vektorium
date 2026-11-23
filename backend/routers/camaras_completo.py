@@ -20,6 +20,7 @@ CAMPOS_BASICOS = {
     "fonte_ar", "temp_adjacente", "umidade_adjacente",
     "num_pessoas", "tempo_pessoas", "qtd_luminarias", "potencia_luminaria", "horas_iluminacao_carga",
     "tipo_ambiente_lumino_id", "modelo_luminaria_id", "potencia_luminaria_texto", "modelo_luminaria_texto",
+    "ur_requerida", "incluir_desumidificacao",
     "fator_seguranca", "tempo_func_compressores",
 }
 
@@ -145,7 +146,8 @@ def duplicar(camara_id: int, db: Session = Depends(get_db)):
                                             qtd=e.qtd, tempo=e.tempo))
     for p in orig.portas:
         db.add(m.PortaCamara(camara_id=nova.id, quantidade=p.quantidade, largura=p.largura, altura=p.altura,
-                              freq_abertura_min_h=p.freq_abertura_min_h, protecao=p.protecao,
+                              freq_abertura_min_h=p.freq_abertura_min_h, aberturas_hora=p.aberturas_hora,
+                              protecao=p.protecao,
                               fonte_ar=p.fonte_ar, temp_adjacente=p.temp_adjacente,
                               umidade_adjacente=p.umidade_adjacente, ordem=p.ordem))
     for f in orig.forcadores:
@@ -219,8 +221,8 @@ def remove_equipamento(camara_id: int, item_id: int, db: Session = Depends(get_d
 
 # ---------- Portas (Seção 4 — infiltração; uma câmara pode ter várias portas) ----------
 
-CAMPOS_PORTA = {"quantidade", "largura", "altura", "freq_abertura_min_h", "protecao",
-                "fonte_ar", "temp_adjacente", "umidade_adjacente", "ordem"}
+CAMPOS_PORTA = {"quantidade", "largura", "altura", "freq_abertura_min_h", "aberturas_hora",
+                "protecao", "fonte_ar", "temp_adjacente", "umidade_adjacente", "ordem"}
 
 
 @router.post("/{camara_id}/portas")

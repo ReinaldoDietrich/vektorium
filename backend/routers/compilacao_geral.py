@@ -109,6 +109,7 @@ def _bloco_memorial(calc, tipo):
             "q3_penetracao": calc.get("q3_penetracao"), "q4_infiltracao": calc.get("q4_infiltracao"),
             "q5_pessoas": calc.get("q5_pessoas"), "q6_iluminacao": calc.get("q6_iluminacao"),
             "q7_equipamentos": calc.get("q7_equipamentos"), "q8_forcadores": calc.get("q8_forcadores"),
+            "q9_desumidificacao": calc.get("q9_desumidificacao"),
             "total_24h": calc.get("carga_termica_total_24h")}
 
 
@@ -134,8 +135,10 @@ def _bloco_dados_entrada(camara, tipo, projeto):
         fonte = (f"Adjacente {p.temp_adjacente if p.temp_adjacente is not None else '?'}°C/"
                  f"{p.umidade_adjacente if p.umidade_adjacente is not None else '?'}%"
                  if p.fonte_ar == "Adjacente" else "Externo")
+        ab = p.aberturas_hora
+        ab_str = f"{ab} abert/h" if ab is not None else "—"
         return (f"{p.quantidade or 1}× {p.largura or 0}×{p.altura or 0}m, "
-                f"{p.freq_abertura_min_h or 0}min/h, {p.protecao or '—'}, {fonte}")
+                f"{ab_str}, {p.protecao or '—'}, {fonte}")
     portas_detalhe = "; ".join(_porta_str(p) for p in camara.portas) or None
     num_portas_total = sum((p.quantidade or 1) for p in camara.portas) or None
     adjacente = camara.fonte_ar == "Adjacente"

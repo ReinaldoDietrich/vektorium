@@ -400,6 +400,16 @@
         <div><label class="lbl">Temp. Saída (°C)</label><input type="text" id="c2_temp_saida" data-id-campo="T216"></div>
         <div><label class="lbl">ΔT Evaporação (°C)</label><input type="text" id="c2_dtCamara" value="—" disabled></div>
       </div>
+      <div class="grid g4" style="margin-top:8px;" id="c2_grpDesumidificacao">
+        <div><label class="lbl">UR de Projeto (%)</label><input type="text" id="c2_ur_projeto" value="—" disabled></div>
+        <div><label class="lbl">UR Requerida (%)</label><input type="text" id="c2_ur_requerida" data-id-campo="T2UR"></div>
+        <div id="c2_wrapCheckDesum" style="display:none;align-self:end;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="c2_incluir_desumidificacao"> Incluir Desumidificação
+          </label>
+        </div>
+        <div></div>
+      </div>
 
       <div class="sec-title">2. Calor de Embalagem</div>
       <div class="grid g3">
@@ -426,8 +436,8 @@
         <div><label class="lbl">Qtd</label><input type="text" id="c2_pt_qtd" data-id-campo="T225" value="1"></div>
         <div><label class="lbl">Largura (m)</label><input type="text" id="c2_pt_larg" data-id-campo="T226"></div>
         <div><label class="lbl">Altura (m)</label><input type="text" id="c2_pt_alt" data-id-campo="T227"></div>
-        <div><label class="lbl">Abertura (min/h)</label><input type="text" id="c2_pt_freq" data-id-campo="T228"></div>
-        <div><label class="lbl">Proteção</label><select id="c2_pt_protecao" data-id-campo="T229"><option>Nenhuma</option><option>Cortina de tiras</option><option>Cortina de ar</option><option>Antecâmara</option></select></div>
+        <div><label class="lbl">Aberturas/h</label><input type="text" id="c2_pt_freq" data-id-campo="T228"></div>
+        <div><label class="lbl">Proteção</label><select id="c2_pt_protecao" data-id-campo="T229"></select></div>
         <div><label class="lbl">Fonte do ar</label><select id="c2_pt_fonte" data-id-campo="T230"><option value="Externo">Externo</option><option value="Adjacente">Adjacente</option></select></div>
         <div><label class="lbl">&nbsp;</label><button class="btn" id="c2_btnAddPorta">+</button></div>
       </div>
@@ -436,7 +446,7 @@
         <div><label class="lbl">Umidade Adjacente da porta (%)</label><input type="text" id="c2_pt_ur" data-id-campo="T232" value="60"></div>
       </div>
       <div id="c2_portasList" style="margin-top:6px;"></div>
-      <p class="small">Referência para frequência de abertura: a) Uso leve (estoque e pouca movimentação): 1 a 2 min/h. b) Uso comercial médio (reposição frequente): 3 a 4 min/h. c) Uso pesado (logística, paleteiras, congelados): 5 a 6 min/h.</p>
+      <p class="small">Referência para aberturas por hora: a) Uso leve (estoque e pouca movimentação): 5 a 10 abert/h. b) Uso comercial médio (reposição frequente): 15 a 25 abert/h. c) Uso pesado (logística, paleteiras, congelados): 30 a 50 abert/h.</p>
 
       <div class="grid g2" style="margin-top:4px;">
         <div>
@@ -507,6 +517,8 @@
       <div class="side-row"><span>Q6 Iluminação</span><span id="c2_sideQ6">—</span></div>
       <div class="side-row"><span>Q7 Equipamentos</span><span id="c2_sideQ7">—</span></div>
       <div class="side-row"><span>Q8 Forçadores</span><span id="c2_sideQ8">—</span></div>
+      <div class="side-row" id="c2_sideQ9Row" style="display:none;border-top:1px dashed var(--borda);padding-top:4px;color:var(--accent);">
+        <span>Q9 Desumidificação</span><span id="c2_sideQ9">—</span></div>
       <div class="side-row"><span>Fator Segurança</span><span id="c2_sideFator">—</span></div>
       <div class="side-row"><span>Tempo Func. Compr.</span><span id="c2_sideTempo">—</span></div>
       <div class="cap-box">Capacidade Requerida<br>(kcal/h)<br><span id="c2_sideCap" style="font-size:15px;">—</span></div>
@@ -862,6 +874,18 @@
       </details>
 
       <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Embalagens de Estocagem</summary>
+        <div id="cfg_embalagens"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddEmbalagem">+ adicionar embalagem</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Proteção de Portas <span class="sub">— efetividade (E) e tempo de passagem por tipo</span></summary>
+        <div id="cfg_protecaoPorta"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddProtecaoPorta">+ adicionar tipo de proteção</span></p>
+      </details>
+
+      <details class="cfg-accordion">
         <summary class="sec-title">Tela 2 - Equipamentos Diversos (Q7)</summary>
         <div id="cfg_equipamentos"></div>
         <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddEquipamento">+ adicionar equipamento</span></p>
@@ -871,6 +895,12 @@
         <summary class="sec-title">Tela 2 - Majoração de Insolação por Orientação <span class="sub">— referência de mercado, ver item 12.1</span></summary>
         <div id="cfg_fatorInsolacao"></div>
         <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddInsolacao">+ adicionar orientação</span></p>
+      </details>
+
+      <details class="cfg-accordion">
+        <summary class="sec-title">Tela 2 - Deltas de Evap. e UR <span class="sub">— classes de produto, interpolação UR de projeto</span></summary>
+        <div id="cfg_classesEvapUR"></div>
+        <p style="margin-top:8px;"><span class="btn-text" id="cfg_btnAddClasseEvapUR">+ adicionar classe</span></p>
       </details>
 
       <details class="cfg-accordion">

@@ -5,11 +5,11 @@ câmara) e da UR de cada um. Fm segue a regra usual ASHRAE/IIR: 1,1 para ΔT<=11
 ΔT>11°C.
 
 qt = q · Dt · Df · (1 − E), onde:
-- Dt = fração de hora com a porta aberta (minutos/60).
+- Dt = (aberturas_por_hora × tempo_passagem_s) / 3600.
 - Df = fator de fluxo da porta (doorway flow factor) — constante ~0,8 do método ASHRAE/Gosney.
   NÃO é a fração de tempo aberta (erro antigo Df=Dt, que subestimava a infiltração em várias
   vezes). Ver validação contra projeto de referência.
-- E = efetividade da proteção de porta.
+- E = efetividade da proteção de porta (vem da tabela cat_tipos_protecao_porta).
 
 A pressão barométrica é corrigida pela altitude do local (ISA) — afeta densidade e, portanto,
 a infiltração (~−1% a cada ~120 m). Sem altitude informada, usa nível do mar.
@@ -30,11 +30,10 @@ def pressao_barometrica(altitude_m):
         return PRESSAO_ATM_PA
     return PRESSAO_ATM_PA * (1 - 2.25577e-5 * altitude_m) ** 5.2559
 
-EFETIVIDADE_PROTECAO = {
-    "Nenhuma": 0.0,
-    "Cortina de tiras": 0.875,
-    "Cortina de ar": 0.6,
-    "Antecâmara": 0.9,
+EFETIVIDADE_PROTECAO_FALLBACK = {
+    "Nenhuma": (0.0, 20), "Cortina de tiras": (0.875, 20), "Cortina de ar": (0.6, 20),
+    "Antecâmara": (0.9, 20), "Porta Rápida": (0.0, 8), "Porta Super Rápida": (0.0, 3),
+    "Dock Shelter": (0.96, 20),
 }
 
 
@@ -47,9 +46,11 @@ def _psicrometria(temp_c, ur_pct, pressao_pa=PRESSAO_ATM_PA):
     return h, rho
 
 
-def calor_infiltracao(num_portas, porta_largura, porta_altura, freq_abertura_min_h, protecao,
+def calor_infiltracao(num_portas, porta_largura, porta_altura, aberturas_hora, efetividade, tempo_passagem_s,
                        temp_ambiente, temp_interna, ur_interna=95, ur_externa=60, altitude_m=0):
-    """Q4 (kcal/24h). freq_abertura_min_h = minutos de porta aberta por hora (0-60).
+    """Q4 (kcal/24h). aberturas_hora = quantidade de aberturas por hora.
+    efetividade (E) e tempo_passagem_s vêm da tabela cat_tipos_protecao_porta.
+    Dt = (aberturas_hora × tempo_passagem_s) / 3600.
     temp_ambiente/ur_externa = ar da FONTE (externo do projeto ou ambiente adjacente).
     altitude_m corrige a pressão barométrica (densidade do ar)."""
     if not (num_portas and porta_largura and porta_altura):
@@ -69,19 +70,18 @@ def calor_infiltracao(num_portas, porta_largura, porta_altura, freq_abertura_min
     if rho_amb >= rho_cam:
         rho_A, rho_B = rho_amb, rho_cam
         h_A, h_B = h_amb, h_cam
-        sinal = -1  # câmara é mais quente → ar frio entra → reduz carga
+        sinal = -1
     else:
         rho_A, rho_B = rho_cam, rho_amb
         h_A, h_B = h_cam, h_amb
-        sinal = 1   # câmara é mais fria → ar quente entra → aumenta carga
+        sinal = 1
 
     f_density = (2 / (1 + (rho_A / rho_B) ** (1/3))) ** 1.5
     razao = 1 - rho_B / rho_A
     q_kw = 0.221 * area_total * (h_B - h_A) * rho_A * f_density * (razao ** 0.5) * ((g * porta_altura) ** 0.5) * fm
 
-    dt_fracao = min((freq_abertura_min_h or 0) / 60, 1.0)
-    e = EFETIVIDADE_PROTECAO.get(protecao, 0.0)
-    qt_kw = sinal * q_kw * dt_fracao * DF_FLUXO_PORTA * (1 - e)
+    dt_fracao = min(((aberturas_hora or 0) * (tempo_passagem_s or 20)) / 3600, 1.0)
+    qt_kw = sinal * q_kw * dt_fracao * DF_FLUXO_PORTA * (1 - (efetividade or 0))
 
     qt_kcal_h = qt_kw * KW_PARA_KCAL_H
     return qt_kcal_h * 24

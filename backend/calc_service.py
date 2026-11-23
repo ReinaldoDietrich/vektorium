@@ -14,8 +14,9 @@ try:
     from .calculos import forcador as fc
     from .calculos import valvula as vl
     from .calculos.luminotecnico import calcular_luminotecnico
+    from .calculos import desumidificacao as desum
 except ImportError:
-    cc = cs = inf = fc = vl = calcular_luminotecnico = None  # type: ignore
+    cc = cs = inf = fc = vl = calcular_luminotecnico = desum = None  # type: ignore
 from . import campo_catalogo as cpc
 
 
@@ -188,7 +189,8 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
         "potencia_luminaria_texto": camara.potencia_luminaria_texto,
         "fator_seguranca": camara.fator_seguranca, "tempo_func_compressores": camara.tempo_func_compressores,
         "portas": [{"quantidade": p.quantidade, "largura": p.largura, "altura": p.altura,
-                     "freq_abertura_min_h": p.freq_abertura_min_h, "protecao": p.protecao,
+                     "freq_abertura_min_h": p.freq_abertura_min_h, "aberturas_hora": p.aberturas_hora,
+                     "protecao": p.protecao,
                      "fonte_ar": p.fonte_ar, "temp_adjacente": p.temp_adjacente,
                      "umidade_adjacente": p.umidade_adjacente} for p in camara.portas],
         "equipamentos": [{"tipo_equipamento_id": e.tipo_equipamento_id, "qtd": e.qtd, "tempo": e.tempo}
@@ -285,6 +287,8 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
         classe_produto = db.query(m.ClasseProduto).filter_by(classe=produto.classe).first()
         if classe_produto and classe_produto.ur_min and classe_produto.ur_max:
             ur_int = (classe_produto.ur_min + classe_produto.ur_max) / 2
+    protecoes_db = {p.nome: (p.efetividade, p.tempo_passagem_s)
+                    for p in db.query(m.TipoProtecaoPorta).all()}
     q4 = 0.0
     for porta in dados["portas"]:
         if porta["fonte_ar"] == "Adjacente":
@@ -293,8 +297,10 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
         else:
             t_porta = dados["projeto_temp_ambiente"] or 0
             ur_porta = dados["projeto_ur_externa"] or 60
+        prot_nome = porta.get("protecao") or "Nenhuma"
+        E, tp = protecoes_db.get(prot_nome) or inf.EFETIVIDADE_PROTECAO_FALLBACK.get(prot_nome, (0.0, 20))
         q4 += inf.calor_infiltracao(porta["quantidade"] or 1, porta["largura"], porta["altura"],
-                                     porta["freq_abertura_min_h"], porta["protecao"],
+                                     porta["aberturas_hora"], E, tp,
                                      t_porta, dados["temp_interna"] or 0, ur_int, ur_porta, altitude_m)
 
     # ---- Q5 Pessoas ----
@@ -448,10 +454,30 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
     if volume and dados["pedireito"] and dados["pedireito"] > 10 and volume > 5000 and (dados["temp_interna"] or 0) < 0:
         alertas.append("Sugestão automática: considerar ventilação de piso (pé-direito>10m, volume>5.000m³, T<0°C)")
 
+    # ---- Q9 Desumidificação ----
+    q9 = 0.0
+    ur_projeto = None
+    todas_classes = None
+    if desum and dt_camara is not None:
+        todas_classes = db.query(m.ClasseProduto).all()
+        ur_projeto = desum.calcular_ur_projeto(dt_camara, todas_classes)
+    ur_requerida = dados.get("ur_requerida")
+    incluir_desum = dados.get("incluir_desumidificacao", False)
+    if desum and incluir_desum and ur_projeto is not None and ur_requerida is not None and ur_requerida < ur_projeto:
+        vazao_total = sum((f.get("vazao_ar_m3h") or 0) * (f.get("quantidade") or 1) for f in forcadores_out)
+        q9 = desum.calor_desumidificacao(vazao_total, temp_fonte, ur_fonte,
+                                          dados["temp_interna"] or 0, ur_projeto, ur_requerida, altitude_m)
+    if incluir_desum and q9 > 0:
+        carga_total_24h += q9
+        cap_req = capacidade_requerida(carga_total_24h, dados["fator_seguranca"], dados["tempo_func_compressores"])
+        cap_req_unitaria = cap_req
+
     return {
         "q1_produto": round(q1, 1), "q2_embalagem": round(q2, 1), "q3_penetracao": round(q3, 1),
         "q4_infiltracao": round(q4, 1), "q5_pessoas": round(q5, 1), "q6_iluminacao": round(q6, 1),
-        "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1), "carga_termica_total_24h": round(carga_total_24h, 1),
+        "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1),
+        "q9_desumidificacao": round(q9, 1), "ur_projeto": round(ur_projeto, 1) if ur_projeto is not None else None,
+        "carga_termica_total_24h": round(carga_total_24h, 1),
         "capacidade_requerida": round(cap_req, 1), "capacidade_requerida_unitaria": round(cap_req_unitaria, 1),
         "potencia_total_iluminacao_w": potencia_total_ilum,
         "luminotecnico": _calc_luminotecnico_camara_dados(db, dados),
@@ -555,6 +581,8 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
         classe_produto = db.query(m.ClasseProduto).filter_by(classe=camara.produto.classe).first()
         if classe_produto and classe_produto.ur_min and classe_produto.ur_max:
             ur_int = (classe_produto.ur_min + classe_produto.ur_max) / 2
+    protecoes_db = {p.nome: (p.efetividade, p.tempo_passagem_s)
+                    for p in db.query(m.TipoProtecaoPorta).all()}
     q4 = 0.0
     for porta in camara.portas:
         if porta.fonte_ar == "Adjacente":
@@ -563,8 +591,10 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
         else:
             t_porta = (projeto.temp_ambiente if projeto else 0) or 0
             ur_porta = (projeto.ur_externa if projeto else None) or 60
+        prot_nome = porta.protecao or "Nenhuma"
+        E, tp = protecoes_db.get(prot_nome) or inf.EFETIVIDADE_PROTECAO_FALLBACK.get(prot_nome, (0.0, 20))
         q4 += inf.calor_infiltracao(porta.quantidade or 1, porta.largura, porta.altura,
-                                     porta.freq_abertura_min_h, porta.protecao,
+                                     porta.aberturas_hora, E, tp,
                                      t_porta, camara.temp_interna or 0, ur_int, ur_porta, altitude_m)
 
     # ---- Q5 Pessoas ----
@@ -740,10 +770,29 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
     if volume and camara.pedireito and camara.pedireito > 10 and volume > 5000 and (camara.temp_interna or 0) < 0:
         alertas.append("Sugestão automática: considerar ventilação de piso (pé-direito>10m, volume>5.000m³, T<0°C)")
 
+    # ---- Q9 Desumidificação ----
+    q9 = 0.0
+    ur_projeto = None
+    if desum and dt_camara is not None:
+        todas_classes = db.query(m.ClasseProduto).all()
+        ur_projeto = desum.calcular_ur_projeto(dt_camara, todas_classes)
+    ur_requerida = camara.ur_requerida
+    incluir_desum = camara.incluir_desumidificacao or False
+    if desum and incluir_desum and ur_projeto is not None and ur_requerida is not None and ur_requerida < ur_projeto:
+        vazao_total = sum((f.get("vazao_ar_m3h") or 0) * (f.get("quantidade") or 1) for f in forcadores_out)
+        q9 = desum.calor_desumidificacao(vazao_total, temp_fonte, ur_fonte,
+                                          camara.temp_interna or 0, ur_projeto, ur_requerida, altitude_m)
+    if incluir_desum and q9 > 0:
+        carga_total_24h += q9
+        cap_req = capacidade_requerida(carga_total_24h, camara.fator_seguranca, camara.tempo_func_compressores)
+        cap_req_unitaria = cap_req
+
     return {
         "q1_produto": round(q1, 1), "q2_embalagem": round(q2, 1), "q3_penetracao": round(q3, 1),
         "q4_infiltracao": round(q4, 1), "q5_pessoas": round(q5, 1), "q6_iluminacao": round(q6, 1),
-        "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1), "carga_termica_total_24h": round(carga_total_24h, 1),
+        "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1),
+        "q9_desumidificacao": round(q9, 1), "ur_projeto": round(ur_projeto, 1) if ur_projeto is not None else None,
+        "carga_termica_total_24h": round(carga_total_24h, 1),
         "capacidade_requerida": round(cap_req, 1), "capacidade_requerida_unitaria": round(cap_req_unitaria, 1),
         "potencia_total_iluminacao_w": potencia_total_ilum, "luminotecnico": _calc_luminotecnico_camara(db, camara),
         "areas": areas, "dt_camara": dt_camara,

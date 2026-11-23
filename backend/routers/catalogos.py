@@ -11,12 +11,13 @@ from ..calculos.clima import resolver_clima_estacao
 router = APIRouter(prefix="/api/catalogos", tags=["catalogos"])
 
 
-def _crud(path: str, model, permitir_exclusao: bool = True):
+def _crud(path: str, model, permitir_exclusao: bool = True, order_by_col=None):
     sub = APIRouter()
+    _order = order_by_col if order_by_col is not None else model.id
 
     @sub.get(f"/{path}")
     def listar(db: Session = Depends(get_db)):
-        return list_to_dict(db.query(model).order_by(model.id).all())
+        return list_to_dict(db.query(model).order_by(_order).all())
 
     @sub.post(f"/{path}")
     def criar(payload: dict = Body(...), db: Session = Depends(get_db)):
@@ -51,8 +52,9 @@ def _crud(path: str, model, permitir_exclusao: bool = True):
     router.include_router(sub)
 
 
-_crud("produtos", m.Produto)
+_crud("produtos", m.Produto, order_by_col=m.Produto.nome)
 _crud("tipos-embalagem", m.TipoEmbalagem)
+_crud("tipos-protecao-porta", m.TipoProtecaoPorta)
 _crud("isolamento-parede-teto", m.IsolamentoParedeTeto)
 _crud("isolamento-piso", m.IsolamentoPiso)
 _crud("tipos-equipamento", m.TipoEquipamento)

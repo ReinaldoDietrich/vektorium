@@ -90,8 +90,16 @@ def run():
 
         if db.query(m.TipoEmbalagem).count() == 0:
             # calor específico convertido de kJ/kg.K para kcal/kg.K (÷4,1868), fonte: Script_Implementacao
-            for nome, kcal in [("Nenhuma", 0.0), ("Madeira", 0.406), ("Papelão", 0.3344), ("Plástico", 0.3822)]:
+            for nome, kcal in [("Nenhuma", 0.0), ("Madeira", 0.406), ("Papelão", 0.3344),
+                                ("Plástico", 0.3822), ("Bins (PEAD)", 0.55)]:
                 db.add(m.TipoEmbalagem(nome=nome, calor_especifico=kcal))
+
+        if db.query(m.TipoProtecaoPorta).count() == 0:
+            for nome, E, tp in [("Nenhuma", 0.0, 20), ("Cortina de tiras", 0.875, 20),
+                                 ("Cortina de ar", 0.6, 20), ("Antecâmara", 0.9, 20),
+                                 ("Porta Rápida", 0.0, 8), ("Porta Super Rápida", 0.0, 3),
+                                 ("Dock Shelter", 0.96, 20)]:
+                db.add(m.TipoProtecaoPorta(nome=nome, efetividade=E, tempo_passagem_s=tp))
 
         if db.query(m.SetorExpositor).count() == 0:
             setores = ["Açougue", "Bebidas", "Confeitaria", "Congelados", "Doces", "Fatiados",
@@ -122,6 +130,67 @@ def run():
                      calor_esp_antes=0.86, calor_esp_depois=0.45, calor_latente=68,
                      calor_respiracao=0, classe=None, fonte_status="Tabela antiga (validar contra literatura)"),
             ]
+            # SE-183: Grãos e sementes — Cp via fórmula composicional ASHRAE Cap.9 + composição USDA;
+            # calor_latente = pct_agua × 79.8 kcal/kg; calor_respiracao = 0 (grãos secos).
+            graos_sementes = [
+                dict(nome="Algodão (Semente)", temp_conservacao="5 a 15", umidade_relativa="40-60",
+                     tempo_conservacao="6-12 meses", pct_agua=8.0, ponto_congelamento=-3.0,
+                     calor_esp_antes=0.44, calor_esp_depois=0.38, calor_latente=6.4,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Amendoim (Cru c/ casca)", temp_conservacao="0 a 5", umidade_relativa="65",
+                     tempo_conservacao="6-12 meses", pct_agua=6.5, ponto_congelamento=None,
+                     calor_esp_antes=0.53, calor_esp_depois=0.45, calor_latente=5.2,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE Cap.8 Tab.3 (medido)"),
+                dict(nome="Arroz (Grão c/ casca)", temp_conservacao="5 a 15", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=12.0, ponto_congelamento=-2.0,
+                     calor_esp_antes=0.42, calor_esp_depois=0.36, calor_latente=9.6,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Arroz (Grão descascado)", temp_conservacao="5 a 15", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=12.0, ponto_congelamento=-2.0,
+                     calor_esp_antes=0.42, calor_esp_depois=0.36, calor_latente=9.6,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Aveia (Grão)", temp_conservacao="0 a 5", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=11.0, ponto_congelamento=-2.5,
+                     calor_esp_antes=0.43, calor_esp_depois=0.37, calor_latente=8.8,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Canola (Semente)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=6.0, ponto_congelamento=-4.0,
+                     calor_esp_antes=0.47, calor_esp_depois=0.41, calor_latente=4.8,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Cevada (Grão)", temp_conservacao="0 a 5", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=12.0, ponto_congelamento=-2.0,
+                     calor_esp_antes=0.42, calor_esp_depois=0.36, calor_latente=9.6,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Gergelim (Semente)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=5.0, ponto_congelamento=-5.0,
+                     calor_esp_antes=0.47, calor_esp_depois=0.42, calor_latente=4.0,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Girassol (Semente)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=5.0, ponto_congelamento=None,
+                     calor_esp_antes=0.48, calor_esp_depois=0.42, calor_latente=4.0,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Grão-de-Bico (Seco)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=11.5, ponto_congelamento=-2.5,
+                     calor_esp_antes=0.42, calor_esp_depois=0.36, calor_latente=9.2,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Lentilha (Seca)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=11.0, ponto_congelamento=-2.5,
+                     calor_esp_antes=0.42, calor_esp_depois=0.36, calor_latente=8.8,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Linhaça (Semente)", temp_conservacao="5 a 10", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=7.0, ponto_congelamento=-4.0,
+                     calor_esp_antes=0.47, calor_esp_depois=0.41, calor_latente=5.6,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Soja (Grão Seco)", temp_conservacao="5 a 15", umidade_relativa="40-65",
+                     tempo_conservacao="6-12 meses", pct_agua=8.5, ponto_congelamento=-4.0,
+                     calor_esp_antes=0.44, calor_esp_depois=0.37, calor_latente=6.8,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+                dict(nome="Sorgo (Grão)", temp_conservacao="0 a 5", umidade_relativa="40-60",
+                     tempo_conservacao="12 meses", pct_agua=12.0, ponto_congelamento=-2.0,
+                     calor_esp_antes=0.42, calor_esp_depois=0.35, calor_latente=9.6,
+                     calor_respiracao=0, classe=5, fonte_status="ASHRAE/USDA composicional"),
+            ]
+            produtos.extend(graos_sementes)
             for p in produtos:
                 db.add(m.Produto(**p))
 

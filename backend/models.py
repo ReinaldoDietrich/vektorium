@@ -203,6 +203,14 @@ class TipoEmbalagem(Base):
     calor_especifico = Column(Float)  # kcal/kg.K
 
 
+class TipoProtecaoPorta(Base):
+    __tablename__ = "cat_tipos_protecao_porta"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False, unique=True)
+    efetividade = Column(Float, default=0.0)
+    tempo_passagem_s = Column(Float, default=20.0)
+
+
 # ===================== CATÁLOGOS — ISOLAMENTO E EQUIPAMENTOS =====================
 
 class IsolamentoParedeTeto(Base):
@@ -706,6 +714,11 @@ class CamaraCompleto(Base):
     temp_entrada = Column(Float)
     temp_saida = Column(Float)
 
+    # Desumidificação — UR requerida pelo usuário; quando < UR de projeto (calculada pelo ΔT do
+    # evaporador via tabela de classes), gera Q9 extra se incluir_desumidificacao=True.
+    ur_requerida = Column(Float)
+    incluir_desumidificacao = Column(Boolean, default=False)
+
     # Seção 2 — Embalagem
     tipo_embalagem_id = Column(Integer, ForeignKey("cat_tipos_embalagem.id"), nullable=True, index=True)
     massa_embalagem = Column(Float, default=0)
@@ -719,7 +732,8 @@ class CamaraCompleto(Base):
     num_portas = Column(Integer, default=0)
     porta_largura = Column(Float)
     porta_altura = Column(Float)
-    freq_abertura_min_h = Column(Float)  # minutos de porta aberta por hora
+    freq_abertura_min_h = Column(Float)  # LEGADO — minutos de porta aberta por hora (antes de SE-185)
+    aberturas_hora = Column(Float)  # aberturas por hora (SE-185); NULL = não preenchido
     protecao_porta = Column(String, default="Nenhuma")
     # Fonte do ar que entra/troca com a câmara (usado na infiltração Q4 e na penetração Q3
     # parede/teto). "Externo" = ar externo do projeto (temp_ambiente/ur_externa); "Adjacente" =
@@ -794,7 +808,8 @@ class PortaCamara(Base):
     quantidade = Column(Integer, default=1)
     largura = Column(Float)
     altura = Column(Float)
-    freq_abertura_min_h = Column(Float)  # minutos aberta por hora
+    freq_abertura_min_h = Column(Float)  # LEGADO — minutos aberta por hora (antes de SE-185)
+    aberturas_hora = Column(Float)  # aberturas por hora (SE-185); NULL = não preenchido
     protecao = Column(String, default="Nenhuma")
     fonte_ar = Column(String, default="Externo")  # "Externo" | "Adjacente"
     temp_adjacente = Column(Float, default=25)

@@ -16,12 +16,15 @@ function initTela7() {
   t7_ordenarSecoesAlfabeticamente();
   document.getElementById('cfg_btnAddEspessura').addEventListener('click', t7_addEspessura);
   document.getElementById('cfg_btnAddPiso').addEventListener('click', t7_addPiso);
+  document.getElementById('cfg_btnAddEmbalagem').addEventListener('click', () => t7_tabelaGenerica.embalagens.add());
+  document.getElementById('cfg_btnAddProtecaoPorta').addEventListener('click', () => t7_tabelaGenerica.protecaoPorta.add());
   document.getElementById('cfg_btnAddInsolacao').addEventListener('click', () => t7_tabelaGenerica.insolacao.add());
   document.getElementById('cfg_btnAddAmbienteLuminotecnico').addEventListener('click', () => t7_tabelaGenerica.ambientesLuminotecnico.add());
   document.getElementById('cfg_btnAddLampada').addEventListener('click', () => t7_tabelaGenerica.lampadas.add());
   document.getElementById('cfg_btnAddTabela02').addEventListener('click', () => t7_tabelaGenerica.tabela02.add());
   document.getElementById('cfg_btnSalvarTabela02Faixas').addEventListener('click', t7_salvarTabela02Faixas);
   document.getElementById('cfg_btnAddFaixaTabela02').addEventListener('click', t7_addFaixaTabela02);
+  document.getElementById('cfg_btnAddClasseEvapUR').addEventListener('click', () => t7_tabelaGenerica.classesEvapUR.add());
   document.getElementById('cfg_btnAddEquipamento').addEventListener('click', () => t7_tabelaGenerica.equipamentos.add());
   document.getElementById('cfg_btnAddProduto').addEventListener('click', () => t7_tabelaGenerica.produtos.add());
   document.getElementById('cfg_btnAddIdComercial').addEventListener('click', () => t7_arvoreIdsComerciais.addNivel1());
@@ -299,6 +302,12 @@ const t7_paineisPortasMatriz = (function () {
 })();
 
 const t7_tabelaGenerica = {
+  embalagens: t7_criarTabelaGenerica('cfg_embalagens', '/api/catalogos/tipos-embalagem',
+    [{ key: 'nome', label: 'Nome', width: 200 }, { key: 'calor_especifico', label: 'Calor Específico (kcal/kg.°C)', tipo: 'number', width: 120 }],
+    { nome: 'Nova embalagem', calor_especifico: 0 }),
+  protecaoPorta: t7_criarTabelaGenerica('cfg_protecaoPorta', '/api/catalogos/tipos-protecao-porta',
+    [{ key: 'nome', label: 'Nome', width: 200 }, { key: 'efetividade', label: 'Efetividade (E)', tipo: 'number', width: 100 }, { key: 'tempo_passagem_s', label: 'Tempo Passagem (s)', tipo: 'number', width: 120 }],
+    { nome: 'Nova proteção', efetividade: 0, tempo_passagem_s: 20 }),
   insolacao: t7_criarTabelaGenerica('cfg_fatorInsolacao', '/api/catalogos/fator-insolacao',
     [{ key: 'orientacao', label: 'Orientação', width: 260 }, { key: 'fator', label: 'Fator', tipo: 'number', width: 80 }],
     { orientacao: 'Nova orientação', fator: 1.0 }),
@@ -317,6 +326,14 @@ const t7_tabelaGenerica = {
   tabela02: t7_criarTabelaGenerica('cfg_tabela02', '/api/catalogos/tabela-tipo02',
     [{ key: 'tipo', label: 'Tipo de Produto', width: 320 }, { key: 'temp_interna_default', label: 'Temp. Interna Default (°C)', tipo: 'number', width: 90 }],
     { tipo: 'Novo tipo', temp_interna_default: 0 }),
+  classesEvapUR: t7_criarTabelaGenerica('cfg_classesEvapUR', '/api/catalogos/classes-produto',
+    [{ key: 'classe', label: 'Classe', tipo: 'number', width: 60 },
+     { key: 'dt_evap_min', label: 'ΔT Evap. Mín (°C)', tipo: 'number', width: 90 },
+     { key: 'dt_evap_max', label: 'ΔT Evap. Máx (°C)', tipo: 'number', width: 90 },
+     { key: 'ur_min', label: 'UR Mín (%)', tipo: 'number', width: 80 },
+     { key: 'ur_max', label: 'UR Máx (%)', tipo: 'number', width: 80 },
+     { key: 'aplicacao', label: 'Aplicação', width: 240 }],
+    { classe: 0, dt_evap_min: 0, dt_evap_max: 0, ur_min: 0, ur_max: 0, aplicacao: '' }),
   equipamentos: t7_criarTabelaGenerica('cfg_equipamentos', '/api/catalogos/tipos-equipamento',
     [{ key: 'nome', label: 'Nome', width: 280 }, { key: 'potencia_tipica_w', label: 'Potência Típica (W)', tipo: 'number', width: 90 },
      { key: 'fator_calor_rejeitado', label: 'Fator Calor Rejeitado (0-1)', tipo: 'number', width: 90 },
@@ -913,11 +930,14 @@ async function t7_carregar() {
   await t7_carregarCentroCusto();
   await t7_carregarIsolamentoParedeTeto();
   await t7_carregarIsolamentoPiso();
+  await t7_tabelaGenerica.embalagens.carregar();
+  await t7_tabelaGenerica.protecaoPorta.carregar();
   await t7_tabelaGenerica.insolacao.carregar();
   await t7_tabelaGenerica.ambientesLuminotecnico.carregar();
   await t7_tabelaGenerica.lampadas.carregar();
   await t7_tabelaGenerica.tabela02.carregar();
   await t7_carregarTabela02Faixas();
+  await t7_tabelaGenerica.classesEvapUR.carregar();
   await t7_tabelaGenerica.equipamentos.carregar();
   await t7_tabelaGenerica.produtos.carregar();
   await t7_tabelaGenerica.paineisPortasLookup.carregar();
