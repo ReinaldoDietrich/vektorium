@@ -359,20 +359,16 @@ def proximo_sequencial_sob(db: Session, model_cls, id_pai: str, nome_item: str |
 
 
 def resolver_no_modelo(db: Session, ancora: str, nome_modelo: str) -> str:
-    """Acha (ou cria) o nó-filho de `ancora` na árvore de Ids Comerciais cujo nome bate com o
-    Modelo do cadastro (Catálogo Comercial — Tela D), case-insensitive. Mesmo padrão de
-    gerar_proximo_id_catalogo (Forçador/UC/Condensador): cada produto distinto ganha seu próprio
-    Id, em vez de vários produtos dividirem o Id de categoria/fabricante escolhido no seletor —
-    sem isso o Memorial não tinha como saber qual dos N produtos daquele Id puxar (aprovado
-    2026-08-06). Reaproveita o nó se já existir (Salvar de novo sem mudar nada não duplica)."""
-    filhos = db.query(m.IdComercial).filter(m.IdComercial.codigo.like(f"{ancora}.%")).all()
-    profundidade_alvo = ancora.count(".") + 2
-    diretos = [f for f in filhos if f.codigo.count(".") + 1 == profundidade_alvo]
+    """Acha (ou cria) nó na subárvore de `ancora` cujo nome bate com o modelo, case-insensitive.
+    Busca em TODA a subárvore (qualquer profundidade) — a árvore é dinâmica e o usuário pode
+    reorganizá-la livremente. Se não encontrar, cria como filho direto da âncora."""
+    descendentes = db.query(m.IdComercial).filter(m.IdComercial.codigo.like(f"{ancora}.%")).all()
     nome_norm = (nome_modelo or "").strip().lower()
-    existente = next((f for f in diretos if f.nome.strip().lower() == nome_norm), None)
+    existente = next((d for d in descendentes if d.nome.strip().lower() == nome_norm), None)
     if existente:
         return existente.codigo
-    nums = [int(f.codigo.rsplit(".", 1)[-1]) for f in diretos if f.codigo.rsplit(".", 1)[-1].isdigit()]
+    diretos = [d for d in descendentes if d.codigo.count(".") == ancora.count(".") + 1]
+    nums = [int(d.codigo.rsplit(".", 1)[-1]) for d in diretos if d.codigo.rsplit(".", 1)[-1].isdigit()]
     novo_codigo = f"{ancora}.{(max(nums) if nums else 0) + 1}"
     db.add(m.IdComercial(codigo=novo_codigo, nome=nome_modelo.strip(), ordem=0, origem_automatica=True))
     return novo_codigo
@@ -518,4 +514,4 @@ def montar_memorial_projeto(db: Session, projeto_id: int) -> dict:
                           "fabricante": linha.fabricante.nome if linha.fabricante else None, "nome": linha.nome,
                           "descricao_comercial": linha.descricao_comercial, "imagem_path": linha.imagem_path})
 
-    return {"ids_resolvidos": sorted(ids, key=chave_codigo), "itens": itens}
+    return {"ids_resolvidos": sorted(ids_expandidos, key=chave_codigo), "itens": itens}

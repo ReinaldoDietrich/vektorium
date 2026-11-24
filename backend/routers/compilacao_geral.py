@@ -356,7 +356,7 @@ def _bloco_rack_uc(db, sistema, carga_requerida, camaras_out, fator_qtd_gas=1.0)
         "estrutura_equipamento": idc.nome_por_codigo(db, sistema.estrutura_compressao),
         "gas_refrigerante": sistema.gas_refrigerante,
         "temp_linha_liquido": sistema.temp_apos_subresfriamento or sistema.temp_apos_condensador,
-        "tanque_liquido_l": None, "carga_gas_estimada_kg": None,
+        "tanque_liquido_l": None, "carga_gas_estimada_kg": _carga_gas_estimada_sistema(camaras_out, None, fator_qtd_gas),
         "tipo_partida": idc.nome_por_codigo(db, sistema.partida), "folga_tecnica_pct": folga,
         "delta_condensacao": sistema.delta_condensacao if sistema.delta_condensacao is not None else 10,
         "temp_condensacao": round(projeto.temp_ambiente + (sistema.delta_condensacao if sistema.delta_condensacao is not None else 10), 1)
