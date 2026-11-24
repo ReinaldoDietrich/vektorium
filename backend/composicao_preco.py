@@ -247,6 +247,63 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
     db.commit()
 
 
+def _nunca_reduzir(atual, calculado):
+    """Retorna True se deve sobrescrever: atual é 0/None OU calculado > atual."""
+    if not atual:
+        return True
+    if calculado is not None and calculado > atual:
+        return True
+    return False
+
+
+def _avaliar_formula(formula: str, totais_por_cc: dict):
+    """Avalia fórmula SUM(cc1,cc2,...) OP valor. Um único operador."""
+    if not formula or not formula.strip():
+        return None
+    formula = formula.strip()
+    m_full = re.match(r'SUM\(([^)]+)\)\s*([+\-*/])\s*([0-9.,]+)$', formula, re.I)
+    if m_full:
+        ccs = [c.strip() for c in m_full.group(1).split(',')]
+        operador = m_full.group(2)
+        valor = float(m_full.group(3).replace(',', '.'))
+        soma = sum(totais_por_cc.get(cc, 0) for cc in ccs)
+        if operador == '+': return soma + valor
+        if operador == '-': return soma - valor
+        if operador == '*': return soma * valor
+        if operador == '/': return soma / valor if valor != 0 else None
+        return None
+    m_sum = re.match(r'SUM\(([^)]+)\)$', formula.strip(), re.I)
+    if m_sum:
+        ccs = [c.strip() for c in m_sum.group(1).split(',')]
+        return sum(totais_por_cc.get(cc, 0) for cc in ccs)
+    return None
+
+
+def _avaliar_formulas_composicao(db: Session, projeto_id: int):
+    """Avalia fórmulas dos itens default e aplica com regra nunca reduzir."""
+    itens = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id).all()
+    totais_por_cc = {}
+    for it in itens:
+        if it.centro_custo_id and it.incluir_orcamento:
+            cc = db.get(m.CentroCusto, it.centro_custo_id)
+            if cc:
+                totais_por_cc[cc.codigo] = totais_por_cc.get(cc.codigo, 0) + (it.quantidade or 0) * (it.custo_unitario or 0)
+    defaults = [it for it in itens if it.origem == "default"]
+    for it in defaults:
+        mestre = db.query(m.ItemComposicaoMestre).filter_by(descricao=it.descricao, bloco=it.bloco).first()
+        if not mestre:
+            continue
+        if mestre.formula_quantidade:
+            calc = _avaliar_formula(mestre.formula_quantidade, totais_por_cc)
+            if calc is not None and _nunca_reduzir(it.quantidade, calc):
+                it.quantidade = round(calc, 4)
+        if mestre.formula_custo:
+            calc = _avaliar_formula(mestre.formula_custo, totais_por_cc)
+            if calc is not None and _nunca_reduzir(it.custo_unitario, calc):
+                it.custo_unitario = round(calc, 2)
+    db.commit()
+
+
 def sincronizar_gas(db: Session, projeto_id: int):
     """Sincroniza Gás Refrigerante no bloco "Materiais Mecânicos" com origem "default"
     (quantidade editável pelo usuário). Agrupado por tipo de gás, não por sistema."""
@@ -263,7 +320,7 @@ def sincronizar_gas(db: Session, projeto_id: int):
         chave = eq.get("chave") or eq["descricao"]
         chaves_atuais.add(chave)
         if chave in existentes:
-            if not existentes[chave].quantidade or not eq["quantidade"]:
+            if _nunca_reduzir(existentes[chave].quantidade, eq["quantidade"]):
                 existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].descricao = eq["descricao"]
             existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
@@ -529,7 +586,8 @@ def restaurar_padroes(db: Session, projeto_id: int, bloco: str | None = None):
             ordem = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id, bloco=it.bloco).count()
         db.add(m.ComposicaoPrecoItem(
             projeto_id=projeto_id, bloco=it.bloco, descricao=it.descricao,
-            quantidade=1, custo_unitario=it.custo_unitario_padrao or 0,
+            quantidade=it.quantidade_padrao if it.quantidade_padrao else 1,
+            custo_unitario=it.custo_unitario_padrao or 0,
             unidade=it.unidade,
             fator_id=it.fator_id, centro_custo_id=cc_id,
             origem="default", chave_sistema=None, ordem=ordem))
@@ -663,6 +721,7 @@ def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) ->
         sincronizar_paineis_portas(db, projeto_id)
         sincronizar_luminarias(db, projeto_id)
         sincronizar_comissoes_indicacao(db, projeto_id)
+        _avaliar_formulas_composicao(db, projeto_id)
     for item in (db.query(m.ComposicaoPrecoItem)
                  .filter_by(projeto_id=projeto_id, origem="default")
                  .filter(m.ComposicaoPrecoItem.unidade.is_(None)).all()):

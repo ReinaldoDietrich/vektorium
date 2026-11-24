@@ -1754,6 +1754,9 @@ class ItemComposicaoMestre(Base):
     fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
     custo_unitario_padrao = Column(Float, default=0)
     unidade = Column(String, nullable=True)
+    quantidade_padrao = Column(Float, default=1)
+    formula_quantidade = Column(String, nullable=True)
+    formula_custo = Column(String, nullable=True)
     ordem = Column(Integer, default=0)
 
     centro_custo = relationship("CentroCusto")
