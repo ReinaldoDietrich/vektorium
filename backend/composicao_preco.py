@@ -280,25 +280,29 @@ def _avaliar_formula(formula: str, totais_por_cc: dict):
 
 
 def _avaliar_formulas_composicao(db: Session, projeto_id: int):
-    """Avalia fórmulas dos itens default e aplica com regra nunca reduzir."""
+    """Avalia fórmulas dos itens default e aplica com regra nunca reduzir.
+    formula_quantidade: SUM soma QUANTIDADES dos itens por CC.
+    formula_custo: SUM soma CUSTO TOTAL (qtd × custo) dos itens por CC."""
     itens = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id).all()
-    totais_por_cc = {}
+    qtd_por_cc = {}
+    custo_por_cc = {}
     for it in itens:
         if it.centro_custo_id and it.incluir_orcamento:
             cc = db.get(m.CentroCusto, it.centro_custo_id)
             if cc:
-                totais_por_cc[cc.codigo] = totais_por_cc.get(cc.codigo, 0) + (it.quantidade or 0) * (it.custo_unitario or 0)
+                qtd_por_cc[cc.codigo] = qtd_por_cc.get(cc.codigo, 0) + (it.quantidade or 0)
+                custo_por_cc[cc.codigo] = custo_por_cc.get(cc.codigo, 0) + (it.quantidade or 0) * (it.custo_unitario or 0)
     defaults = [it for it in itens if it.origem == "default"]
     for it in defaults:
         mestre = db.query(m.ItemComposicaoMestre).filter_by(descricao=it.descricao, bloco=it.bloco).first()
         if not mestre:
             continue
         if mestre.formula_quantidade:
-            calc = _avaliar_formula(mestre.formula_quantidade, totais_por_cc)
+            calc = _avaliar_formula(mestre.formula_quantidade, qtd_por_cc)
             if calc is not None and _nunca_reduzir(it.quantidade, calc):
                 it.quantidade = round(calc, 4)
         if mestre.formula_custo:
-            calc = _avaliar_formula(mestre.formula_custo, totais_por_cc)
+            calc = _avaliar_formula(mestre.formula_custo, custo_por_cc)
             if calc is not None and _nunca_reduzir(it.custo_unitario, calc):
                 it.custo_unitario = round(calc, 2)
     db.commit()
