@@ -173,7 +173,7 @@
       const vence = u.assinatura_vence_em || '—';
       const isTrial = status.toLowerCase() === 'trial' || status.toLowerCase() === 'teste';
 
-      let acoes = `<button class="btn-text" onclick="window._t20_editarUsuario('${u.id}','${(u.email||'').replace(/'/g,"\\'")}','${(u.nome||'').replace(/'/g,"\\'")}','${u.papel}','${vence !== '—' ? vence : ''}')">Editar</button>`;
+      let acoes = `<button class="btn-text" onclick="window._t20_editarUsuario('${u.id}','${(u.email||'').replace(/'/g,"\\'")}','${(u.nome||'').replace(/'/g,"\\'")}','${u.papel}','${vence !== '—' ? vence : ''}','${plano !== '—' ? plano : ''}')">Editar</button>`;
       if (isTrial) {
         acoes += ` <button class="btn-text ok" onclick="window._t20_concederVitalicia('${u.id}','${(u.email||'').replace(/'/g,"\\'")}')">Vitalícia</button>`;
       }
@@ -226,18 +226,21 @@
     });
   };
 
-  window._t20_editarUsuario = function (uid, email, nome, papel, venceEm) {
+  window._t20_editarUsuario = function (uid, email, nome, papel, venceEm, planoAtual) {
     vkPrompt('Editar Usuário — ' + email, [
       {label: 'Nome', name: 'nome', valor: nome},
       {label: 'Tipo', name: 'papel', valor: papel},
+      {label: 'Plano (mensal, anual, vitalicio)', name: 'plano', valor: planoAtual || ''},
       {label: 'Vencimento (vazio = sem vencimento)', name: 'vence_em', tipo: 'date', valor: venceEm || ''}
     ], async (v) => {
       const novoNome = (v.nome || '').trim();
       const novoPapel = (v.papel || '').trim();
+      const novoPlano = (v.plano || '').trim();
       const novoVence = (v.vence_em || '').trim();
       const body = {};
       if (novoNome) body.nome = novoNome;
       if (novoPapel) body.papel = novoPapel;
+      if (novoPlano) body.plano = novoPlano;
       body.vence_em = novoVence || null;
       try {
         await api.put(`/api/admin/usuarios/${uid}`, body);

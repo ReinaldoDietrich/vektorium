@@ -1,5 +1,5 @@
-"""Router de administração — roda SOMENTE no Fly.io (main_calc.py).
-Endpoints protegidos por JWT + verificação de papel=master no Postgres.
+"""Router de administração — roda no backend local (main.py) e no Fly.io (main_calc.py).
+Endpoints protegidos por JWT + verificação de papel=master no Postgres do Supabase.
 Usa SQL direto (text()) porque as tabelas de gestão (usuarios, assinaturas, dispositivos,
 permissoes_por_papel, logs_admin) existem apenas no Postgres, não no SQLite local.
 CRUD de usuários via Supabase Auth Admin API (service_role key)."""
@@ -7,7 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from ..database import get_db
+from ..database_admin import get_admin_db
 from ..auth_supabase import exigir_usuario, exigir_jwt, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -17,7 +17,7 @@ def _uid(payload: dict) -> str:
     return payload.get("sub", "")
 
 
-def _exigir_master(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_db)) -> dict:
+def _exigir_master(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_admin_db)) -> dict:
     uid = _uid(payload)
     row = db.execute(text(
         "SELECT p.is_admin FROM usuarios u "
@@ -52,7 +52,7 @@ def _admin_headers():
 # ---------------------------------------------------------------------------
 
 @router.get("/licenca/status")
-def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(get_db)):
+def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(get_admin_db)):
     uid = _uid(payload)
     row = db.execute(text(
         "SELECT status, plano, vence_em FROM assinaturas WHERE usuario_id = :uid LIMIT 1"
@@ -62,7 +62,7 @@ def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(ge
     status, plano, vence_em = row[0], row[1], row[2]
     ativa = status in ("active",)
     motivo = None if ativa else status
-    if ativa and plano != "vitalicio" and vence_em:
+    if ativa and vence_em:
         from datetime import date
         hoje = date.today()
         d = vence_em if isinstance(vence_em, date) else date.fromisoformat(str(vence_em)[:10])
@@ -79,7 +79,7 @@ def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(ge
 # ---------------------------------------------------------------------------
 
 @router.get("/meu-perfil")
-def meu_perfil(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_db)):
+def meu_perfil(payload: dict = Depends(exigir_usuario), db: Session = Depends(get_admin_db)):
     uid = _uid(payload)
     u = db.execute(text(
         "SELECT id, email, nome, papel, criado_em FROM usuarios WHERE id = :uid"
@@ -107,7 +107,7 @@ def meu_perfil(payload: dict = Depends(exigir_usuario), db: Session = Depends(ge
 # ---------------------------------------------------------------------------
 
 @router.get("/minhas-permissoes")
-def minhas_permissoes(payload: dict = Depends(exigir_jwt), db: Session = Depends(get_db)):
+def minhas_permissoes(payload: dict = Depends(exigir_jwt), db: Session = Depends(get_admin_db)):
     uid = _uid(payload)
     u = db.execute(text("SELECT papel FROM usuarios WHERE id = :uid"), {"uid": uid}).fetchone()
     if not u:
@@ -132,7 +132,7 @@ def minhas_permissoes(payload: dict = Depends(exigir_jwt), db: Session = Depends
 # ---------------------------------------------------------------------------
 
 @router.get("/usuarios")
-def listar_usuarios(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_usuarios(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT u.id, u.email, u.nome, u.papel, u.criado_em, "
         "a.status, a.plano, a.vence_em "
@@ -147,7 +147,7 @@ def listar_usuarios(payload: dict = Depends(_exigir_master), db: Session = Depen
 
 @router.post("/usuarios")
 def criar_usuario(payload_body: dict = Body(...),
-                  payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+                  payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     email = payload_body.get("email", "").strip().lower()
     senha = payload_body.get("senha", "").strip()
     nome = payload_body.get("nome", "").strip()
@@ -174,7 +174,7 @@ def criar_usuario(payload_body: dict = Body(...),
         "ON CONFLICT (id) DO UPDATE SET email=EXCLUDED.email, nome=EXCLUDED.nome, papel=EXCLUDED.papel"
     ), {"id": uid, "email": email, "nome": nome, "papel": papel})
     db.execute(text(
-        "INSERT INTO assinaturas (usuario_id, status, plano) VALUES (:uid, 'active', 'vitalicio')"
+        "INSERT INTO assinaturas (usuario_id, status, plano) VALUES (:uid, 'active', 'mensal')"
     ), {"uid": uid})
     db.commit()
     _log_admin(db, _uid(payload), "criar_usuario", f"{email} (papel={papel})")
@@ -183,9 +183,10 @@ def criar_usuario(payload_body: dict = Body(...),
 
 @router.put("/usuarios/{uid}")
 def editar_usuario(uid: str, payload_body: dict = Body(...),
-                   payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+                   payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     nome = payload_body.get("nome")
     papel = payload_body.get("papel")
+    plano = payload_body.get("plano")
     updates = []
     params = {"uid": uid}
     if nome is not None:
@@ -200,25 +201,35 @@ def editar_usuario(uid: str, payload_body: dict = Body(...),
         params["papel"] = papel
     vence_em_raw = payload_body.get("vence_em", "__ausente__")
     tem_vence = vence_em_raw != "__ausente__"
-    if not updates and not tem_vence:
+    tem_plano = plano is not None
+    if not updates and not tem_vence and not tem_plano:
         raise HTTPException(400, "Nenhum campo para atualizar")
     if updates:
         result = db.execute(text(f"UPDATE usuarios SET {', '.join(updates)} WHERE id = :uid"), params)
         if result.rowcount == 0:
             raise HTTPException(404, "Usuário não encontrado")
+    ass_updates = []
+    ass_params = {"uid": uid}
     if tem_vence:
         vence_val = vence_em_raw if vence_em_raw else None
+        ass_updates.append("vence_em = :v")
+        ass_params["v"] = vence_val
+    if tem_plano:
+        ass_updates.append("plano = :plano")
+        ass_params["plano"] = plano.strip()
+    if ass_updates:
+        ass_updates.append("atualizado_em = NOW()")
         db.execute(text(
-            "UPDATE assinaturas SET vence_em = :v, atualizado_em = NOW() WHERE usuario_id = :uid"
-        ), {"v": vence_val, "uid": uid})
+            f"UPDATE assinaturas SET {', '.join(ass_updates)} WHERE usuario_id = :uid"
+        ), ass_params)
     db.commit()
-    _log_admin(db, _uid(payload), "editar_usuario", f"uid={uid} {', '.join(updates)}{' vence_em=' + str(vence_em_raw) if tem_vence else ''}")
+    _log_admin(db, _uid(payload), "editar_usuario", f"uid={uid} {', '.join(updates)}{' vence_em=' + str(vence_em_raw) if tem_vence else ''}{' plano=' + str(plano) if tem_plano else ''}")
     return {"ok": True, "uid": uid}
 
 
 @router.delete("/usuarios/{uid}")
 def excluir_usuario(uid: str, payload: dict = Depends(_exigir_master),
-                    db: Session = Depends(get_db)):
+                    db: Session = Depends(get_admin_db)):
     master_uid = _uid(payload)
     if uid == master_uid:
         raise HTTPException(400, "Não é possível excluir a si mesmo")
@@ -245,7 +256,7 @@ def excluir_usuario(uid: str, payload: dict = Depends(_exigir_master),
 
 @router.put("/usuarios/{uid}/papel")
 def alterar_papel(uid: str, payload_body: dict = Body(...),
-                  payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+                  payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     novo_papel = payload_body.get("papel", "").strip()
     existe = db.execute(text("SELECT 1 FROM papeis WHERE nome = :nome"), {"nome": novo_papel}).fetchone()
     if not existe:
@@ -264,7 +275,7 @@ def alterar_papel(uid: str, payload_body: dict = Body(...),
 # ---------------------------------------------------------------------------
 
 @router.get("/assinaturas")
-def listar_assinaturas(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_assinaturas(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT a.id, a.usuario_id, u.email, u.nome, a.status, a.plano, "
         "a.iugu_subscription_id, a.vence_em, a.criado_em, a.atualizado_em "
@@ -280,7 +291,7 @@ def listar_assinaturas(payload: dict = Depends(_exigir_master), db: Session = De
 
 @router.post("/assinaturas/{uid}/conceder-vitalicia")
 def conceder_vitalicia(uid: str, payload: dict = Depends(_exigir_master),
-                       db: Session = Depends(get_db)):
+                       db: Session = Depends(get_admin_db)):
     check = db.execute(text("SELECT id FROM usuarios WHERE id = :uid"), {"uid": uid}).fetchone()
     if not check:
         raise HTTPException(404, "Usuário não encontrado")
@@ -301,7 +312,7 @@ def conceder_vitalicia(uid: str, payload: dict = Depends(_exigir_master),
 
 @router.post("/assinaturas/{uid}/revogar")
 def revogar_assinatura(uid: str, payload: dict = Depends(_exigir_master),
-                       db: Session = Depends(get_db)):
+                       db: Session = Depends(get_admin_db)):
     result = db.execute(text(
         "UPDATE assinaturas SET status='canceled', atualizado_em=NOW() "
         "WHERE usuario_id = :uid"), {"uid": uid})
@@ -317,7 +328,7 @@ def revogar_assinatura(uid: str, payload: dict = Depends(_exigir_master),
 # ---------------------------------------------------------------------------
 
 @router.get("/dispositivos")
-def listar_dispositivos(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_dispositivos(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT d.id, d.usuario_id, u.email, d.fingerprint, d.ultimo_acesso, d.ativo "
         "FROM dispositivos d JOIN usuarios u ON u.id = d.usuario_id "
@@ -329,7 +340,7 @@ def listar_dispositivos(payload: dict = Depends(_exigir_master), db: Session = D
 
 @router.put("/dispositivos/{did}/ativar")
 def ativar_dispositivo(did: int, payload: dict = Depends(_exigir_master),
-                       db: Session = Depends(get_db)):
+                       db: Session = Depends(get_admin_db)):
     result = db.execute(text("UPDATE dispositivos SET ativo=TRUE WHERE id = :did"), {"did": did})
     db.commit()
     if result.rowcount == 0:
@@ -340,7 +351,7 @@ def ativar_dispositivo(did: int, payload: dict = Depends(_exigir_master),
 
 @router.put("/dispositivos/{did}/desativar")
 def desativar_dispositivo(did: int, payload: dict = Depends(_exigir_master),
-                          db: Session = Depends(get_db)):
+                          db: Session = Depends(get_admin_db)):
     result = db.execute(text("UPDATE dispositivos SET ativo=FALSE WHERE id = :did"), {"did": did})
     db.commit()
     if result.rowcount == 0:
@@ -354,7 +365,7 @@ def desativar_dispositivo(did: int, payload: dict = Depends(_exigir_master),
 # ---------------------------------------------------------------------------
 
 @router.get("/permissoes")
-def listar_permissoes(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_permissoes(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT papel, modulo, ver, editar FROM permissoes_por_papel ORDER BY papel, modulo"
     )).fetchall()
@@ -364,7 +375,7 @@ def listar_permissoes(payload: dict = Depends(_exigir_master), db: Session = Dep
 @router.put("/permissoes")
 def atualizar_permissoes(payload_body: dict = Body(...),
                          payload: dict = Depends(_exigir_master),
-                         db: Session = Depends(get_db)):
+                         db: Session = Depends(get_admin_db)):
     itens = payload_body.get("permissoes", [])
     for item in itens:
         papel = item.get("papel", "").strip()
@@ -387,7 +398,7 @@ def atualizar_permissoes(payload_body: dict = Body(...),
 # ---------------------------------------------------------------------------
 
 @router.get("/papeis")
-def listar_papeis(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_papeis(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT id, nome, descricao, is_admin, criado_em FROM papeis ORDER BY id"
     )).fetchall()
@@ -397,7 +408,7 @@ def listar_papeis(payload: dict = Depends(_exigir_master), db: Session = Depends
 
 @router.post("/papeis")
 def criar_papel(payload_body: dict = Body(...),
-                payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+                payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     nome = payload_body.get("nome", "").strip().lower()
     descricao = payload_body.get("descricao", "").strip()
     is_admin = bool(payload_body.get("is_admin", False))
@@ -419,7 +430,7 @@ def criar_papel(payload_body: dict = Body(...),
 
 @router.put("/papeis/{papel_id}")
 def editar_papel(papel_id: int, payload_body: dict = Body(...),
-                 payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+                 payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     nome = payload_body.get("nome", "").strip().lower()
     descricao = payload_body.get("descricao", "").strip()
     is_admin = bool(payload_body.get("is_admin", False))
@@ -448,7 +459,7 @@ def editar_papel(papel_id: int, payload_body: dict = Body(...),
 
 @router.delete("/papeis/{papel_id}")
 def excluir_papel(papel_id: int, payload: dict = Depends(_exigir_master),
-                  db: Session = Depends(get_db)):
+                  db: Session = Depends(get_admin_db)):
     row = db.execute(text("SELECT nome FROM papeis WHERE id = :id"), {"id": papel_id}).fetchone()
     if not row:
         raise HTTPException(404, "Tipo não encontrado")
@@ -470,7 +481,7 @@ def excluir_papel(papel_id: int, payload: dict = Depends(_exigir_master),
 # ---------------------------------------------------------------------------
 
 @router.get("/logs")
-def listar_logs(payload: dict = Depends(_exigir_master), db: Session = Depends(get_db)):
+def listar_logs(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):
     rows = db.execute(text(
         "SELECT l.id, l.usuario_id, u.email, l.acao, l.detalhes, l.criado_em "
         "FROM logs_admin l LEFT JOIN usuarios u ON u.id = l.usuario_id "
@@ -486,7 +497,7 @@ def listar_logs(payload: dict = Depends(_exigir_master), db: Session = Depends(g
 # ---------------------------------------------------------------------------
 
 @router.post("/iugu/webhook")
-def iugu_webhook(payload_body: dict = Body(...), db: Session = Depends(get_db)):
+def iugu_webhook(payload_body: dict = Body(...), db: Session = Depends(get_admin_db)):
     evento = payload_body.get("event", "")
     iugu_sub_id = payload_body.get("data", {}).get("id", "")
     if not iugu_sub_id:

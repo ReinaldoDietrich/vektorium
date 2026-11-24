@@ -6,7 +6,7 @@ import jwt
 from fastapi import Header, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from .database import get_db
+from .database_admin import get_admin_db
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -27,7 +27,7 @@ def exigir_jwt(authorization: str = Header(None)) -> dict:
     return payload
 
 
-def exigir_usuario(authorization: str = Header(None), db: Session = Depends(get_db)) -> dict:
+def exigir_usuario(authorization: str = Header(None), db: Session = Depends(get_admin_db)) -> dict:
     """Valida JWT + verifica assinatura ativa na tabela `assinaturas` do Postgres.
     Sem token → 401. Token válido mas assinatura inativa → 403. Retorna payload do JWT."""
     payload = exigir_jwt(authorization)

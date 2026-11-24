@@ -26,15 +26,12 @@ function _authHeader() {
 const REMOTE_API = 'https://vektorium-calc.fly.dev';
 
 const _PREFIXOS_REMOTOS = [
-  '/api/admin',
 ];
 
 const _ESCRITA_SEM_FALLBACK = [
-  '/api/admin',
 ];
 
 const _LEITURA_SEM_FALLBACK = [
-  '/api/admin',
 ];
 
 async function _base(path) {

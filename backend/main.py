@@ -17,6 +17,7 @@ from . import seed
 from .calc_service import definir_token_usuario
 from .admin import registrar
 from .routers import projetos, catalogos, camaras_completo, camaras_simples, expositores, compilacao, forcadores, importacao, unidades_condensadoras, consumo, paineis_portas, catalogo_comercial, valvulas_import, valvulas_expansao, rack_paralelo, compilacao_geral, rack_import, polinomios_compressor, condensadores_remotos, tela10, composicao_preco, materiais_import, campos_sistema, luminotecnico, comparativo_revisoes, proposta_comercial, catalogo_sync, cloud_projetos, workspace
+from .routers import admin as admin_router
 
 _log = logging.getLogger(__name__)
 
@@ -32,27 +33,54 @@ _LICENCA_TTL = 3600
 
 
 def _verificar_licenca_remota(token: str | None) -> dict:
-    """Consulta /api/admin/licenca/status no Fly.io. Retorna dict com 'ativa' bool."""
+    """Consulta assinaturas direto no Supabase Postgres via POSTGRES_URL."""
     global _licenca_cache, _licenca_ts
     agora = time.time()
     if _licenca_cache and (agora - _licenca_ts) < _LICENCA_TTL:
         return _licenca_cache
     if not token:
         return _licenca_cache or {"ativa": True}
-    import httpx
-    api_url = (os.environ.get("VEKTORIUM_API_URL") or "").rstrip("/")
-    if not api_url:
-        return _licenca_cache or {"ativa": True}
     try:
-        r = httpx.get(f"{api_url}/api/admin/licenca/status",
-                      headers={"Authorization": f"Bearer {token}"},
-                      timeout=httpx.Timeout(5.0, connect=2.0))
-        if r.status_code == 200:
-            _licenca_cache = r.json()
+        import jwt as _jwt
+        payload = _jwt.decode(token, options={"verify_signature": False},
+                              algorithms=["ES256", "RS256"])
+        uid = payload.get("sub")
+        if not uid:
+            return _licenca_cache or {"ativa": True}
+        from .database_admin import admin_session
+        db = admin_session()
+        if not db:
+            return _licenca_cache or {"ativa": True}
+        try:
+            from sqlalchemy import text
+            row = db.execute(text(
+                "SELECT status, plano, vence_em FROM assinaturas "
+                "WHERE usuario_id = :uid LIMIT 1"
+            ), {"uid": uid}).fetchone()
+            if not row:
+                resultado = {"ativa": False, "plano": None, "vence_em": None,
+                             "motivo": "sem_assinatura"}
+            else:
+                status, plano, vence_em = row[0], row[1], row[2]
+                ativa = status == "active"
+                motivo = None if ativa else status
+                if ativa and vence_em:
+                    from datetime import date
+                    d = (vence_em if isinstance(vence_em, date)
+                         else date.fromisoformat(str(vence_em)[:10]))
+                    if d < date.today():
+                        ativa = False
+                        motivo = "vencida"
+                resultado = {"ativa": ativa, "plano": plano,
+                             "vence_em": str(vence_em) if vence_em else None,
+                             "motivo": motivo}
+            _licenca_cache = resultado
             _licenca_ts = agora
             return _licenca_cache
-    except Exception as e:
-        _log.debug("Verificação de licença falhou: %s", e)
+        finally:
+            db.close()
+    except Exception:
+        pass
     return _licenca_cache or {"ativa": True}
 
 
@@ -182,6 +210,7 @@ app.include_router(proposta_comercial.router)
 app.include_router(catalogo_sync.router)
 app.include_router(cloud_projetos.router)
 app.include_router(workspace.router)
+app.include_router(admin_router.router)
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
