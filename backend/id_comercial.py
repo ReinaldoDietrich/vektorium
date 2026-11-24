@@ -222,6 +222,17 @@ def remover_no_catalogo(db, codigo: str | None):
     db.delete(no)
 
 
+def gas_nome(db, valor: str):
+    """Traduz gas_refrigerante → nome para exibição/filtro.
+    Se `valor` parece código de árvore (contém '.'), traduz via nome_por_codigo.
+    Senão devolve como está (projeto antigo que salvou nome)."""
+    if not valor:
+        return None
+    if "." in valor:
+        return nome_por_codigo(db, valor) or valor
+    return valor
+
+
 def nome_por_codigo(db, codigo: str):
     """Nome ATUAL do nó da árvore pra um código salvo — usado só pra exibição/compatibilidade com
     dados de fora da árvore (catálogo de válvulas, textos de memorial), nunca pra decidir nada."""

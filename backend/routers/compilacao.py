@@ -14,6 +14,7 @@ from .expositores import _carga_termica as _carga_expositor, _modulacao, _codigo
 from .camaras_completo import _codigo as _codigo_completo
 from .camaras_simples import _codigo as _codigo_simples
 from . import _bloqueio_projeto as bp
+from .. import id_comercial as idc
 
 router = APIRouter(prefix="/api", tags=["compilacao"])
 
@@ -574,7 +575,7 @@ def _montar_itens_compilacao(db: Session, projeto_id: int, fator_potencia: float
             ilum_w = calc.get("potencia_total_iluminacao_w") if considerar_ilum else None
             itens.append({
                 "metodo": "completo", "sistema_id": s.id, "sistema_nome": s.nome,
-                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": s.gas_refrigerante,
+                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": idc.gas_nome(db, s.gas_refrigerante),
                 "linha_succao": c.linha_succao, "codigo": _codigo_completo(c), "nome": c.nome,
                 "modulacao_area": f"{round((c.largura or 0) * (c.comprimento or 0), 2):g}m²",
                 "carga_termica": calc["capacidade_requerida"],
@@ -600,7 +601,7 @@ def _montar_itens_compilacao(db: Session, projeto_id: int, fator_potencia: float
             ilum_w_simples = calc.get("potencia_ilum_w") if considerar_ilum else None
             itens.append({
                 "metodo": "simplificado", "sistema_id": s.id, "sistema_nome": s.nome,
-                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": s.gas_refrigerante,
+                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": idc.gas_nome(db, s.gas_refrigerante),
                 "linha_succao": c.linha_succao, "codigo": _codigo_simples(c), "nome": c.nome,
                 "modulacao_area": f"{round(c.area or 0, 2):g}m²",
                 "carga_termica": calc["capacidade_requerida"],
@@ -623,7 +624,7 @@ def _montar_itens_compilacao(db: Session, projeto_id: int, fator_potencia: float
             vent_w_expositor = e.modelo_expositor.carga_eletrica_w if e.modelo_expositor else None
             itens.append({
                 "metodo": "expositor", "sistema_id": s.id, "sistema_nome": s.nome,
-                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": s.gas_refrigerante,
+                "temp_evaporacao": s.temp_evaporacao, "gas_refrigerante": idc.gas_nome(db, s.gas_refrigerante),
                 "linha_succao": e.linha_succao, "codigo": _codigo_expositor(e),
                 "nome": e.modelo_expositor.nome if e.modelo_expositor else (e.nome or "—"),
                 "setor": e.setor.nome if e.setor else "—",
@@ -707,7 +708,8 @@ def exportar_compilacao_excel(projeto_id: int, fator_potencia: float = 0.92, col
     conteudo = gerar_excel_compilacao(projeto, sistemas, itens, resumo_sistemas, observacao,
                                        _colunas_resumo_selecionadas(colunas), resumo_compressao,
                                        _colunas_resumo_compressao_selecionadas(colunas_compressao), totais_gerais,
-                                       eh_qd, disjuntor_geral_quadro_linhas, disjuntor_geral_compressao)
+                                       eh_qd, disjuntor_geral_quadro_linhas, disjuntor_geral_compressao,
+                                       db=db)
     from ..utils import nome_arquivo_projeto
     return resposta_excel_projeto(conteudo, nome_arquivo_projeto(projeto, "Compilação de Linhas", "xlsx"), projeto)
 

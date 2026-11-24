@@ -86,7 +86,7 @@ async function t11_trocarSistema() {
     const sistema = state.sistemas.find(s => String(s.id) === String(sistemaId));
     document.getElementById('t11_tipoEquipamento').value = t1_nomePorCodigo(sistema.tipo_compressao) || '—';
     document.getElementById('t11_estrutura').value = t1_nomePorCodigo(sistema.estrutura_compressao) || '—';
-    document.getElementById('t11_gasRefrigerante').value = sistema.gas_refrigerante || '—';
+    document.getElementById('t11_gasRefrigerante').value = t1_gasNome(sistema.gas_refrigerante) || '—';
     document.getElementById('t11_tempLinhaLiquido').value = sistema.temp_apos_subresfriamento ?? sistema.temp_apos_condensador ?? '—';
     document.getElementById('t11_tipoPartida').value = t1_nomePorCodigo(sistema.partida) || '—';
     document.getElementById('t11_tipoOperacao').value = t1_nomePorCodigo(sistema.modo_operacao) || '—';

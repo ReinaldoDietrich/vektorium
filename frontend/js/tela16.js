@@ -136,7 +136,7 @@ function t16_render(dados) {
     corpoSist += t16_subheader(p.nome);
     const ss = p.items;
     corpoSist += t16_linha('Classificação', ss.map(s => s && s.classificacao));
-    corpoSist += t16_linha('Gás refrigerante', ss.map(s => s && s.gas_refrigerante));
+    corpoSist += t16_linha('Gás refrigerante', ss.map(s => s && t1_gasNome(s.gas_refrigerante)));
     corpoSist += t16_linha('Tipo de expansão', ss.map(s => s && t16_nomePorCodigo(s.tipo_expansao)));
     corpoSist += t16_linha('Temp. evaporação', ss.map(s => s && s.temp_evaporacao), v => v == null ? '—' : t16_fmt(v, ' °C'));
     corpoSist += t16_linha('Compressão', ss.map(s => s && t16_nomePorCodigo(s.tipo_compressao)));

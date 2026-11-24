@@ -21,6 +21,7 @@ from ..calc_puro_uc_rack import calcular_selecao_uc_de_dados
 
 from .. import campo_catalogo as cc
 from ..calc_puro_uc_rack import _normalizar_sistema
+from .. import id_comercial as idc
 from ..importacao.uc_import import (gerar_template_uc, montar_preview_uc, salvar_planilha_uc,
                                      salvar_unidades, montar_matriz_catalogo)
 from ..importacao.uc_docx_template import gerar_documento_importacao_uc
@@ -438,7 +439,7 @@ def _serializar_selecao_uc(db: Session, sistema_id: int, itens_precomputados: li
     return {
         "temp_ambiente": projeto.temp_ambiente if projeto else None,
         "temp_evaporacao": sistema.temp_evaporacao,
-        "gas_sistema": sistema.gas_refrigerante,
+        "gas_sistema": idc.gas_nome(db, sistema.gas_refrigerante),
         "tensao_equipamentos": projeto.tensao_equipamentos if projeto else None,
         "tensao_comando": projeto.tensao_comando if projeto else None,
         "carga_total": carga_total,

@@ -61,7 +61,7 @@ def opcoes(sistema_id: int, db: Session = Depends(get_db)):
     tipo_codigo = (sistema.tipo_expansao or "").strip()
     tipo = idc.nome_por_codigo(db, tipo_codigo) or tipo_codigo  # nome atual da árvore, resolvido fresco
     fabricante = (sistema.fabricante_valvula or "").strip()
-    gas = (sistema.gas_refrigerante or "").strip()
+    gas = (idc.gas_nome(db, sistema.gas_refrigerante) or "").strip()
 
     tipo_nomes_op = [tipo] if tipo else []
     if tipo:

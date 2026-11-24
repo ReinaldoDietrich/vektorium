@@ -5,6 +5,7 @@ QD (Quadro Distribuído), a "Alimentações Quadros (QD)"."""
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from .. import id_comercial as idc
 
 # 4º elemento = chave do disjuntor no dict de cada item (igual compilacao.py/tela5.js) — todas
 # as 5 cargas têm disjuntor calculado.
@@ -100,7 +101,7 @@ def _agrupar(itens):
     return grupos, gran_t, gran_e
 
 
-def _cabecalho_linhas(projeto, sistemas):
+def _cabecalho_linhas(projeto, sistemas, db=None):
     linhas = [
         ("Código Projeto", projeto.codigo_projeto or "—"),
         ("Data", projeto.data or "—"),
@@ -115,7 +116,7 @@ def _cabecalho_linhas(projeto, sistemas):
         ("Condição do Salão", projeto.condicao_salao or "—"),
     ]
     for s in sistemas:
-        detalhe = " · ".join(filter(None, [s.classificacao, s.gas_refrigerante, s.tipo_expansao,
+        detalhe = " · ".join(filter(None, [s.classificacao, idc.gas_nome(db, s.gas_refrigerante) if db else s.gas_refrigerante, s.tipo_expansao,
                                             f"{s.temp_evaporacao}°C evap." if s.temp_evaporacao is not None else None,
                                             s.tipo_automacao_linhas, s.automacao_linhas_fabricante]))
         linhas.append((f"Sistema: {s.nome}", detalhe or "—"))
@@ -157,7 +158,8 @@ def _autosize_colunas(ws, ncols, minimo=9, maximo=42):
 
 def gerar_excel_compilacao(projeto, sistemas, itens, resumo_sistemas=None, observacao=None, colunas_resumo=None,
                             resumo_compressao=None, colunas_resumo_compressao=None, totais_gerais=None,
-                            eh_qd=False, disjuntor_geral_quadro_linhas=None, disjuntor_geral_compressao=None) -> bytes:
+                            eh_qd=False, disjuntor_geral_quadro_linhas=None, disjuntor_geral_compressao=None,
+                            db=None) -> bytes:
     colunas_resumo = colunas_resumo or COLUNAS_RESUMO_DEFAULT
     colunas_resumo_compressao = colunas_resumo_compressao or COLUNAS_RESUMO_COMPRESSAO_DEFAULT
     wb = Workbook()
@@ -171,7 +173,7 @@ def gerar_excel_compilacao(projeto, sistemas, itens, resumo_sistemas=None, obser
     linha = 1
     ws.cell(row=linha, column=1, value="COMPILAÇÃO — CARGA TÉRMICA").font = Font(bold=True, size=14)
     linha += 2
-    for label, valor in _cabecalho_linhas(projeto, sistemas):
+    for label, valor in _cabecalho_linhas(projeto, sistemas, db):
         ws.cell(row=linha, column=1, value=label).font = Font(bold=True)
         ws.cell(row=linha, column=2, value=valor)
         linha += 1

@@ -210,7 +210,7 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
                                          "controlador": v.controlador} for v in row.valvulas]}
                          for row in camara.forcadores],
         # Sistema/Projeto — sempre dado de projeto, nunca catálogo.
-        "sistema_gas_refrigerante": sistema.gas_refrigerante if sistema else None,
+        "sistema_gas_refrigerante": idc.gas_nome(db, sistema.gas_refrigerante) if sistema else None,
         "sistema_temp_evaporacao": sistema.temp_evaporacao if sistema else None,
         "sistema_delta_condensacao": sistema.delta_condensacao if sistema else None,
         "sistema_fabricante_valvula": sistema.fabricante_valvula if sistema else None,
@@ -680,10 +680,11 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
             _valv_refs.append((forcadores_out[-1], row, 1))
             continue
         modelos_calc = [_modelo_para_calculo(md) for md in row.linha.modelos]
+        _gas_str = idc.gas_nome(db, sistema.gas_refrigerante) if sistema else None
         fator_gas_obj = None
-        if sistema and sistema.gas_refrigerante:
+        if _gas_str:
             fator_gas_obj = (db.query(m.FatorCorrecaoGasForcador)
-                              .filter_by(linha_id=row.linha_id, gas=sistema.gas_refrigerante).first())
+                              .filter_by(linha_id=row.linha_id, gas=_gas_str).first())
         fatores = [fator_gas_obj.fator] if fator_gas_obj and fator_gas_obj.fator else None
         item = {"id": row.id, "fabricante": row.fabricante.nome, "linha": row.linha.nome,
                 "linha_id": row.linha_id,
@@ -691,12 +692,12 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
                 "quantidade": qtd, "tipo_degelo_selecionado": row.tipo_degelo,
                 "nomenclatura_selecionada": json.loads(row.nomenclatura_selecionada) if row.nomenclatura_selecionada else {},
                 "fator_gas_aplicado": fator_gas_obj.fator if fator_gas_obj else None,
-                "fator_gas_pendente": bool(sistema and sistema.gas_refrigerante and not (fator_gas_obj and fator_gas_obj.fator is not None)),
+                "fator_gas_pendente": bool(_gas_str and not (fator_gas_obj and fator_gas_obj.fator is not None)),
                 # Tensão Comando/Equipamentos e Gás do sistema — fontes disponíveis pro Campo
                 # Automático da nomenclatura do forçador (campo_catalogo.py).
                 "tensao_comando": projeto.tensao_comando if projeto else None,
                 "tensao_equipamentos": projeto.tensao_equipamentos if projeto else None,
-                "gas": sistema.gas_refrigerante if sistema else None,
+                "gas": _gas_str,
                 "observacao_valv_reg_pressao": obs_valv_reg}
         escolhido = fc.selecionar_modelo_autoconsistente(
             modelos_calc, temp_evap, dt_camara, qtd, carga_base_24h,
@@ -737,7 +738,7 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
             if trocas and (trocas < 30 or trocas > 60):
                 alertas.append("Trocas de ar/hora fora da faixa recomendada (30-60/h) na linha %s" % row.linha.nome)
             if item["fator_gas_pendente"]:
-                alertas.append("Fator de correção do gás %s ainda não preenchido para a linha %s — capacidade corrigida sem esse ajuste" % (sistema.gas_refrigerante, row.linha.nome))
+                alertas.append("Fator de correção do gás %s ainda não preenchido para a linha %s — capacidade corrigida sem esse ajuste" % (_gas_str, row.linha.nome))
             if escolhido["folga_real"] < row.folga_desejada:
                 alertas.append("Folga insuficiente na linha %s: mesmo o maior modelo disponível (%dx %s) só atinge %.1f%% de folga (desejado %.0f%%) — aumente a quantidade" % (
                     row.linha.nome, qtd, escolhido["modelo"], escolhido["folga_real"], row.folga_desejada))
@@ -829,7 +830,7 @@ def _serializar_camara_simples(camara: m.CamaraSimples) -> dict:
                                          "tensao": v.tensao, "tipo_motor": v.tipo_motor,
                                          "controlador": v.controlador} for v in row.valvulas]}
                          for row in camara.forcadores],
-        "sistema_gas_refrigerante": sistema.gas_refrigerante if sistema else None,
+        "sistema_gas_refrigerante": idc.gas_nome(db, sistema.gas_refrigerante) if sistema else None,
         "sistema_temp_evaporacao": sistema.temp_evaporacao if sistema else None,
         "sistema_delta_condensacao": sistema.delta_condensacao if sistema else None,
         "sistema_fabricante_valvula": sistema.fabricante_valvula if sistema else None,
@@ -1027,10 +1028,11 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
             })
             continue
         modelos_calc = [_modelo_para_calculo(md) for md in row.linha.modelos]
+        _gas_str = idc.gas_nome(db, sistema.gas_refrigerante) if sistema else None
         fator_gas_obj = None
-        if sistema and sistema.gas_refrigerante:
+        if _gas_str:
             fator_gas_obj = (db.query(m.FatorCorrecaoGasForcador)
-                              .filter_by(linha_id=row.linha_id, gas=sistema.gas_refrigerante).first())
+                              .filter_by(linha_id=row.linha_id, gas=_gas_str).first())
         fatores = [fator_gas_obj.fator] if fator_gas_obj and fator_gas_obj.fator else None
         escolhido = fc.selecionar_modelo(modelos_calc, temp_evap, dt_camara, cap_req_unitaria / qtd,
                                           row.folga_desejada, fatores_correcao=fatores)
@@ -1040,7 +1042,7 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
                 "quantidade": qtd, "tipo_degelo_selecionado": row.tipo_degelo,
                 "nomenclatura_selecionada": json.loads(row.nomenclatura_selecionada) if row.nomenclatura_selecionada else {},
                 "fator_gas_aplicado": fator_gas_obj.fator if fator_gas_obj else None,
-                "fator_gas_pendente": bool(sistema and sistema.gas_refrigerante and not (fator_gas_obj and fator_gas_obj.fator is not None)),
+                "fator_gas_pendente": bool(_gas_str and not (fator_gas_obj and fator_gas_obj.fator is not None)),
                 "tensao_comando": projeto.tensao_comando if projeto else None,
                 "observacao_valv_reg_pressao": obs_valv_reg}
         if escolhido:
@@ -1073,7 +1075,7 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
                 alertas.append("Pé-direito da câmara (%.2fm) acima do PDL Máximo do catálogo (%.2fm) — linha %s" % (
                     camara.pedireito, escolhido["pdl_referencia_m"], row.linha.nome))
             if item["fator_gas_pendente"]:
-                alertas.append("Fator de correção do gás %s ainda não preenchido para a linha %s — capacidade corrigida sem esse ajuste" % (sistema.gas_refrigerante, row.linha.nome))
+                alertas.append("Fator de correção do gás %s ainda não preenchido para a linha %s — capacidade corrigida sem esse ajuste" % (_gas_str, row.linha.nome))
             if folga_real < row.folga_desejada:
                 alertas.append("Folga insuficiente na linha %s: mesmo o maior modelo disponível (%dx %s) só atinge %.1f%% de folga (desejado %.0f%%) — aumente a quantidade" % (
                     row.linha.nome, qtd, escolhido["modelo"], folga_real, row.folga_desejada))

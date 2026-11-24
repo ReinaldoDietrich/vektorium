@@ -106,7 +106,7 @@ def _gerar_equipamentos(db: Session, projeto_id: int):
                 id_comercial=cond_id_com)
 
         # Gás Refrigerante — material mecânico, agrupado por tipo de gás (não por sistema).
-        gas_nome = sistema.gas_refrigerante if sistema else None
+        gas_nome = idc.gas_nome(db, sistema.gas_refrigerante) if sistema else None
         if gas_nome:
             _defaults = _carregar_defaults_proposta()
             _fator_gas = float(_defaults.get("fator_qtd_gas") or 1.0)

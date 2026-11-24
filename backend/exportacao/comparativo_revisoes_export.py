@@ -9,7 +9,7 @@ import io
 from openpyxl import Workbook
 from ._estilo import (celula, barra, cabecalho_tabela, autosize,
                       CENTRO, ESQUERDA, ESQUERDA_LONGO, COR_TITULO, COR_CABECALHO, COR_MUTED)
-from ..id_comercial import nome_por_codigo
+from ..id_comercial import nome_por_codigo, gas_nome as _gas_nome
 
 COR_DIFF = "FEF3C7"
 
@@ -110,7 +110,7 @@ def gerar_excel_comparativo(db, revisoes: list) -> bytes:
         w.subheader(p["nome"])
         ss = [it or {} for it in p["items"]]
         w.linha_dado("Classificação", [s.get("classificacao") for s in ss])
-        w.linha_dado("Gás refrigerante", [s.get("gas_refrigerante") for s in ss])
+        w.linha_dado("Gás refrigerante", [_gas_nome(db, s.get("gas_refrigerante")) for s in ss])
         w.linha_dado("Tipo de expansão", [_nome(db, s.get("tipo_expansao")) for s in ss])
         w.linha_dado("Temp. evaporação", [s.get("temp_evaporacao") for s in ss], lambda v: "—" if v is None else _fmt(v, " °C"))
         w.linha_dado("Compressão", [_nome(db, s.get("tipo_compressao")) for s in ss])

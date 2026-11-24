@@ -167,6 +167,12 @@ function t1_nomePorCodigo(codigo) {
   return no ? no.nome : null;
 }
 
+function t1_gasNome(valor) {
+  if (!valor) return null;
+  if (valor.includes('.')) return t1_nomePorCodigo(valor) || valor;
+  return valor;
+}
+
 function t1_codigoFilhoPorNome(prefixo, nome) {
   if (!nome) return null;
   const alvo = nome.trim().toLowerCase();
@@ -199,10 +205,14 @@ function t1_popularGases(valorAtual) {
   categorias.forEach(cat => {
     const gases = t1_filhosArvore(cat.codigo);
     if (!gases.length) return;
-    html += `<optgroup label="${cat.nome}">` + gases.map(g => `<option>${g.nome}</option>`).join('') + '</optgroup>';
+    html += `<optgroup label="${cat.nome}">` + gases.map(g => `<option value="${g.codigo}">${g.nome}</option>`).join('') + '</optgroup>';
   });
   sel.innerHTML = html;
   sel.value = valorAtual || '';
+  if (!sel.value && valorAtual) {
+    const opt = [...sel.options].find(o => o.textContent === valorAtual);
+    if (opt) sel.value = opt.value;
+  }
 }
 
 // `tipo`/`fornecedor` já chegam como CÓDIGO (o próprio value do select-pai, não mais o nome) —
@@ -789,7 +799,7 @@ function t1_renderSistemas() {
     const tCond = t1_tempCondensacao(s);
     const tLiq = t1_tempLiquido(s);
     html += `<tr>
-      <td style="font-weight:bold;">${s.nome}${revisarTag}</td><td>${s.classificacao || '—'}</td><td>${s.gas_refrigerante || '—'}</td>
+      <td style="font-weight:bold;">${s.nome}${revisarTag}</td><td>${s.classificacao || '—'}</td><td>${t1_gasNome(s.gas_refrigerante) || '—'}</td>
       <td>${expansaoResumo}</td><td>${s.temp_evaporacao ?? '—'}°C</td>
       <td>${compressaoResumo}</td><td>${condensacaoResumo}</td>
       <td>${tCond != null ? tCond.toFixed(1) + '°C' : '—'}</td><td>${tLiq != null ? tLiq.toFixed(1) + '°C' : '—'}</td>

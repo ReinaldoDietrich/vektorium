@@ -15,6 +15,7 @@ from . import _bloqueio_projeto as bp
 from . import _bloqueio_fechada as bf
 from ..calc_puro_uc_rack import calcular_compressores_de_dados
 from ..calculos import condensador as cc_calc
+from .. import id_comercial as idc
 
 router = APIRouter(prefix="/api/rack-paralelo", tags=["rack-paralelo"])
 
@@ -578,7 +579,7 @@ def _serializar_listar_compressores(db: Session, rack: m.RackParalelo) -> dict:
     return {
         "carga_requerida": carga_requerida, "folga": folga, "te": te, "tc": tc,
         "fabricante_compressor": rack.fabricante_compressor, "linha_compressor": rack.linha_compressor,
-        "gas_refrigerante": rack.sistema.gas_refrigerante, "tensao_projeto": tensao_projeto,
+        "gas_refrigerante": idc.gas_nome(db, rack.sistema.gas_refrigerante), "tensao_projeto": tensao_projeto,
         "motor_fixo": rack.filtro_motor_compressor, "n_paralelo": _n_paralelo(rack),
         "posicoes": [{"id": c.id, "posicao": c.posicao, "percentual": percentuais.get(c.posicao, 0)}
                       for c in sorted(rack.compressores, key=lambda x: x.posicao)],
@@ -715,7 +716,7 @@ def selecao_condensador(rack_id: int, db: Session = Depends(get_db)):
     n_paralelo = _n_paralelo(rack)
     tensao_eq = projeto.tensao_equipamentos if projeto else None
     contexto_base = {
-        "delta_condensacao": sistema.delta_condensacao, "gas": sistema.gas_refrigerante,
+        "delta_condensacao": sistema.delta_condensacao, "gas": idc.gas_nome(db, sistema.gas_refrigerante),
         "altitude": projeto.altitude_m if projeto else None,
         "temp_entrada_ar": projeto.temp_ambiente if projeto else None,
     }
