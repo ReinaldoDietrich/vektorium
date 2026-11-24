@@ -27,6 +27,8 @@ const T12_BLOCO_MEMORIAL = [
   ['q3_penetracao', 'Q3 - Penetração (kcal/h)'], ['q4_infiltracao', 'Q4 - Infiltração (kcal/h)'],
   ['q5_pessoas', 'Q5 - Pessoas (kcal/h)'], ['q6_iluminacao', 'Q6 - Iluminação (kcal/h)'],
   ['q7_equipamentos', 'Q7 - Equipamentos (kcal/h)'], ['q8_forcadores', 'Q8 - Forçadores (kcal/h)'],
+  ['q9_desumidificacao', 'Carga de Desumidificação (kcal/h)'],
+  ['carga_degelo_kcal_h', 'Carga de Degelo Gás Quente (kcal/h)'],
   ['total_24h', 'Total 24h (kcal/h)'],
 ];
 const T12_BLOCO_FORCADORES = [

@@ -41,4 +41,5 @@ def calor_degelo_gas_quente(peso_liquido_kg, material_evaporador, temp_interna,
     kcal_ciclo = q_gelo + q_metal
     kcal_dia = kcal_ciclo * qtd_degelo
 
-    return {"kcal_ciclo": round(kcal_ciclo, 1), "kcal_dia": round(kcal_dia, 1)}
+    return {"kcal_ciclo": round(kcal_ciclo, 1), "kcal_dia": round(kcal_dia, 1),
+            "kcal_h": round(kcal_dia / 24, 1)}

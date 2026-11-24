@@ -105,11 +105,14 @@ def _bloco_carga(projeto, sistema, camara, calc, tipo):
 def _bloco_memorial(calc, tipo):
     if tipo != "completo":
         return None  # Câmara Simples não tem memorial Q1-Q7 detalhado (carga tabelada por faixa)
+    considerado = next((f for f in calc.get("forcadores", []) if f.get("considerado") and f.get("modelo_resultante")), None)
+    degelo_h = (considerado or {}).get("carga_degelo_kcal_h")
     return {"q1_produto": calc.get("q1_produto"), "q2_embalagem": calc.get("q2_embalagem"),
             "q3_penetracao": calc.get("q3_penetracao"), "q4_infiltracao": calc.get("q4_infiltracao"),
             "q5_pessoas": calc.get("q5_pessoas"), "q6_iluminacao": calc.get("q6_iluminacao"),
             "q7_equipamentos": calc.get("q7_equipamentos"), "q8_forcadores": calc.get("q8_forcadores"),
             "q9_desumidificacao": calc.get("q9_desumidificacao"),
+            "carga_degelo_kcal_h": degelo_h,
             "total_24h": calc.get("carga_termica_total_24h")}
 
 
@@ -173,7 +176,7 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
                 "num_ventiladores": None, "vazao_ar_m3h": None, "tensao": None, "tipo_degelo": None,
                 "corrente_ventiladores_a": None, "potencia_resist_degelo_w": None, "corrente_resist_degelo_a": None,
                 "flecha_ar_m": None, "trocas_de_ar": None, "quantidade_gas_kg": None, "folga_tecnica_pct": None,
-                "id_comercial": None}
+                "carga_degelo_kcal_h": None, "id_comercial": None}
     # Válvula de Expansão da linha considerada — mesmo rótulo padrão da Tela 5 ("Nx TEN2 orif. 02").
     # modelo_valvula_base/valvula_qtd_unit (sem o "Nx" embutido) existem à parte pra Tela 10 poder
     # agrupar pelo modelo puro e multiplicar a quantidade real (ver bug real corrigido: Tela 10
@@ -212,6 +215,7 @@ def _bloco_forcadores(db, camara, calc, tensao_comando):
         "potencia_resist_degelo_w": eletrica.get("degelo_w"), "corrente_resist_degelo_a": eletrica.get("degelo_a"),
         "flecha_ar_m": considerado.get("flecha_ar_m"), "trocas_de_ar": considerado.get("trocas_de_ar"),
         "quantidade_gas_kg": considerado.get("carga_gas_kg"), "folga_tecnica_pct": considerado.get("folga_real"),
+        "carga_degelo_kcal_h": considerado.get("carga_degelo_kcal_h"),
         "id_comercial": id_com_frc,
     }
 

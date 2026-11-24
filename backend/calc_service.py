@@ -422,6 +422,7 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
                 if _dg:
                     item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
                     item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
+                    item["carga_degelo_kcal_h"] = _dg["kcal_h"]
             if escolhido["flecha_ar_m"] and (dados["comprimento"] or 0) > escolhido["flecha_ar_m"]:
                 alertas.append("Flecha de ar do forçador (%.1fm) insuficiente para o comprimento da câmara (%.1fm) — linha %s" % (
                     escolhido["flecha_ar_m"], dados["comprimento"] or 0, linha.nome))
@@ -750,6 +751,7 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
                 if _dg:
                     item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
                     item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
+                    item["carga_degelo_kcal_h"] = _dg["kcal_h"]
             # A flecha de ar é comparada com o COMPRIMENTO da câmara (direção do lançamento do ar
             # do forçador), não com a maior dimensão.
             if escolhido["flecha_ar_m"] and (camara.comprimento or 0) > escolhido["flecha_ar_m"]:
@@ -976,6 +978,7 @@ def calcular_camara_simples_de_dados(db: Session, dados: dict) -> dict:
                 if _dg:
                     item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
                     item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
+                    item["carga_degelo_kcal_h"] = _dg["kcal_h"]
             if trocas and (trocas < 30 or trocas > 60):
                 alertas.append("Trocas de ar/hora fora da faixa recomendada (30-60/h) na linha %s" % linha.nome)
             if escolhido["pdl_referencia_m"] and dados["pedireito"] and dados["pedireito"] > escolhido["pdl_referencia_m"]:
@@ -1120,6 +1123,7 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
                 if _dg:
                     item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
                     item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
+                    item["carga_degelo_kcal_h"] = _dg["kcal_h"]
             if trocas and (trocas < 30 or trocas > 60):
                 alertas.append("Trocas de ar/hora fora da faixa recomendada (30-60/h) na linha %s" % row.linha.nome)
             if escolhido["pdl_referencia_m"] and camara.pedireito and camara.pedireito > escolhido["pdl_referencia_m"]:

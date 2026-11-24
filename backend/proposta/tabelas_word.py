@@ -13,7 +13,8 @@ from ..exportacao.compilacao_export import (_agrupar, COLUNAS_BASE, ELET_LABELS,
                                             BLOCO_CORES)
 from ..exportacao.consumo_export import COLUNAS as CONSUMO_COLUNAS, _linha_cenario
 from ..exportacao.compilacao_geral_export import (BLOCO_CARGA, BLOCO_DADOS_ENTRADA,
-                                                  BLOCO_FORCADORES, BLOCO_RACK, BLOCO_CONDENSADOR)
+                                                  BLOCO_MEMORIAL, BLOCO_FORCADORES,
+                                                  BLOCO_RACK, BLOCO_CONDENSADOR)
 
 FONTE = 8
 FONTE_NOME = "Arial Narrow"
@@ -558,6 +559,9 @@ def _comp_geral_carga(sd, sistema, camaras, limite, totais_sis):
         _barra(t, "Dados de Entrada — Produto e Operação (fornecidos pelo cliente)", nc, COR_SUB)
         for campo, label in BLOCO_DADOS_ENTRADA:
             _cg_linha_cam(t, "dados_entrada", campo, label, chunk, nc)
+        _barra(t, "Informações do Produto e Operação (Memorial)", nc, COR_SUB)
+        for campo, label in BLOCO_MEMORIAL:
+            _cg_linha_cam(t, "memorial", campo, label, chunk, nc)
         if is_last and totais_sis:
             _cg_total_sistema(t, nc, totais_sis)
         _larguras_fixas(t, larguras)
