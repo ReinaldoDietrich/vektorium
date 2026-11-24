@@ -220,7 +220,8 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].fabricante = eq.get("fabricante")
             existentes[chave].descricao = eq["descricao"]
-            existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
+            if not eq["quantidade"] and existentes[chave].custo_unitario:
+                existentes[chave].incluir_orcamento = False
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
@@ -327,7 +328,8 @@ def sincronizar_gas(db: Session, projeto_id: int):
             if _nunca_reduzir(existentes[chave].quantidade, eq["quantidade"]):
                 existentes[chave].quantidade = eq["quantidade"]
             existentes[chave].descricao = eq["descricao"]
-            existentes[chave].incluir_orcamento = False if (not eq["quantidade"] and existentes[chave].custo_unitario) else True
+            if not eq["quantidade"] and existentes[chave].custo_unitario:
+                existentes[chave].incluir_orcamento = False
             if not existentes[chave].unidade:
                 existentes[chave].unidade = eq.get("unidade", "kg")
         else:
@@ -422,7 +424,8 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["quantidade"]
             existentes[chave].unidade = linha["unidade"]
             existentes[chave].ordem = idx
-            existentes[chave].incluir_orcamento = False if (not linha["quantidade"] and existentes[chave].custo_unitario) else True
+            if not linha["quantidade"] and existentes[chave].custo_unitario:
+                existentes[chave].incluir_orcamento = False
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 cc_id, fator_id = _cc_fator_painel_porta(db, linha)
                 if existentes[chave].centro_custo_id is None and cc_id:
@@ -476,7 +479,8 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             existentes[chave].quantidade = linha["qtd_total"]
             existentes[chave].fabricante = linha["fabricante"]
             existentes[chave].ordem = idx
-            existentes[chave].incluir_orcamento = False if (not linha["qtd_total"] and existentes[chave].custo_unitario) else True
+            if not linha["qtd_total"] and existentes[chave].custo_unitario:
+                existentes[chave].incluir_orcamento = False
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
                 if lampada and lampada.id_comercial:
@@ -544,7 +548,6 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             item.custo_unitario = g["soma"]
             item.fabricante = fab
             item.quantidade = 1
-            item.incluir_orcamento = True
             item.calculo_snapshot_json = json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]})
             # fator_id NÃO é sobrescrito (só sugerido na criação) — ver docstring
         else:
