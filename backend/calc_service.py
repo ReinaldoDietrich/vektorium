@@ -472,12 +472,14 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
         carga_total_24h += q9
         cap_req = capacidade_requerida(carga_total_24h, dados["fator_seguranca"], dados["tempo_func_compressores"])
         cap_req_unitaria = cap_req
+    _nota_desum = desum.nota_desumidificacao(ur_requerida, ur_projeto, todas_classes) if desum and todas_classes else None
 
     return {
         "q1_produto": round(q1, 1), "q2_embalagem": round(q2, 1), "q3_penetracao": round(q3, 1),
         "q4_infiltracao": round(q4, 1), "q5_pessoas": round(q5, 1), "q6_iluminacao": round(q6, 1),
         "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1),
         "q9_desumidificacao": round(q9, 1), "ur_projeto": round(ur_projeto, 1) if ur_projeto is not None else None,
+        "nota_desumidificacao": _nota_desum,
         "carga_termica_total_24h": round(carga_total_24h, 1),
         "capacidade_requerida": round(cap_req, 1), "capacidade_requerida_unitaria": round(cap_req_unitaria, 1),
         "potencia_total_iluminacao_w": potencia_total_ilum,
@@ -775,6 +777,7 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
     # ---- Q9 Desumidificação ----
     q9 = 0.0
     ur_projeto = None
+    todas_classes = None
     if desum and dt_camara is not None:
         todas_classes = db.query(m.ClasseProduto).all()
         ur_projeto = desum.calcular_ur_projeto(dt_camara, todas_classes)
@@ -788,12 +791,14 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
         carga_total_24h += q9
         cap_req = capacidade_requerida(carga_total_24h, camara.fator_seguranca, camara.tempo_func_compressores)
         cap_req_unitaria = cap_req
+    _nota_desum = desum.nota_desumidificacao(ur_requerida, ur_projeto, todas_classes) if desum and todas_classes else None
 
     return {
         "q1_produto": round(q1, 1), "q2_embalagem": round(q2, 1), "q3_penetracao": round(q3, 1),
         "q4_infiltracao": round(q4, 1), "q5_pessoas": round(q5, 1), "q6_iluminacao": round(q6, 1),
         "q7_equipamentos": round(q7, 1), "q8_forcadores": round(q8, 1),
         "q9_desumidificacao": round(q9, 1), "ur_projeto": round(ur_projeto, 1) if ur_projeto is not None else None,
+        "nota_desumidificacao": _nota_desum,
         "carga_termica_total_24h": round(carga_total_24h, 1),
         "capacidade_requerida": round(cap_req, 1), "capacidade_requerida_unitaria": round(cap_req_unitaria, 1),
         "potencia_total_iluminacao_w": potencia_total_ilum, "luminotecnico": _calc_luminotecnico_camara(db, camara),

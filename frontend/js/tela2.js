@@ -218,6 +218,8 @@ function t2_limparPainel() {
   document.getElementById('c2_capRequerida').value = '—';
   const q9row = document.getElementById('c2_sideQ9Row');
   if (q9row) q9row.style.display = 'none';
+  const notaEl = document.getElementById('c2_notaDesum');
+  if (notaEl) { notaEl.textContent = ''; notaEl.style.display = 'none'; }
 }
 
 function t2_coletarPayload() {
@@ -383,6 +385,17 @@ function t2_renderCalculo(calc) {
   // UR de Projeto (calculada)
   const urProjEl = document.getElementById('c2_ur_projeto');
   if (urProjEl) urProjEl.value = calc.ur_projeto != null ? fmtNum(calc.ur_projeto, 1) : '—';
+  // Nota informativa de desumidificação
+  const notaEl = document.getElementById('c2_notaDesum');
+  if (notaEl) {
+    if (calc.nota_desumidificacao) {
+      notaEl.textContent = calc.nota_desumidificacao;
+      notaEl.style.display = '';
+    } else {
+      notaEl.textContent = '';
+      notaEl.style.display = 'none';
+    }
+  }
   // Visibilidade do checkbox de desumidificação
   t2_atualizarCheckDesum(calc.ur_projeto);
   document.getElementById('c2_sideFator').textContent = (document.getElementById('c2_fator_seguranca').value || '—') + '%';

@@ -46,6 +46,56 @@ def calcular_ur_projeto(dt_camara, classes):
     return pontos[-1][1]
 
 
+def _interpolar_dt_para_ur(ur_alvo, classes):
+    """Interpolação reversa: dado um UR alvo, retorna o ΔT necessário."""
+    pontos = []
+    for c in classes:
+        dt_min = getattr(c, 'dt_evap_min', None) if hasattr(c, 'dt_evap_min') else c.get('dt_evap_min')
+        dt_max = getattr(c, 'dt_evap_max', None) if hasattr(c, 'dt_evap_max') else c.get('dt_evap_max')
+        ur_min = getattr(c, 'ur_min', None) if hasattr(c, 'ur_min') else c.get('ur_min')
+        ur_max = getattr(c, 'ur_max', None) if hasattr(c, 'ur_max') else c.get('ur_max')
+        if None in (dt_min, dt_max, ur_min, ur_max):
+            continue
+        pontos.append((dt_min, ur_max))
+        pontos.append((dt_max, ur_min))
+    if not pontos:
+        return None
+    pontos.sort(key=lambda p: p[0])
+    unicos = []
+    for p in pontos:
+        if not unicos or abs(p[0] - unicos[-1][0]) > 0.001:
+            unicos.append(p)
+        else:
+            unicos[-1] = (unicos[-1][0], min(unicos[-1][1], p[1]))
+    pontos = unicos
+    if ur_alvo >= pontos[0][1]:
+        return pontos[0][0]
+    if ur_alvo <= pontos[-1][1]:
+        return None
+    for i in range(len(pontos) - 1):
+        x0, y0 = pontos[i]
+        x1, y1 = pontos[i + 1]
+        if y1 <= ur_alvo <= y0:
+            if abs(y0 - y1) < 0.001:
+                return x0
+            return x0 + (y0 - ur_alvo) / (y0 - y1) * (x1 - x0)
+    return None
+
+
+def nota_desumidificacao(ur_requerida, ur_projeto, classes):
+    """Retorna texto informativo sobre desumidificação, ou None."""
+    if ur_requerida is None or ur_projeto is None:
+        return None
+    if ur_requerida >= ur_projeto:
+        return None
+    if ur_requerida < 60:
+        return "É necessário sistema independente de desumidificação e delta mínimo de 14°C."
+    dt_necessario = _interpolar_dt_para_ur(ur_requerida, classes)
+    if dt_necessario is not None:
+        return f"Aumentar delta de evaporação para {dt_necessario:.1f}°C"
+    return "É necessário sistema independente de desumidificação e delta mínimo de 14°C."
+
+
 def calor_desumidificacao(vazao_m3h, temp_ext, ur_ext, temp_int, ur_projeto, ur_requerida,
                            altitude_m=0):
     """Q9 (kcal/24h). Carga extra de desumidificação quando ur_requerida < ur_projeto.
