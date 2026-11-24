@@ -649,6 +649,7 @@ function renderizarForcadores(container, forcadores, handlers, ids) {
         ${r.tipo_degelo_catalogo ? `<span class="techspec">Degelo (catálogo): ${r.tipo_degelo_catalogo}</span>` : ''}
         ${r.carga_gas_kg ? `<span class="techspec">Carga de gás: ${r.carga_gas_kg}kg</span>` : ''}
         ${r.pot_resistencia_degelo_w && !semResistencia ? `<span class="techspec">Pot. resist. degelo: ${fmtNum(r.pot_resistencia_degelo_w)}W</span>` : ''}
+        ${r.carga_degelo_kcal_ciclo ? `<span class="techspec" style="font-weight:bold;color:#9333ea;">Carga degelo (gás quente): ${fmtNum(r.carga_degelo_kcal_ciclo)} kcal/ciclo — ${fmtNum(r.carga_degelo_kcal_dia)} kcal/dia</span>` : ''}
         ${r.vazao_ar_m3h ? `<span class="techspec">Vazão unitária: ${fmtNum(r.vazao_ar_m3h)}m³/h</span>` : ''}
         ${r.trocas_de_ar !== null && r.trocas_de_ar !== undefined ? `<span class="techspec" style="font-weight:bold;color:#1d4ed8;">Trocas de ar: ${r.trocas_de_ar}/h${trocasAlerta}</span>` : ''}
         ${r.flecha_ar_m ? `<span class="techspec">Flecha: ${r.flecha_ar_m}m</span>` : ''}

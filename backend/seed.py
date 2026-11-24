@@ -374,6 +374,10 @@ def run():
              "Fator multiplicador da quantidade de gás refrigerante estimada (default 1.0)"),
             ("limite_colunas_tabelas", 7,
              "Número máximo de colunas nas tabelas da Proposta Comercial (default 7)"),
+            ("material_evaporador", 1,
+             "Material do evaporador: 1 = Alumínio (cp 0,22 kcal/kg·°C), 2 = Cobre (cp 0,09 kcal/kg·°C)"),
+            ("temp_final_degelo", 10,
+             "Temperatura final de degelo (°C) — usada no cálculo informativo de carga de degelo a gás quente"),
         ]:
             if not db.query(m.ConfiguracaoGlobal).filter_by(chave=chave).first():
                 db.add(m.ConfiguracaoGlobal(chave=chave, valor=valor, descricao=descricao))

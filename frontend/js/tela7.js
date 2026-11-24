@@ -955,14 +955,23 @@ async function t7_carregar() {
   await t7_tabelaGenerica.dadosClimatologicosInmet.carregar();
   const itens = await api.get('/api/catalogos/configuracao-global');
   const el = document.getElementById('cfg_lista');
-  el.innerHTML = '<table class="list"><tbody>' + itens.map(c => `
-    <tr><td style="width:30%;font-weight:bold;">${c.chave}</td>
-      <td style="width:15%;"><input type="text" value="${c.valor}" data-cfg-valor="${c.id}" style="max-width:120px;"></td>
+  el.innerHTML = '<table class="list"><tbody>' + itens.map(c => {
+    const isMatEvap = c.chave === 'material_evaporador';
+    const campo = isMatEvap
+      ? `<select data-cfg-valor="${c.id}" style="max-width:140px;">
+           <option value="1" ${c.valor == 1 ? 'selected' : ''}>Alumínio</option>
+           <option value="2" ${c.valor == 2 ? 'selected' : ''}>Cobre</option>
+         </select>`
+      : `<input type="text" value="${c.valor}" data-cfg-valor="${c.id}" style="max-width:120px;">`;
+    return `<tr><td style="width:30%;font-weight:bold;">${c.chave}</td>
+      <td style="width:15%;">${campo}</td>
       <td style="color:#6b7280;font-size:11.5px;">${c.descricao || ''}</td>
-      <td style="text-align:right;width:90px;"><span class="btn-text" data-cfg-salvar="${c.id}">Salvar</span></td></tr>`).join('') + '</tbody></table>';
+      <td style="text-align:right;width:90px;"><span class="btn-text" data-cfg-salvar="${c.id}">Salvar</span></td></tr>`;
+  }).join('') + '</tbody></table>';
   el.querySelectorAll('[data-cfg-salvar]').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.cfgSalvar;
-    const valor = parseNumBR(document.querySelector(`[data-cfg-valor="${id}"]`).value);
+    const elCampo = document.querySelector(`[data-cfg-valor="${id}"]`);
+    const valor = elCampo.tagName === 'SELECT' ? Number(elCampo.value) : parseNumBR(elCampo.value);
     try { await api.put(`/api/catalogos/configuracao-global/${id}`, { valor }); alert('Configuração salva.'); }
     catch (err) { alert('Erro ao salvar: ' + err.message); }
   }));

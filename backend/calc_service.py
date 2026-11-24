@@ -15,8 +15,9 @@ try:
     from .calculos import valvula as vl
     from .calculos.luminotecnico import calcular_luminotecnico
     from .calculos import desumidificacao as desum
+    from .calculos import degelo as deg
 except ImportError:
-    cc = cs = inf = fc = vl = calcular_luminotecnico = desum = None  # type: ignore
+    cc = cs = inf = fc = vl = calcular_luminotecnico = desum = deg = None  # type: ignore
 from . import campo_catalogo as cpc
 
 
@@ -145,6 +146,7 @@ def _modelo_para_calculo(modelo: m.ModeloForcador) -> dict:
         "diametro_ventilador_mm": modelo.diametro_ventilador_mm,
         "num_ventiladores": modelo.num_ventiladores,
         "motores_w": modelo.eletricas[0].motores_w if modelo.eletricas else None,
+        "peso_liquido_kg": modelo.fisicos.peso_liquido_kg if modelo.fisicos else None,
     }
 
 
@@ -215,6 +217,7 @@ def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
         "sistema_delta_condensacao": sistema.delta_condensacao if sistema else None,
         "sistema_fabricante_valvula": sistema.fabricante_valvula if sistema else None,
         "sistema_tipo_expansao": sistema.tipo_expansao if sistema else None,
+        "sistema_quantidade_degelo_dia": sistema.quantidade_degelo_dia if sistema else 4,
         "projeto_temp_ambiente": projeto.temp_ambiente if projeto else None,
         "projeto_ur_externa": projeto.ur_externa if projeto else None,
         "projeto_altitude_m": projeto.altitude_m if projeto else None,
@@ -347,6 +350,10 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
     _valv_refs = []
     carga_base_24h = carga_total_24h
 
+    _mat_evap = _config(db, "material_evaporador", 1)
+    _temp_fim_degelo = _config(db, "temp_final_degelo", 10)
+    _qtd_degelo_dia = dados.get("sistema_quantidade_degelo_dia", 4)
+
     for row in dados["forcadores"]:
         qtd = row["quantidade"] or 1
         linha = db.get(m.LinhaForcador, row["linha_id"]) if row["linha_id"] else None
@@ -409,6 +416,12 @@ def calcular_camara_completo_de_dados(db: Session, dados: dict) -> dict:
                 "fpi": escolhido["fpi"],
                 "coletores_por_forcador": escolhido["coletores_por_forcador"],
             })
+            if deg and row["tipo_degelo"] == "Gás quente" and escolhido.get("peso_liquido_kg"):
+                _dg = deg.calor_degelo_gas_quente(escolhido["peso_liquido_kg"], _mat_evap,
+                    dados["temp_interna"], _temp_fim_degelo, _qtd_degelo_dia)
+                if _dg:
+                    item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
+                    item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
             if escolhido["flecha_ar_m"] and (dados["comprimento"] or 0) > escolhido["flecha_ar_m"]:
                 alertas.append("Flecha de ar do forçador (%.1fm) insuficiente para o comprimento da câmara (%.1fm) — linha %s" % (
                     escolhido["flecha_ar_m"], dados["comprimento"] or 0, linha.nome))
@@ -665,6 +678,10 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
     _valv_refs = []  # (item, row, coletores) — válvulas reatribuídas depois, com o cap_req FINAL
     carga_base_24h = carga_total_24h  # Q1-Q7, sem Q8 — base fixa pro cálculo autoconsistente de cada candidato
 
+    _mat_evap = _config(db, "material_evaporador", 1)
+    _temp_fim_degelo = _config(db, "temp_final_degelo", 10)
+    _qtd_degelo_dia = sistema.quantidade_degelo_dia if sistema and sistema.quantidade_degelo_dia else 4
+
     for row in camara.forcadores:
         qtd = row.quantidade or 1
         if row.linha is None:
@@ -727,6 +744,12 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
                 "fpi": escolhido["fpi"],
                 "coletores_por_forcador": escolhido["coletores_por_forcador"],
             })
+            if deg and row.tipo_degelo == "Gás quente" and escolhido.get("peso_liquido_kg"):
+                _dg = deg.calor_degelo_gas_quente(escolhido["peso_liquido_kg"], _mat_evap,
+                    camara.temp_interna, _temp_fim_degelo, _qtd_degelo_dia)
+                if _dg:
+                    item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
+                    item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
             # A flecha de ar é comparada com o COMPRIMENTO da câmara (direção do lançamento do ar
             # do forçador), não com a maior dimensão.
             if escolhido["flecha_ar_m"] and (camara.comprimento or 0) > escolhido["flecha_ar_m"]:
@@ -840,6 +863,7 @@ def _serializar_camara_simples(camara: m.CamaraSimples) -> dict:
         "sistema_delta_condensacao": sistema.delta_condensacao if sistema else None,
         "sistema_fabricante_valvula": sistema.fabricante_valvula if sistema else None,
         "sistema_tipo_expansao": sistema.tipo_expansao if sistema else None,
+        "sistema_quantidade_degelo_dia": sistema.quantidade_degelo_dia if sistema else 4,
         "projeto_temp_ambiente": projeto.temp_ambiente if projeto else None,
         "projeto_tensao_comando": projeto.tensao_comando if projeto else None,
     }
@@ -884,6 +908,11 @@ def calcular_camara_simples_de_dados(db: Session, dados: dict) -> dict:
     forcadores_out = []
     linha_considerada_modelo = None
     tipo_expansao_nome = idc.nome_por_codigo(db, dados["sistema_tipo_expansao"]) if dados["sistema_tipo_expansao"] else None
+
+    _mat_evap_s = _config(db, "material_evaporador", 1)
+    _temp_fim_degelo_s = _config(db, "temp_final_degelo", 10)
+    _qtd_degelo_dia_s = dados.get("sistema_quantidade_degelo_dia", 4)
+
     for row in dados["forcadores"]:
         qtd = row["quantidade"] or 1
         linha = db.get(m.LinhaForcador, row["linha_id"]) if row["linha_id"] else None
@@ -941,6 +970,12 @@ def calcular_camara_simples_de_dados(db: Session, dados: dict) -> dict:
                 "pdl_referencia_m": escolhido["pdl_referencia_m"], "num_ventiladores": escolhido["num_ventiladores"],
                 "fpi": escolhido["fpi"],
             })
+            if deg and row["tipo_degelo"] == "Gás quente" and escolhido.get("peso_liquido_kg"):
+                _dg = deg.calor_degelo_gas_quente(escolhido["peso_liquido_kg"], _mat_evap_s,
+                    dados["temp_interna"], _temp_fim_degelo_s, _qtd_degelo_dia_s)
+                if _dg:
+                    item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
+                    item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
             if trocas and (trocas < 30 or trocas > 60):
                 alertas.append("Trocas de ar/hora fora da faixa recomendada (30-60/h) na linha %s" % linha.nome)
             if escolhido["pdl_referencia_m"] and dados["pedireito"] and dados["pedireito"] > escolhido["pdl_referencia_m"]:
@@ -1019,6 +1054,11 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
         alertas.append("Área da câmara (%.0fm²) acima do máximo admissível para o cálculo simplificado (150m²) — use a Câmara Completo" % camara.area)
     forcadores_out = []
     linha_considerada_modelo = None
+
+    _mat_evap_s2 = _config(db, "material_evaporador", 1)
+    _temp_fim_degelo_s2 = _config(db, "temp_final_degelo", 10)
+    _qtd_degelo_dia_s2 = sistema.quantidade_degelo_dia if sistema and sistema.quantidade_degelo_dia else 4
+
     for row in camara.forcadores:
         qtd = row.quantidade or 1
         if row.linha is None:
@@ -1074,6 +1114,12 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
                 "pdl_referencia_m": escolhido["pdl_referencia_m"], "num_ventiladores": escolhido["num_ventiladores"],
                 "fpi": escolhido["fpi"],
             })
+            if deg and row.tipo_degelo == "Gás quente" and escolhido.get("peso_liquido_kg"):
+                _dg = deg.calor_degelo_gas_quente(escolhido["peso_liquido_kg"], _mat_evap_s2,
+                    camara.temp_interna, _temp_fim_degelo_s2, _qtd_degelo_dia_s2)
+                if _dg:
+                    item["carga_degelo_kcal_ciclo"] = _dg["kcal_ciclo"]
+                    item["carga_degelo_kcal_dia"] = _dg["kcal_dia"]
             if trocas and (trocas < 30 or trocas > 60):
                 alertas.append("Trocas de ar/hora fora da faixa recomendada (30-60/h) na linha %s" % row.linha.nome)
             if escolhido["pdl_referencia_m"] and camara.pedireito and camara.pedireito > escolhido["pdl_referencia_m"]:
