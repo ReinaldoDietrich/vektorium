@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "prebuild": "powershell -Command \"$b=Get-ChildItem 'C:\\Program Files\\Vektorium\\resources\\A - Backup Banco de Dados\\Banco de dados\\carga_termica_BACKUP_*.db' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($b){Copy-Item $b.FullName '..\\database\\carga_termica.db' -Force; Write-Host ('Banco atualizado: '+$b.Name)}else{Write-Error 'NENHUM BACKUP ENCONTRADO'; exit 1}\"",
+    "prebuild": "powershell -Command \"$b=Get-ChildItem 'B:\\Documentos Programas\\App Carga Térmica\\A - Backup Banco de Dados\\Banco de dados\\carga_termica_BACKUP_*.db' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($b){Copy-Item $b.FullName '..\\database\\carga_termica.db' -Force; Write-Host ('Banco atualizado: '+$b.Name)}else{Write-Error 'NENHUM BACKUP ENCONTRADO'; exit 1}\"",
     "build": "npm run prebuild && ..\\venv\\Scripts\\python.exe -c \"import sqlite3;c=sqlite3.connect('../database/carga_termica.db');v=c.execute('PRAGMA user_version').fetchone()[0];c.execute('PRAGMA user_version='+str(v+1));c.commit();print('user_version:',v,'->',v+1);c.close()\" && electron-builder --win"
   },
   "author": "Vektorium",
