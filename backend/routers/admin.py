@@ -59,10 +59,19 @@ def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(ge
     ), {"uid": uid}).fetchone()
     if not row:
         return {"ativa": False, "plano": None, "vence_em": None, "motivo": "sem_assinatura"}
-    ativa = row[0] in ("active",)
-    return {"ativa": ativa, "plano": row[1],
-            "vence_em": str(row[2]) if row[2] else None,
-            "motivo": None if ativa else row[0]}
+    status, plano, vence_em = row[0], row[1], row[2]
+    ativa = status in ("active",)
+    motivo = None if ativa else status
+    if ativa and plano != "vitalicio" and vence_em:
+        from datetime import date
+        hoje = date.today()
+        d = vence_em if isinstance(vence_em, date) else date.fromisoformat(str(vence_em)[:10])
+        if d < hoje:
+            ativa = False
+            motivo = "vencida"
+    return {"ativa": ativa, "plano": plano,
+            "vence_em": str(vence_em) if vence_em else None,
+            "motivo": motivo}
 
 
 # ---------------------------------------------------------------------------
@@ -189,13 +198,21 @@ def editar_usuario(uid: str, payload_body: dict = Body(...),
             raise HTTPException(400, f"Tipo '{papel}' não existe")
         updates.append("papel = :papel")
         params["papel"] = papel
-    if not updates:
+    vence_em_raw = payload_body.get("vence_em", "__ausente__")
+    tem_vence = vence_em_raw != "__ausente__"
+    if not updates and not tem_vence:
         raise HTTPException(400, "Nenhum campo para atualizar")
-    result = db.execute(text(f"UPDATE usuarios SET {', '.join(updates)} WHERE id = :uid"), params)
+    if updates:
+        result = db.execute(text(f"UPDATE usuarios SET {', '.join(updates)} WHERE id = :uid"), params)
+        if result.rowcount == 0:
+            raise HTTPException(404, "Usuário não encontrado")
+    if tem_vence:
+        vence_val = vence_em_raw if vence_em_raw else None
+        db.execute(text(
+            "UPDATE assinaturas SET vence_em = :v, atualizado_em = NOW() WHERE usuario_id = :uid"
+        ), {"v": vence_val, "uid": uid})
     db.commit()
-    if result.rowcount == 0:
-        raise HTTPException(404, "Usuário não encontrado")
-    _log_admin(db, _uid(payload), "editar_usuario", f"uid={uid} {', '.join(updates)}")
+    _log_admin(db, _uid(payload), "editar_usuario", f"uid={uid} {', '.join(updates)}{' vence_em=' + str(vence_em_raw) if tem_vence else ''}")
     return {"ok": True, "uid": uid}
 
 

@@ -173,9 +173,8 @@ function _aplicarLicenca(ativa) {
 }
 
 function iniciarVerificacaoPeriodicaLicenca() {
-  // SE-074: verificação periódica desativada — apenas aplica licença ativa uma vez
   if (_licencaTimer) clearInterval(_licencaTimer);
-  _aplicarLicenca(true);
+  verificarLicenca();
 }
 
 window.verificarLicenca = verificarLicenca;
