@@ -157,7 +157,7 @@ def _modelo_para_calculo(modelo: m.ModeloForcador) -> dict:
 # dict serializado em vez de navegar relationships do ORM ligado ao projeto — só toca `db` pra
 # resolver catálogo (produto, isolamento, forçador, válvula, etc.), nunca dado de projeto.
 # Construídas AO LADO da função original (que continua em uso) até prova de equivalência total.
-def _serializar_camara_completo(camara: m.CamaraCompleto) -> dict:
+def _serializar_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
     sistema = camara.sistema
     projeto = sistema.projeto if sistema else None
     return {
@@ -836,7 +836,7 @@ def calcular_camara_completo(db: Session, camara: m.CamaraCompleto) -> dict:
     }
 
 
-def _serializar_camara_simples(camara: m.CamaraSimples) -> dict:
+def _serializar_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
     sistema = camara.sistema
     projeto = sistema.projeto if sistema else None
     return {
@@ -1159,7 +1159,7 @@ def calcular_camara_simples(db: Session, camara: m.CamaraSimples) -> dict:
 # houver licença (401/403), devolve snapshot marcado com _sem_licenca. Sem snapshot anterior, erro.
 def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> dict:
     try:
-        dados = _serializar_camara_completo(camara)
+        dados = _serializar_camara_completo(db, camara)
         calc = calcular_camara_completo_de_dados(db, dados)
         camara.calculo_snapshot_json = json.dumps(calc)
         camara.calculo_desatualizado = False
@@ -1177,7 +1177,7 @@ def calcular_camara_completo_seguro(db: Session, camara: m.CamaraCompleto) -> di
 
 def calcular_camara_simples_seguro(db: Session, camara: m.CamaraSimples) -> dict:
     try:
-        dados = _serializar_camara_simples(camara)
+        dados = _serializar_camara_simples(db, camara)
         calc = calcular_camara_simples_de_dados(db, dados)
         camara.calculo_snapshot_json = json.dumps(calc)
         camara.calculo_desatualizado = False
