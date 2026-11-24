@@ -551,10 +551,11 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             item.calculo_snapshot_json = json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]})
             # fator_id NÃO é sobrescrito (só sugerido na criação) — ver docstring
         else:
+            ft6 = db.query(m.FatorVenda).filter_by(codigo="FT6").first()
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco=BLOCO_COMISSOES_INDICACAO,
                 descricao=f"Comissão indicação de negócio - {fab}", fabricante=fab,
-                quantidade=1, custo_unitario=g["soma"], fator_id=g["fator_id"],
+                quantidade=1, custo_unitario=g["soma"], fator_id=ft6.id if ft6 else g["fator_id"],
                 calculo_snapshot_json=json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]}),
                 origem="sistema", chave_sistema=chave, ordem=ordem_max))
             ordem_max += 1
