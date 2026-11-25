@@ -92,8 +92,12 @@ class Projeto(Base):
     # persiste na máquina destino após o pull. Permite detectar duplicatas entre terminais.
     cloud_id = Column(String, nullable=True)
 
+    # SE-202: empresa de faturamento vinculada ao projeto (1 por projeto)
+    empresa_id = Column(Integer, ForeignKey("empresa_faturamento.id"), nullable=True)
+
     sistemas = relationship("SistemaRefrigeracao", back_populates="projeto", cascade="all, delete-orphan")
     estacao_climatologica = relationship("CondicaoClimatica")
+    empresa = relationship("EmpresaFaturamento")
 
 
 class SistemaRefrigeracao(Base):
@@ -1721,23 +1725,21 @@ class EquipamentoValorTela10(Base):
 # venda): Preço = Custo / (1 - %Impostos - %Comissão - %Margem) — ver composicao_preco.py.
 
 class FatorVenda(Base):
-    """Mestre (global, editado na Tela D) — % Impostos/Comissão/Margem de Contribuição por
-    código de fator (FT1, FT2...), usado pra calcular o Fator de Venda de cada item da
-    Composição de Preço."""
+    """Mestre GLOBAL (editado na Tela 13) — template de fatores de venda. Usado como base para
+    criar FatorVendaProjeto ao abrir/criar um projeto. Os campos pct_impostos e pct_comissao
+    são mantidos apenas para compatibilidade com dados existentes; no fluxo SE-202, impostos
+    vêm da empresa e comissão vem da soma dos vendedores do projeto."""
     __tablename__ = "fator_venda"
     id = Column(Integer, primary_key=True)
     codigo = Column(String, nullable=False, unique=True)   # "FT1", "FT2"...
-    # "Revenda" | "Direto" (livre, só rótulo) | "Comissão" (repasse a preço de fábrica — o item
-    # não leva markup nenhum, a comissão do fabricante é lançada à parte agregada por fabricante,
-    # ver composicao_preco.calcular_item/sincronizar_comissoes_indicacao) — "Comissão" É lido
-    # pelo motor de cálculo, os outros valores são só rótulo livre.
-    tipo = Column(String)
+    tipo = Column(String)   # COMISSÃO | VENDAS | SERVIÇOS | REPASSE (controlado pelo frontend)
     descricao = Column(String, nullable=False)
-    pct_impostos = Column(Float, default=0)
-    pct_comissao = Column(Float, default=0)
+    pct_impostos = Column(Float, default=0)   # legado — mantido para compatibilidade
+    pct_comissao = Column(Float, default=0)   # legado — mantido para compatibilidade
     pct_margem = Column(Float, default=0)
     tipo_faturamento = Column(String, default='Próprio')  # 'Próprio' | 'Direto'
     ordem = Column(Integer, default=0)
+    default = Column(Boolean, default=False)
 
 
 class ItemComposicaoMestre(Base):
@@ -1758,9 +1760,27 @@ class ItemComposicaoMestre(Base):
     formula_quantidade = Column(String, nullable=True)
     formula_custo = Column(String, nullable=True)
     ordem = Column(Integer, default=0)
+    default = Column(Boolean, default=False)
 
     centro_custo = relationship("CentroCusto")
     fator = relationship("FatorVenda")
+
+
+class FatorVendaProjeto(Base):
+    """Cópia independente dos fatores de venda por projeto (SE-202). Cada projeto tem seus
+    próprios fatores com margem% editável. Impostos e comissão são derivados (empresa + vendedores)
+    e NÃO armazenados aqui."""
+    __tablename__ = "fator_venda_projeto"
+    id = Column(Integer, primary_key=True)
+    projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
+    codigo = Column(String, nullable=False)   # "FT1", "FT2"...
+    tipo = Column(String)   # COMISSÃO | VENDAS | SERVIÇOS | REPASSE
+    descricao = Column(String, nullable=False)
+    pct_margem = Column(Float, default=0)
+    tipo_faturamento = Column(String, default='Próprio')  # 'Próprio' | 'Direto'
+    ordem = Column(Integer, default=0)
+
+    projeto = relationship("Projeto", backref="fatores_venda_projeto")
 
 
 class Vendedor(Base):
@@ -1796,6 +1816,8 @@ class EmpresaFaturamento(Base):
     pix = Column(String)
     default = Column(Boolean, default=False)
     ordem = Column(Integer, default=0)
+    pct_imposto_vendas = Column(Float, default=0)
+    pct_imposto_servicos = Column(Float, default=0)
 
 
 class ComposicaoPrecoItem(Base):
@@ -1809,7 +1831,7 @@ class ComposicaoPrecoItem(Base):
     projeto_id = Column(Integer, ForeignKey("projetos.id"), nullable=False, index=True)
     bloco = Column(String, nullable=False)
     centro_custo_id = Column(Integer, ForeignKey("centro_custo.id"), nullable=True, index=True)
-    fator_id = Column(Integer, ForeignKey("fator_venda.id"), nullable=True, index=True)
+    fator_id = Column(Integer, ForeignKey("fator_venda_projeto.id"), nullable=True, index=True)
     descricao = Column(String, nullable=False)
     fabricante = Column(String, nullable=True)
     unidade = Column(String, nullable=True)
@@ -1817,20 +1839,15 @@ class ComposicaoPrecoItem(Base):
     quantidade = Column(Float, default=1)
     custo_unitario = Column(Float, default=0)
     origem = Column(String, nullable=False, default="manual")   # sistema | default | manual
-    # chave estável do item "sistema" (ex.: descrição do equipamento na Tela 10) — usada pra
-    # sincronizar sem duplicar quando o usuário reabre a composição.
     chave_sistema = Column(String, nullable=True)
     ordem = Column(Integer, default=0)
-    # Checkbox "considerar no orçamento" (Tela 10, aprovado 2026-08-12): item continua existindo
-    # e calculado normalmente no bloco, só sai do Resumo por Bloco/Tabela de Orçamento/DRE/
-    # Comissionamento quando desmarcado — reversível, nunca apaga o item.
     incluir_orcamento = Column(Boolean, default=True, nullable=False)
     fechada = Column(Boolean, default=False)
     calculo_snapshot_json = Column(Text)
 
     projeto = relationship("Projeto")
     centro_custo = relationship("CentroCusto")
-    fator = relationship("FatorVenda")
+    fator = relationship("FatorVendaProjeto")
 
 
 class CondicaoPagamentoProjeto(Base):

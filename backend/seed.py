@@ -53,9 +53,49 @@ def _migrar_colunas_faltantes():
         conn.commit()
 
 
+def _migrar_fatores_para_projetos():
+    """SE-202: para cada projeto que tenha itens de composição mas não tenha fatores-projeto,
+    copia os fatores globais como fatores do projeto e remapeia fator_id dos itens."""
+    if "sqlite" not in str(engine.url):
+        return
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        projetos_com_itens = db.query(m.ComposicaoPrecoItem.projeto_id).distinct().all()
+        for (pid,) in projetos_com_itens:
+            existem = db.query(m.FatorVendaProjeto).filter_by(projeto_id=pid).count()
+            if existem > 0:
+                continue
+            fatores_globais = db.query(m.FatorVenda).order_by(m.FatorVenda.ordem).all()
+            mapa_ids = {}
+            for fg in fatores_globais:
+                fp = m.FatorVendaProjeto(
+                    projeto_id=pid,
+                    codigo=fg.codigo,
+                    tipo=fg.tipo,
+                    descricao=fg.descricao,
+                    pct_margem=fg.pct_margem,
+                    tipo_faturamento=fg.tipo_faturamento,
+                    ordem=fg.ordem,
+                )
+                db.add(fp)
+                db.flush()
+                mapa_ids[fg.id] = fp.id
+            itens = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=pid).all()
+            for item in itens:
+                if item.fator_id and item.fator_id in mapa_ids:
+                    item.fator_id = mapa_ids[item.fator_id]
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
 def run():
     Base.metadata.create_all(bind=engine)
     _migrar_colunas_faltantes()
+    _migrar_fatores_para_projetos()
     db = SessionLocal()
     try:
         if db.query(m.FaixaTrocasAr).count() == 0:
@@ -490,6 +530,9 @@ def atualizar_catalogos_master():
         )}
         user_conn = sqlite3.connect(str(DB_PATH))
         try:
+            _TABELAS_COM_DEFAULT = {
+                "fator_venda", "item_composicao_mestre", "vendedor", "empresa_faturamento",
+            }
             atualizadas = 0
             falhas = []
             for tabela in _TABELAS_MASTER:
@@ -501,10 +544,13 @@ def atualizar_catalogos_master():
                     nomes = ", ".join(f'"{c}"' for c in colunas)
                     placeholders = ", ".join(["?"] * len(colunas))
                     rows = master_conn.execute(f'SELECT {nomes} FROM "{tabela}"').fetchall()
-                    user_conn.execute(f'DELETE FROM "{tabela}"')
+                    if tabela in _TABELAS_COM_DEFAULT and "default" in {c[1] for c in user_conn.execute(f'PRAGMA table_info("{tabela}")').fetchall()}:
+                        user_conn.execute(f'DELETE FROM "{tabela}" WHERE "default" = 1 OR "default" IS NULL')
+                    else:
+                        user_conn.execute(f'DELETE FROM "{tabela}"')
                     if rows:
                         user_conn.executemany(
-                            f'INSERT INTO "{tabela}" ({nomes}) VALUES ({placeholders})', rows
+                            f'INSERT OR IGNORE INTO "{tabela}" ({nomes}) VALUES ({placeholders})', rows
                         )
                     atualizadas += 1
                 except Exception as e:

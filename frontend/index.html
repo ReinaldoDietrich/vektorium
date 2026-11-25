@@ -1382,13 +1382,13 @@ CP/SP — com / sem supervisão</pre>
         Supervisório e outros — insumo pros relatórios de memorial/proposta.</p>
       <div id="t13_catalogoComercial"></div>
 
-      <div class="sec-title" style="margin-top:24px;">FATORES DE VENDA <span class="sub">— % Impostos/Comissão/Margem por código, usados na Composição de Preço</span></div>
+      <div class="sec-title" style="margin-top:24px;">FATORES DE VENDA <span class="sub">— Margem por código (impostos e comissão derivam da Empresa e dos Vendedores do projeto)</span></div>
       <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddFator">+ Fator</span></div>
       <div style="overflow-x:auto;">
-      <table class="list" style="min-width:700px;">
+      <table class="list" style="min-width:600px;">
         <thead><tr><th style="width:80px;">Código</th><th style="width:110px;">Tipo</th><th>Descrição</th>
           <th style="width:110px;">Tipo Faturamento</th>
-          <th style="width:90px;">Impostos %</th><th style="width:90px;">Comissão %</th><th style="width:90px;">Margem %</th><th style="width:30px;"></th></tr></thead>
+          <th style="width:90px;">Margem %</th><th style="width:60px;">Padrão</th><th style="width:30px;"></th></tr></thead>
         <tbody id="t13_fatores"></tbody>
       </table>
       </div>
@@ -1415,7 +1415,7 @@ CP/SP — com / sem supervisão</pre>
       <div class="no-print" style="margin-bottom:8px;"><span class="btn-text" id="t13_btnAddEmpresa">+ Empresa</span></div>
       <div style="overflow-x:auto;">
       <table class="list" style="min-width:900px;">
-        <thead><tr><th>Razão Social</th><th style="width:140px;">CNPJ</th><th style="width:120px;">Insc. Municipal</th><th style="width:120px;">Insc. Estadual</th><th>Endereço</th><th style="width:100px;">Cidade/UF</th><th style="width:90px;">Banco</th><th style="width:80px;">Agência</th><th style="width:100px;">Conta Corrente</th><th style="width:120px;">PIX</th><th style="width:60px;">Default</th><th style="width:35px;"></th></tr></thead>
+        <thead><tr><th>Razão Social</th><th style="width:140px;">CNPJ</th><th style="width:120px;">Insc. Municipal</th><th style="width:120px;">Insc. Estadual</th><th>Endereço</th><th style="width:100px;">Cidade/UF</th><th style="width:90px;">Banco</th><th style="width:80px;">Agência</th><th style="width:100px;">Conta Corrente</th><th style="width:120px;">PIX</th><th style="width:80px;">ICMS %</th><th style="width:80px;">ISS %</th><th style="width:60px;">Default</th><th style="width:35px;"></th></tr></thead>
         <tbody id="t13_empresas"></tbody>
       </table>
       </div>
@@ -1544,7 +1544,28 @@ CP/SP — com / sem supervisão</pre>
       <div class="sec-title">DADOS DO PROJETO</div>
       <div id="t17_dadosProjeto" class="grid g4" style="margin-bottom:16px;"></div>
 
-      <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <!-- Empresa do Projeto (SE-202) -->
+      <div class="sec-title">EMPRESA DO PROJETO <span class="sub">— define os impostos (ICMS/ISS) aplicados na composição de preço</span></div>
+      <div class="no-print" style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+        <select id="t17_selEmpresa" style="width:300px;"></select>
+        <span class="btn-text" id="t17_btnVincularEmpresa">Vincular</span>
+      </div>
+      <div id="t17_empresaInfo" style="margin-bottom:16px;font-size:12px;color:var(--muted,#888);"></div>
+
+      <!-- Fatores de Venda do Projeto (SE-202) -->
+      <div class="sec-title">FATORES DE VENDA DO PROJETO <span class="sub">— margem individual por tipo de produto/serviço; copie do catálogo ou edite por projeto</span></div>
+      <div class="no-print" style="margin-bottom:8px;">
+        <span class="btn-text" id="t17_btnCopiarFatoresGlobais">Copiar do Catálogo</span>
+        <span class="btn-text" id="t17_btnAddFatorProjeto" style="margin-left:8px;">+ Fator</span>
+      </div>
+      <div style="overflow-x:auto;">
+      <table class="list" style="min-width:500px;max-width:700px;">
+        <thead><tr><th style="width:70px;">Código</th><th style="width:100px;">Tipo</th><th>Descrição</th><th style="width:80px;">Margem %</th><th style="width:30px;"></th></tr></thead>
+        <tbody id="t17_fatoresProjeto"></tbody>
+      </table>
+      </div>
+
+      <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:16px;">
         <div style="display:flex;gap:12px;align-items:center;">
           <label class="lbl" style="margin:0;">Margem de Negociação (%)</label>
           <input type="text" id="t17_margemNegociacao" style="width:70px;">

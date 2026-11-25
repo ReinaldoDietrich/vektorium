@@ -55,40 +55,63 @@ BLOCOS_COMPOSICAO = [
 BLOCO_COMISSOES_INDICACAO = "Comissões por Indicação de Negócio"
 
 
-def _eh_fator_comissao(fator: "m.FatorVenda | None") -> bool:
-    """"Tipo" do Fator é texto livre digitado pelo usuário (Tela D) — comparação sem depender de
-    maiúscula/minúscula, pra não quebrar silenciosamente se digitar "COMISSÃO"/"comissão"/etc.
-    (bug real reportado 2026-08-05: usuário digitou "COMISSÃO", comparação exata nunca batia)."""
+def _eh_fator_comissao(fator) -> bool:
+    """Verifica se o tipo do fator é "Comissão" (case-insensitive)."""
     return bool(fator) and (fator.tipo or "").strip().lower() == "comissão"
 
 
-def _fator_percentuais(fator: "m.FatorVenda | None"):
+def _resolver_impostos_pct(fator, empresa: "m.EmpresaFaturamento | None") -> float:
+    """SE-202: impostos derivados da empresa pelo tipo do fator."""
+    if not fator or not empresa:
+        return 0.0
+    tipo = (fator.tipo or "").strip().upper()
+    if tipo in ("VENDAS", "PEÇAS", "REVENDA"):
+        return empresa.pct_imposto_vendas or 0
+    if tipo in ("SERVIÇOS",):
+        return empresa.pct_imposto_servicos or 0
+    return 0.0
+
+
+def _fator_percentuais(fator, empresa: "m.EmpresaFaturamento | None" = None,
+                        soma_comissao: float = 0.0):
+    """Retorna (impostos_pct, comissao_pct, margem_pct, fator_venda).
+    SE-202: impostos vêm da empresa (por tipo do fator), comissão vem da soma dos vendedores."""
     if not fator:
         return 0.0, 0.0, 0.0, 1.0
-    impostos = fator.pct_impostos or 0
-    comissao = fator.pct_comissao or 0
+    impostos = _resolver_impostos_pct(fator, empresa)
+    comissao = soma_comissao
     margem = fator.pct_margem or 0
     total = impostos + comissao + margem
     fator_venda = 1 / (1 - total) if total < 1 else None
     return impostos, comissao, margem, fator_venda
 
 
-def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -> dict:
-    """Calcula as colunas F-N de UM item. Não persiste nada — cálculo em memória, sempre a
-    partir dos valores atuais gravados (quantidade/custo_unitario/fator).
+def _mapear_fator_global_para_projeto(db: Session, projeto_id: int, fator_global_id: int) -> int | None:
+    """Mapeia um fator_id da tabela global para o equivalente na tabela do projeto (por código).
+    Se não existir, cria uma cópia."""
+    if not fator_global_id:
+        return None
+    fg = db.get(m.FatorVenda, fator_global_id)
+    if not fg:
+        return None
+    fp = (db.query(m.FatorVendaProjeto)
+          .filter_by(projeto_id=projeto_id, codigo=fg.codigo).first())
+    if fp:
+        return fp.id
+    fp = m.FatorVendaProjeto(
+        projeto_id=projeto_id, codigo=fg.codigo, tipo=fg.tipo,
+        descricao=fg.descricao, pct_margem=fg.pct_margem,
+        tipo_faturamento=fg.tipo_faturamento, ordem=fg.ordem)
+    db.add(fp)
+    db.flush()
+    return fp.id
 
-    Fator tipo "Comissão" (repasse a preço de fábrica — o revendedor emite NF ao cliente pelo
-    custo e recebe comissão do fabricante por fora, com NF de serviço pro fabricante): o item em
-    si não leva imposto/comissão/margem/negociação nenhuma (Valor de Venda = Custo). A receita
-    real dessa venda é lançada à parte, agregada por fabricante, no bloco
-    BLOCO_COMISSOES_INDICACAO (ver sincronizar_comissoes_indicacao).
 
-    Item DAQUELE bloco (a linha agregada em si) não é "vendido" com markup nenhum — não faz
-    sentido replicar a fórmula de Fator de Venda (H = 1/(1-total%)) em cima de uma receita que já
-    é a comissão em si, e Comissões (R$) fica sempre 0 aqui (senão contaria a % de comissão do
-    Fator duas vezes — uma pro valor da linha, outra pro campo Comissões). Só Margem de
-    Contribuição e Impostos seguem o % do próprio Fator, exatamente como o usuário pediu
-    (2026-08-05); Valor de Venda = Custo (sem fator_venda, sem margem de negociação)."""
+def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float,
+                   empresa: "m.EmpresaFaturamento | None" = None,
+                   soma_comissao: float = 0.0) -> dict:
+    """Calcula as colunas F-N de UM item. SE-202: impostos derivados da empresa, comissão da
+    soma dos vendedores do projeto."""
     qtd = item.quantidade or 0
     custo_unit = item.custo_unitario or 0
     custo_total = qtd * custo_unit
@@ -101,10 +124,6 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         valor_total_venda = custo_total
         valor_c_negociacao = custo_total
     elif item.bloco == BLOCO_COMISSOES_INDICACAO:
-        # custo_unitario armazena o custo total dos equipamentos do fabricante (equip_cost).
-        # calculo_snapshot_json guarda pct_margem e pct_comissao do FT1 (fator dos itens de
-        # origem). item.fator (FT6 — escolha livre do usuário) fornece pct_impostos (ISS).
-        # VLR = (margem_r + comissao_r) / (1 - impostos_pct).  Custo exibido = R$ 0.
         _snap = {}
         if item.calculo_snapshot_json:
             try:
@@ -113,7 +132,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
                 pass
         ft1_margem_pct = _snap.get("ft1_pct_margem", 0)
         ft1_comissao_pct = _snap.get("ft1_pct_comissao", 0)
-        impostos_pct = item.fator.pct_impostos or 0 if item.fator else 0
+        impostos_pct = _resolver_impostos_pct(item.fator, empresa) if item.fator else 0
         equip_total = custo_total
         margem_r = equip_total * ft1_margem_pct
         comissao_r = equip_total * ft1_comissao_pct
@@ -128,15 +147,13 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         valor_total_venda = vlr
         valor_c_negociacao = vlr
     else:
-        impostos_pct, comissao_pct, margem_pct, _ = _fator_percentuais(item.fator)
+        impostos_pct, comissao_pct, margem_pct, _ = _fator_percentuais(
+            item.fator, empresa, soma_comissao)
         denom = 1 - impostos_pct - comissao_pct
         if denom <= 0:
-            # impostos + comissao >= 100% — configuração inválida do Fator, não dá pra formar preço.
             fator_venda = None
             margem_r = impostos_r = comissao_r = valor_unit_venda = valor_total_venda = valor_c_negociacao = None
         else:
-            # Mark-up sobre custo: margem é % do custo; impostos e comissões são % do VLR.
-            # VLR = (custo + margem_r) / (1 - impostos% - comissao%)
             margem_r = custo_total * margem_pct
             valor_total_venda = (custo_total + margem_r) / denom
             valor_unit_venda = valor_total_venda / qtd if qtd else 0.0
@@ -164,11 +181,7 @@ def calcular_item(item: "m.ComposicaoPrecoItem", margem_negociacao_pct: float) -
         # comissionamento, valor_total_proposta — todos filtram por esse campo).
         "incluir_orcamento": item.incluir_orcamento,
         "tipo_faturamento": (item.fator.tipo_faturamento if item.fator else None) or "Próprio",
-        # CPC 47 (Res. CFC NBC TG 47) B34-B38 — empresa age como AGENTE nesse item (repasse a
-        # preço de fábrica): não reconhece receita nem custo pelo valor bruto do negócio, só pela
-        # comissão líquida (linha agregada em BLOCO_COMISSOES_INDICACAO). Usado pra excluir este
-        # item do Receita de Vendas / Custo do DRE e da base do comissionamento do vendedor —
-        # ver _totais_liquidos/dre_projeto/comissionamento (corrigido 2026-08-05).
+        "fator_tipo": (item.fator.tipo if item.fator else None) or "",
         "repasse": repasse,
         "faturamento_direto": faturamento_direto,
         "fechada": item.fechada,
@@ -225,19 +238,20 @@ def sincronizar_equipamentos(db: Session, projeto_id: int):
             if not existentes[chave].unidade:
                 existentes[chave].unidade = "un"
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
-                cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
+                cc_id, fator_id_global = _cc_fator_de_idc(db, eq.get("id_comercial"))
                 if existentes[chave].centro_custo_id is None and cc_id:
                     existentes[chave].centro_custo_id = cc_id
-                if existentes[chave].fator_id is None and fator_id:
-                    existentes[chave].fator_id = fator_id
+                if existentes[chave].fator_id is None and fator_id_global:
+                    existentes[chave].fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
         else:
-            cc_id, fator_id = _cc_fator_de_idc(db, eq.get("id_comercial"))
+            cc_id, fator_id_global = _cc_fator_de_idc(db, eq.get("id_comercial"))
+            fid = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global) if fator_id_global else None
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Equipamentos", descricao=eq["descricao"],
                 fabricante=eq.get("fabricante"), unidade="un",
                 quantidade=eq["quantidade"], custo_unitario=0, origem="sistema",
                 chave_sistema=chave, ordem=ordem_max,
-                centro_custo_id=cc_id, fator_id=fator_id))
+                centro_custo_id=cc_id, fator_id=fid))
             ordem_max += 1
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
@@ -427,18 +441,19 @@ def sincronizar_paineis_portas(db: Session, projeto_id: int):
             if not linha["quantidade"] and existentes[chave].custo_unitario:
                 existentes[chave].incluir_orcamento = False
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
-                cc_id, fator_id = _cc_fator_painel_porta(db, linha)
+                cc_id, fator_id_global = _cc_fator_painel_porta(db, linha)
                 if existentes[chave].centro_custo_id is None and cc_id:
                     existentes[chave].centro_custo_id = cc_id
-                if existentes[chave].fator_id is None and fator_id:
-                    existentes[chave].fator_id = fator_id
+                if existentes[chave].fator_id is None and fator_id_global:
+                    existentes[chave].fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
         else:
-            cc_id, fator_id = _cc_fator_painel_porta(db, linha)
+            cc_id, fator_id_global = _cc_fator_painel_porta(db, linha)
+            fid = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global) if fator_id_global else None
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Painéis Térmicos", descricao=chave,
                 unidade=linha["unidade"], quantidade=linha["quantidade"],
                 custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx,
-                centro_custo_id=cc_id, fator_id=fator_id))
+                centro_custo_id=cc_id, fator_id=fid))
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
             if not item.custo_unitario:
@@ -484,21 +499,22 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
             if existentes[chave].centro_custo_id is None or existentes[chave].fator_id is None:
                 lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
                 if lampada and lampada.id_comercial:
-                    cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
+                    cc_id, fator_id_global = _cc_fator_de_idc(db, lampada.id_comercial)
                     if existentes[chave].centro_custo_id is None and cc_id:
                         existentes[chave].centro_custo_id = cc_id
-                    if existentes[chave].fator_id is None and fator_id:
-                        existentes[chave].fator_id = fator_id
+                    if existentes[chave].fator_id is None and fator_id_global:
+                        existentes[chave].fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
         else:
             lampada = db.query(m.LookupLampada).filter_by(modelo=chave).first()
-            cc_id, fator_id = (None, None)
+            cc_id, fator_id_global = (None, None)
             if lampada and lampada.id_comercial:
-                cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
+                cc_id, fator_id_global = _cc_fator_de_idc(db, lampada.id_comercial)
+            fid = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global) if fator_id_global else None
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco="Outros Serviços/ Materiais", descricao=chave,
                 fabricante=linha["fabricante"], unidade="un", quantidade=linha["qtd_total"],
                 custo_unitario=0, origem="sistema", chave_sistema=chave, ordem=idx,
-                centro_custo_id=cc_id, fator_id=fator_id))
+                centro_custo_id=cc_id, fator_id=fid))
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
             if not item.custo_unitario:
@@ -510,32 +526,25 @@ def sincronizar_luminarias(db: Session, projeto_id: int):
 
 def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
     """Agrega, por Fabricante, a comissão de indicação de negócio de todo item com Fator tipo
-    "Comissão" (repasse a preço de fábrica — ver calcular_item) num item só no bloco
-    BLOCO_COMISSOES_INDICACAO: quantidade sempre 1, custo = soma de (%Comissão do Fator × Custo
-    Total) de cada item do fabricante. O Fator da linha agregada é escolha LIVRE do usuário (só
-    sugerido — herdado dos itens de origem — na primeira criação da linha; depois disso nunca
-    mais sobrescrito, representa os custos que incidem sobre a comissão recebida: imposto,
-    comissão ao vendedor — ver calcular_item, ajustado 2026-08-05).
-    Recalcula do zero a cada chamada (custo é 100% derivado, nunca editado à mão — só o Fator é).
-    Diferente dos outros sincronizadores (que nunca tocam num item que sumiu, pra não perder
-    preço digitado à mão): aqui não tem preço digitado nenhum pra perder — se um fabricante
-    deixa de ter item de comissão, a linha é APAGADA (nunca fica lançamento fantasma parado,
-    2026-08-05)."""
+    "Comissão" (repasse). SE-202: ft1_comissao vem da soma dos vendedores do projeto."""
+    soma_comissao = sum(
+        (v.percentual or 0) for v in
+        db.query(m.ComissaoVendedorProjeto).filter_by(projeto_id=projeto_id).all())
     itens = (db.query(m.ComposicaoPrecoItem)
              .filter_by(projeto_id=projeto_id)
              .filter(m.ComposicaoPrecoItem.bloco != BLOCO_COMISSOES_INDICACAO)
              .filter(m.ComposicaoPrecoItem.fator_id.isnot(None)).all())
-    grupos = {}  # fabricante -> {"soma": float, "fator_id": int, "ft1_margem": float, "ft1_comissao": float}
+    grupos = {}
     for it in itens:
         if not _eh_fator_comissao(it.fator):
             continue
         fab = it.fabricante or "—"
         custo_total_it = (it.quantidade or 0) * (it.custo_unitario or 0)
         g = grupos.setdefault(fab, {"soma": 0.0, "fator_id": it.fator_id, "ft1_margem": 0.0, "ft1_comissao": 0.0})
-        g["soma"] += custo_total_it  # acumula custo dos equipamentos (calcular_item usará para derivar VLR)
+        g["soma"] += custo_total_it
         g["fator_id"] = it.fator_id
         g["ft1_margem"] = it.fator.pct_margem or 0
-        g["ft1_comissao"] = it.fator.pct_comissao or 0
+        g["ft1_comissao"] = soma_comissao
 
     existentes = {i.chave_sistema: i for i in
                   db.query(m.ComposicaoPrecoItem)
@@ -549,19 +558,18 @@ def sincronizar_comissoes_indicacao(db: Session, projeto_id: int):
             item.fabricante = fab
             item.quantidade = 1
             item.calculo_snapshot_json = json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]})
-            # fator_id NÃO é sobrescrito (só sugerido na criação) — ver docstring
         else:
-            ft6 = db.query(m.FatorVenda).filter_by(codigo="FT6").first()
+            ft6 = db.query(m.FatorVendaProjeto).filter_by(
+                projeto_id=projeto_id, codigo="FT6").first()
+            fator_id = ft6.id if ft6 else g["fator_id"]
             db.add(m.ComposicaoPrecoItem(
                 projeto_id=projeto_id, bloco=BLOCO_COMISSOES_INDICACAO,
                 descricao=f"Comissão indicação de negócio - {fab}", fabricante=fab,
-                quantidade=1, custo_unitario=g["soma"], fator_id=ft6.id if ft6 else g["fator_id"],
+                quantidade=1, custo_unitario=g["soma"], fator_id=fator_id,
                 calculo_snapshot_json=json.dumps({"ft1_pct_margem": g["ft1_margem"], "ft1_pct_comissao": g["ft1_comissao"]}),
                 origem="sistema", chave_sistema=chave, ordem=ordem_max))
             ordem_max += 1
 
-    # Fabricante que ficou sem item de comissão nenhum (mudou o Fator, apagou o item etc.) —
-    # suspende a linha (custo=0, fora do orçamento) preservando centro_custo_id definido pelo usuário.
     chaves_atuais = {f"comissao-indicacao::{fab}" for fab in grupos}
     for chave, item in existentes.items():
         if chave not in chaves_atuais:
@@ -592,12 +600,13 @@ def restaurar_padroes(db: Session, projeto_id: int, bloco: str | None = None):
         ordem = ordem_por_bloco.get(it.bloco)
         if ordem is None:
             ordem = db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id, bloco=it.bloco).count()
+        fid = _mapear_fator_global_para_projeto(db, projeto_id, it.fator_id) if it.fator_id else None
         db.add(m.ComposicaoPrecoItem(
             projeto_id=projeto_id, bloco=it.bloco, descricao=it.descricao,
             quantidade=it.quantidade_padrao if it.quantidade_padrao else 1,
             custo_unitario=it.custo_unitario_padrao or 0,
             unidade=it.unidade,
-            fator_id=it.fator_id, centro_custo_id=cc_id,
+            fator_id=fid, centro_custo_id=cc_id,
             origem="default", chave_sistema=None, ordem=ordem))
         ordem_por_bloco[it.bloco] = ordem + 1
         criados += 1
@@ -628,13 +637,13 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
     for item in items_eq:
         idc_code = mapa_eq.get(item.chave_sistema)
         if idc_code:
-            cc_id, fator_id = _cc_fator_de_idc(db, idc_code)
+            cc_id, fator_id_global = _cc_fator_de_idc(db, idc_code)
             alterou = False
             if cc_id is not None:
                 item.centro_custo_id = cc_id
                 alterou = True
-            if fator_id is not None:
-                item.fator_id = fator_id
+            if fator_id_global is not None:
+                item.fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
                 alterou = True
             if alterou:
                 contadores["equipamentos"] += 1
@@ -654,21 +663,21 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
             if linha.get("observacoes"):
                 partes.append(f"({linha['observacoes']})")
             chave = " - ".join(partes)
-        cc_id, fator_id = _cc_fator_painel_porta(db, linha)
-        mapa_pp[chave] = (cc_id, fator_id)
+        cc_id, fator_id_global = _cc_fator_painel_porta(db, linha)
+        mapa_pp[chave] = (cc_id, fator_id_global)
     items_pp = (db.query(m.ComposicaoPrecoItem)
                 .filter_by(projeto_id=projeto_id, bloco="Painéis Térmicos", origem="sistema")
                 .all())
     for item in items_pp:
         par = mapa_pp.get(item.chave_sistema)
         if par:
-            cc_id, fator_id = par
+            cc_id, fator_id_global = par
             alterou = False
             if cc_id is not None:
                 item.centro_custo_id = cc_id
                 alterou = True
-            if fator_id is not None:
-                item.fator_id = fator_id
+            if fator_id_global is not None:
+                item.fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
                 alterou = True
             if alterou:
                 contadores["paineis_portas"] += 1
@@ -681,13 +690,13 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
     for item in items_lum:
         lampada = db.query(m.LookupLampada).filter_by(modelo=item.chave_sistema).first()
         if lampada and lampada.id_comercial:
-            cc_id, fator_id = _cc_fator_de_idc(db, lampada.id_comercial)
+            cc_id, fator_id_global = _cc_fator_de_idc(db, lampada.id_comercial)
             alterou = False
             if cc_id is not None:
                 item.centro_custo_id = cc_id
                 alterou = True
-            if fator_id is not None:
-                item.fator_id = fator_id
+            if fator_id_global is not None:
+                item.fator_id = _mapear_fator_global_para_projeto(db, projeto_id, fator_id_global)
                 alterou = True
             if alterou:
                 contadores["luminarias"] += 1
@@ -710,7 +719,7 @@ def atualizar_cc_fv_arvore(db: Session, projeto_id: int) -> dict:
                 item.centro_custo_id = cc_id
                 alterou = True
             if mestre.fator_id is not None:
-                item.fator_id = mestre.fator_id
+                item.fator_id = _mapear_fator_global_para_projeto(db, projeto_id, mestre.fator_id)
                 alterou = True
             if mestre.unidade and not item.unidade:
                 item.unidade = mestre.unidade
@@ -738,9 +747,14 @@ def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) ->
             item.unidade = mestre.unidade
     db.commit()
     margem_neg = _margem_negociacao(db, projeto_id)
+    projeto = db.get(m.Projeto, projeto_id)
+    empresa = db.get(m.EmpresaFaturamento, projeto.empresa_id) if projeto and projeto.empresa_id else None
+    soma_comissao = sum(
+        (v.percentual or 0) for v in
+        db.query(m.ComissaoVendedorProjeto).filter_by(projeto_id=projeto_id).all())
     itens = (db.query(m.ComposicaoPrecoItem).filter_by(projeto_id=projeto_id)
              .order_by(m.ComposicaoPrecoItem.bloco, m.ComposicaoPrecoItem.ordem, m.ComposicaoPrecoItem.id).all())
-    calculados = [calcular_item(i, margem_neg) for i in itens]
+    calculados = [calcular_item(i, margem_neg, empresa=empresa, soma_comissao=soma_comissao) for i in itens]
     blocos = {b: [] for b in BLOCOS_COMPOSICAO}
     for c in calculados:
         blocos.setdefault(c["bloco"], []).append(c)
@@ -748,13 +762,9 @@ def montar_composicao(db: Session, projeto_id: int, sincronizar: bool = True) ->
 
 
 def _totais_liquidos(dados: dict) -> dict:
-    """Totais REAIS da empresa — exclui todo item marcado "repasse" (ver calcular_item, CPC 47
-    B34-B38: empresa age como agente nesses itens, não reconhece receita/custo pelo valor bruto
-    do negócio) e exclui o próprio bloco de Comissões (que tem tratamento à parte — é receita
-    líquida em si, ver sincronizar_comissoes_indicacao). Usado pelo DRE e pela base real do
-    comissionamento do vendedor — nenhum dos dois pode contar o valor bruto de um repasse
-    (2026-08-06)."""
+    """Totais REAIS da empresa — exclui repasse e bloco Comissões. SE-202: separa ICMS/ISS por fator_tipo."""
     receita_vendas = custo = impostos_vendas = 0.0
+    icms = iss = 0.0
     for bloco, itens in dados["blocos"].items():
         if bloco == BLOCO_COMISSOES_INDICACAO:
             continue
@@ -763,8 +773,15 @@ def _totais_liquidos(dados: dict) -> dict:
                 continue
             receita_vendas += it["valor_venda_negociacao"] or 0
             custo += it["custo_total"] or 0
-            impostos_vendas += it["impostos"] or 0
-    return {"receita_vendas": receita_vendas, "custo": custo, "impostos_vendas": impostos_vendas}
+            imp = it["impostos"] or 0
+            impostos_vendas += imp
+            ft = (it.get("fator_tipo") or "").strip().upper()
+            if ft in ("VENDAS", "PEÇAS", "REVENDA"):
+                icms += imp
+            elif ft in ("SERVIÇOS",):
+                iss += imp
+    return {"receita_vendas": receita_vendas, "custo": custo,
+            "impostos_vendas": impostos_vendas, "icms": icms, "iss": iss}
 
 
 def lista_materiais(db: Session, projeto_id: int, bloco: str | None = None,
@@ -921,10 +938,13 @@ def dre_projeto(db: Session, projeto_id: int, dados: dict | None = None,
     comissoes_reais = com["total_comissoes"]
     resultado = lucro_bruto - comissoes_reais
     margem_liquida_pct = (resultado / receita_bruta) if receita_bruta else None
+    icms = totais.get("icms", 0)
+    iss = totais.get("iss", 0) + impostos_comissoes
     return {
         "receita_vendas": receita_vendas, "receita_comissoes": receita_comissoes,
         "receita_bruta": receita_bruta,
         "impostos_vendas": impostos_vendas, "impostos_comissoes": impostos_comissoes,
+        "icms": icms, "iss": iss,
         "impostos": impostos, "receita_liquida": receita_liquida,
         "custo": custo, "lucro_bruto": lucro_bruto, "comissoes": comissoes_reais,
         "resultado": resultado, "margem_liquida_pct": margem_liquida_pct,

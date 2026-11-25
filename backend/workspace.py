@@ -29,6 +29,7 @@ TABELAS_PROJETO = [
     "condicao_pagamento_parcela",
     "condicao_pagamento_projeto",
     "composicao_preco_item",
+    "fator_venda_projeto",
     "portas_frigorificas",
     "paineis_termicos",
     "equipamento_valor_tela10",
@@ -155,7 +156,8 @@ def limpar_tabelas_projeto():
 _FK_DIRETA_PROJETO = [
     "margem_negociacao_projeto", "comissao_vendedor_projeto",
     "condicao_pagamento_parcela", "condicao_pagamento_projeto",
-    "composicao_preco_item", "portas_frigorificas", "paineis_termicos",
+    "composicao_preco_item", "fator_venda_projeto",
+    "portas_frigorificas", "paineis_termicos",
     "equipamento_valor_tela10", "material_tela10",
 ]
 

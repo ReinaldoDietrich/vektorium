@@ -111,8 +111,90 @@ function initTela17() {
     if (t17_composicaoAtual) t17_renderTabelaOrcamento(t17_composicaoAtual);
   });
   t17_atualizarVisibilidadeFiltrosOrcamento();
+  document.getElementById('t17_btnVincularEmpresa').addEventListener('click', t17_vincularEmpresa);
+  document.getElementById('t17_btnCopiarFatoresGlobais').addEventListener('click', t17_copiarFatoresGlobais);
+  document.getElementById('t17_btnAddFatorProjeto').addEventListener('click', t17_addFatorProjeto);
   document.getElementById('t17_cpBtnGerar').addEventListener('click', t17_atualizarAgendaPagamento);
   document.getElementById('t17_cpBtnExcluir').addEventListener('click', t17_excluirAgendaPagamento);
+}
+
+// ---------------- Empresa do Projeto (SE-202) ----------------
+
+async function t17_carregarEmpresaProjeto() {
+  const empresas = await api.get('/api/composicao-preco/empresas');
+  const atual = await api.get(`/api/composicao-preco/empresa-projeto?projeto_id=${state.projetoId}`);
+  const sel = document.getElementById('t17_selEmpresa');
+  sel.innerHTML = '<option value="">— Nenhuma —</option>' +
+    empresas.map(e => `<option value="${e.id}" ${atual && atual.id === e.id ? 'selected' : ''}>${e.razao_social} (${e.cnpj || '—'})</option>`).join('');
+  const info = document.getElementById('t17_empresaInfo');
+  if (atual) {
+    info.innerHTML = `ICMS: ${((atual.pct_imposto_vendas || 0) * 100).toFixed(1)}% | ISS: ${((atual.pct_imposto_servicos || 0) * 100).toFixed(1)}%`;
+  } else {
+    info.innerHTML = '<em>Nenhuma empresa vinculada — impostos não serão aplicados.</em>';
+  }
+}
+
+async function t17_vincularEmpresa() {
+  const sel = document.getElementById('t17_selEmpresa');
+  const empresaId = sel.value ? Number(sel.value) : null;
+  await api.put(`/api/composicao-preco/empresa-projeto?projeto_id=${state.projetoId}`, { empresa_id: empresaId });
+  await t17_carregarEmpresaProjeto();
+  const tudo = await t17_carregarTudo(false);
+  t17_renderBlocos(tudo.composicao);
+  t17_renderResumo(tudo.resumo);
+  t17_renderTabelaOrcamento(tudo.composicao);
+  t17_renderComissionamento(tudo.comissionamento);
+  t17_renderDre(tudo.dre);
+}
+
+// ---------------- Fatores de Venda do Projeto (SE-202) ----------------
+
+async function t17_carregarFatoresProjeto() {
+  t17_fatores = await api.get(`/api/composicao-preco/fatores-projeto?projeto_id=${state.projetoId}`);
+  const tbody = document.getElementById('t17_fatoresProjeto');
+  tbody.innerHTML = t17_fatores.map(f => `
+    <tr data-fator-proj-id="${f.id}">
+      <td><input data-campo="codigo" value="${f.codigo}" style="width:60px;"></td>
+      <td><input data-campo="tipo" value="${f.tipo || ''}" style="width:90px;"></td>
+      <td><input data-campo="descricao" value="${f.descricao}" style="width:100%;"></td>
+      <td><input data-campo="pct_margem" value="${((f.pct_margem || 0) * 100).toFixed(1)}" style="width:60px;"></td>
+      <td><span class="btn-text danger" data-del-fator-proj>x</span></td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (e) => {
+    const tr = e.target.closest('tr');
+    const campo = inp.dataset.campo;
+    let valor = inp.value;
+    if (campo === 'pct_margem') valor = parseNumBR(valor) / 100;
+    await api.put(`/api/composicao-preco/fatores-projeto/${tr.dataset.fatorProjId}`, { [campo]: valor });
+  }));
+  tbody.querySelectorAll('[data-del-fator-proj]').forEach(b => b.addEventListener('click', async (e) => {
+    if (!confirm('Excluir este fator do projeto?')) return;
+    const tr = e.target.closest('tr');
+    try { await api.del(`/api/composicao-preco/fatores-projeto/${tr.dataset.fatorProjId}`); t17_carregarFatoresProjeto(); }
+    catch (err) { alert('Erro: ' + err.message); }
+  }));
+}
+
+async function t17_copiarFatoresGlobais() {
+  try {
+    const r = await api.post(`/api/composicao-preco/copiar-fatores-globais?projeto_id=${state.projetoId}`, {});
+    alert(`${r.criados} fator(es) copiado(s) do catálogo.`);
+    await t17_carregarFatoresProjeto();
+  } catch (err) { alert('Erro: ' + err.message); }
+}
+
+function t17_addFatorProjeto() {
+  vkPrompt('Adicionar Fator ao Projeto', [
+    {label: 'Código (ex.: FT1)', name: 'codigo'},
+    {label: 'Descrição', name: 'descricao'}
+  ], async (v) => {
+    if (!v.codigo || !v.codigo.trim()) return;
+    const descricao = (v.descricao && v.descricao.trim()) || v.codigo.trim();
+    try {
+      await api.post(`/api/composicao-preco/fatores-projeto?projeto_id=${state.projetoId}`, { codigo: v.codigo.trim(), descricao, tipo: '', pct_margem: 0 });
+      await t17_carregarFatoresProjeto();
+    } catch (err) { alert('Erro: ' + err.message); }
+  });
 }
 
 async function t17_carregar() {
@@ -124,7 +206,7 @@ async function t17_carregar() {
   conteudo.style.display = 'block';
 
   const [, , , projeto] = await Promise.all([
-    (async () => { t17_fatores = await api.get('/api/composicao-preco/fatores'); })(),
+    (async () => { t17_fatores = await api.get(`/api/composicao-preco/fatores-projeto?projeto_id=${state.projetoId}`); })(),
     (async () => { t17_centrosCusto = await api.get('/api/tela10/centro-custo'); })(),
     (async () => { t17_vendedores = await api.get('/api/composicao-preco/vendedores'); })(),
     api.get(`/api/projetos/${state.projetoId}`),
@@ -137,6 +219,8 @@ async function t17_carregar() {
   margemInput.value = (margem.percentual * 100).toFixed(1);
 
   t17_renderDadosProjeto(projeto);
+  await t17_carregarEmpresaProjeto();
+  await t17_carregarFatoresProjeto();
   t17_popularFiltroCC();
   t17_popularFiltroTipo();
   const tudo = await t17_carregarTudo();
@@ -726,8 +810,8 @@ function t17_renderDre(dre) {
     ['Receita de Vendas (produtos)', dre.receita_vendas, false],
     ['(+) Receita de Comissões de Indicação de Negócio', dre.receita_comissoes, false],
     ['Receita Bruta Total', dre.receita_bruta, true],
-    ['(-) Impostos sobre Vendas', -dre.impostos_vendas, false],
-    ['(-) Impostos sobre Comissões de Indicação', -dre.impostos_comissoes, false],
+    ['(-) ICMS (Vendas/Peças)', -(dre.icms || 0), false],
+    ['(-) ISS (Serviços/Comissões)', -(dre.iss || 0), false],
     ['Receita Líquida', dre.receita_liquida, true],
     ['(-) Custo dos Materiais/Serviços', -dre.custo, false],
     ['Lucro Bruto', dre.lucro_bruto, true],

@@ -196,16 +196,15 @@ async function t13_carregarFatores() {
         <option value="Próprio" ${(f.tipo_faturamento || 'Próprio') === 'Próprio' ? 'selected' : ''}>Próprio</option>
         <option value="Direto" ${f.tipo_faturamento === 'Direto' ? 'selected' : ''}>Direto</option>
       </select></td>
-      <td><input data-campo="pct_impostos" value="${(f.pct_impostos * 100).toFixed(1)}" style="width:70px;"></td>
-      <td><input data-campo="pct_comissao" value="${(f.pct_comissao * 100).toFixed(1)}" style="width:70px;"></td>
-      <td><input data-campo="pct_margem" value="${(f.pct_margem * 100).toFixed(1)}" style="width:70px;"></td>
+      <td><input data-campo="pct_margem" value="${((f.pct_margem || 0) * 100).toFixed(1)}" style="width:70px;"></td>
+      <td style="text-align:center;"><input type="checkbox" data-campo="default" ${f.default ? 'checked' : ''}></td>
       <td><span class="btn-text danger" data-del-fator>x</span></td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (e) => {
     const tr = e.target.closest('tr');
     const campo = inp.dataset.campo;
-    let valor = inp.value;
-    if (campo.startsWith('pct_')) valor = parseNumBR(valor) / 100;
+    let valor = inp.type === 'checkbox' ? inp.checked : inp.value;
+    if (campo === 'pct_margem') valor = parseNumBR(valor) / 100;
     await api.put(`/api/composicao-preco/fatores/${tr.dataset.fatorId}`, { [campo]: valor });
   }));
   tbody.querySelectorAll('[data-del-fator]').forEach(b => b.addEventListener('click', async (e) => {
@@ -224,7 +223,7 @@ function t13_addFator() {
     if (!v.codigo || !v.codigo.trim()) return;
     const descricao = (v.descricao && v.descricao.trim()) || v.codigo.trim();
     try {
-      await api.post('/api/composicao-preco/fatores', { codigo: v.codigo.trim(), descricao, tipo: '', pct_impostos: 0, pct_comissao: 0, pct_margem: 0 });
+      await api.post('/api/composicao-preco/fatores', { codigo: v.codigo.trim(), descricao, tipo: '', pct_margem: 0 });
       t13_carregarFatores();
     } catch (err) { alert('Erro ao adicionar: ' + err.message); }
   });
@@ -342,13 +341,16 @@ async function t13_carregarEmpresas() {
       <td><input data-campo="agencia" value="${e.agencia || ''}" style="width:70px;"></td>
       <td><input data-campo="conta" value="${e.conta || ''}" style="width:90px;"></td>
       <td><input data-campo="pix" value="${e.pix || ''}" style="width:100%;"></td>
+      <td><input data-campo="pct_imposto_vendas" value="${((e.pct_imposto_vendas || 0) * 100).toFixed(1)}" style="width:70px;"></td>
+      <td><input data-campo="pct_imposto_servicos" value="${((e.pct_imposto_servicos || 0) * 100).toFixed(1)}" style="width:70px;"></td>
       <td style="text-align:center;"><input type="checkbox" data-campo="default" ${e.default ? 'checked' : ''}></td>
       <td><span class="btn-text danger" data-del-empresa>x</span></td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (ev) => {
     const tr = ev.target.closest('tr');
     const campo = inp.dataset.campo;
-    const valor = inp.type === 'checkbox' ? inp.checked : inp.value;
+    let valor = inp.type === 'checkbox' ? inp.checked : inp.value;
+    if (campo.startsWith('pct_imposto_')) valor = parseNumBR(valor) / 100;
     await api.put(`/api/composicao-preco/empresas/${tr.dataset.empresaId}`, { [campo]: valor });
   }));
   tbody.querySelectorAll('[data-del-empresa]').forEach(b => b.addEventListener('click', async (ev) => {

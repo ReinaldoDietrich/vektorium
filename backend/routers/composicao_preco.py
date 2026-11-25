@@ -286,6 +286,106 @@ def salvar_margem_entidade(projeto_id: int, db: Session = Depends(get_db)):
     return {"projeto_id": projeto_id, "percentual": reg.percentual, "fechada": reg.fechada}
 
 
+# ---------------- Fatores de Venda por Projeto (SE-202) ----------------
+
+CAMPOS_FATOR_PROJETO = {"codigo", "tipo", "descricao", "pct_margem", "tipo_faturamento", "ordem"}
+
+
+@router.get("/fatores-projeto")
+def listar_fatores_projeto(projeto_id: int, db: Session = Depends(get_db)):
+    if not db.get(m.Projeto, projeto_id):
+        raise HTTPException(404, "Projeto não encontrado")
+    return list_to_dict(db.query(m.FatorVendaProjeto)
+                         .filter_by(projeto_id=projeto_id)
+                         .order_by(m.FatorVendaProjeto.ordem, m.FatorVendaProjeto.id).all())
+
+
+@router.post("/fatores-projeto")
+def criar_fator_projeto(projeto_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    bp.verificar_projeto_aberto(db, projeto_id)
+    if not payload.get("codigo") or not payload.get("descricao"):
+        raise HTTPException(400, "codigo e descricao obrigatórios")
+    dados = {k: v for k, v in payload.items() if k in CAMPOS_FATOR_PROJETO}
+    obj = m.FatorVendaProjeto(projeto_id=projeto_id, **dados)
+    db.add(obj)
+    db.commit()
+    return model_to_dict(obj)
+
+
+@router.put("/fatores-projeto/{fator_id}")
+def atualizar_fator_projeto(fator_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    obj = db.get(m.FatorVendaProjeto, fator_id)
+    if not obj:
+        raise HTTPException(404)
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    for k, v in payload.items():
+        if k in CAMPOS_FATOR_PROJETO:
+            setattr(obj, k, v)
+    db.commit()
+    return model_to_dict(obj)
+
+
+@router.delete("/fatores-projeto/{fator_id}")
+def excluir_fator_projeto(fator_id: int, db: Session = Depends(get_db)):
+    obj = db.get(m.FatorVendaProjeto, fator_id)
+    if not obj:
+        return {"ok": True}
+    bp.verificar_projeto_aberto(db, obj.projeto_id)
+    em_uso = db.query(m.ComposicaoPrecoItem).filter_by(fator_id=fator_id).count()
+    if em_uso:
+        raise HTTPException(400, f"Fator em uso em {em_uso} item(ns) — não pode ser excluído.")
+    db.delete(obj)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/copiar-fatores-globais")
+def copiar_fatores_globais(projeto_id: int, db: Session = Depends(get_db)):
+    """Copia todos os FatorVenda globais como FatorVendaProjeto (se o projeto ainda não tem)."""
+    bp.verificar_projeto_aberto(db, projeto_id)
+    existentes = db.query(m.FatorVendaProjeto).filter_by(projeto_id=projeto_id).count()
+    if existentes:
+        raise HTTPException(400, "Projeto já possui fatores — use os endpoints individuais.")
+    globais = db.query(m.FatorVenda).order_by(m.FatorVenda.ordem, m.FatorVenda.id).all()
+    criados = 0
+    for fg in globais:
+        db.add(m.FatorVendaProjeto(
+            projeto_id=projeto_id, codigo=fg.codigo, tipo=fg.tipo,
+            descricao=fg.descricao, pct_margem=fg.pct_margem,
+            tipo_faturamento=fg.tipo_faturamento, ordem=fg.ordem))
+        criados += 1
+    db.commit()
+    return {"criados": criados}
+
+
+# ---------------- Empresa do Projeto (SE-202) ----------------
+
+@router.get("/empresa-projeto")
+def obter_empresa_projeto(projeto_id: int, db: Session = Depends(get_db)):
+    projeto = db.get(m.Projeto, projeto_id)
+    if not projeto:
+        raise HTTPException(404, "Projeto não encontrado")
+    if projeto.empresa_id and projeto.empresa:
+        return model_to_dict(projeto.empresa)
+    return None
+
+
+@router.put("/empresa-projeto")
+def vincular_empresa_projeto(projeto_id: int, payload: dict = Body(...), db: Session = Depends(get_db)):
+    projeto = db.get(m.Projeto, projeto_id)
+    if not projeto:
+        raise HTTPException(404, "Projeto não encontrado")
+    bp.verificar_projeto_aberto(db, projeto_id)
+    empresa_id = payload.get("empresa_id")
+    if empresa_id is not None:
+        empresa = db.get(m.EmpresaFaturamento, empresa_id)
+        if not empresa:
+            raise HTTPException(404, "Empresa não encontrada")
+    projeto.empresa_id = empresa_id
+    db.commit()
+    return {"ok": True, "empresa_id": empresa_id}
+
+
 # ---------------- Condição de Pagamento — Editar / Salvar (fechada) ----------------
 
 @router.post("/condicao-pagamento/editar")

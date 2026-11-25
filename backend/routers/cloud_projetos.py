@@ -23,7 +23,7 @@ from ..models import (
     PainelTermico, PortaFrigorifica,
     ComposicaoPrecoItem, CondicaoPagamentoProjeto, CondicaoPagamentoParcela,
     ComissaoVendedorProjeto, MargemNegociacaoProjeto,
-    Vendedor,
+    Vendedor, FatorVendaProjeto,
 )
 
 router = APIRouter(prefix="/api/cloud", tags=["cloud"])
@@ -227,6 +227,7 @@ def _serializar_projeto(db: Session, projeto: Projeto) -> dict:
 
     data["paineis"] = [_to_dict(p, ("id", "projeto_id")) for p in db.query(PainelTermico).filter_by(projeto_id=projeto.id).all()]
     data["portas"] = [_to_dict(p, ("id", "projeto_id")) for p in db.query(PortaFrigorifica).filter_by(projeto_id=projeto.id).all()]
+    data["fatores_projeto"] = [_to_dict(f, ("id", "projeto_id")) for f in db.query(FatorVendaProjeto).filter_by(projeto_id=projeto.id).order_by(FatorVendaProjeto.ordem, FatorVendaProjeto.id).all()]
     data["composicao"] = [_to_dict(c, ("id", "projeto_id")) for c in db.query(ComposicaoPrecoItem).filter_by(projeto_id=projeto.id).all()]
 
     cond = db.query(CondicaoPagamentoProjeto).filter_by(projeto_id=projeto.id).first()
@@ -356,8 +357,22 @@ def _importar_projeto(db: Session, data: dict) -> int:
         p2["camara_simples_id"] = id_cs.get(old_cs) if old_cs else None
         db.add(PortaFrigorifica(**p2, projeto_id=novo_pid))
 
+    id_fvp: dict = {}  # old_fator_id -> new_fator_id
+    for f in data.get("fatores_projeto", []):
+        old_fid = f.get("id")
+        f_data = _filtrar(FatorVendaProjeto, f, ("id", "projeto_id"))
+        novo_f = FatorVendaProjeto(**f_data, projeto_id=novo_pid)
+        db.add(novo_f)
+        db.flush()
+        if old_fid is not None:
+            id_fvp[old_fid] = novo_f.id
+
     for c in data.get("composicao", []):
-        db.add(ComposicaoPrecoItem(**_filtrar(ComposicaoPrecoItem, c, ("id", "projeto_id")), projeto_id=novo_pid))
+        c_data = _filtrar(ComposicaoPrecoItem, c, ("id", "projeto_id"))
+        old_fator = c.get("fator_id")
+        if old_fator and old_fator in id_fvp:
+            c_data["fator_id"] = id_fvp[old_fator]
+        db.add(ComposicaoPrecoItem(**c_data, projeto_id=novo_pid))
 
     cond_pag = data.get("condicao_pagamento")
     if cond_pag:

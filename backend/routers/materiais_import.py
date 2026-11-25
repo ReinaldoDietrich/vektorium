@@ -76,7 +76,7 @@ def confirmar(projeto_id: int, payload: dict = Body(...), db: Session = Depends(
         raise HTTPException(404, "Projeto não encontrado")
     bp.verificar_projeto_aberto(db, projeto_id)
     itens = payload.get("itens", [])
-    fatores = {f.codigo: f.id for f in db.query(m.FatorVenda).all()}
+    fatores = {f.codigo: f.id for f in db.query(m.FatorVendaProjeto).filter_by(projeto_id=projeto_id).all()}
     ordem_por_bloco = {}
     criados = 0
     for it in itens:
