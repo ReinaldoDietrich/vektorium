@@ -1376,7 +1376,7 @@ class PolinomioCompressor(Base):
     linha = Column(String, nullable=False)      # ex.: "Semi-Hermético", "Duplo Estágio", "Parafuso"
     modelo = Column(String, nullable=False)      # código já resolvido (ex.: "2CES-3-20D")
     gas = Column(String, nullable=False)
-    tensao = Column(String, nullable=False)      # ex.: "230V-3-60Hz"
+    tensao = Column(String, nullable=False)      # ex.: "220V/3F/60Hz"
     frequencia_hz = Column(Float)
     grandeza = Column(String, nullable=False)    # "Capacidade" | "Potência" | "Corrente" | "Vazão Mássica"
     unidade = Column(String)

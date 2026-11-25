@@ -28,19 +28,19 @@ def _style_header(cell):
 # ============================ FORÇADORES ============================
 
 TEMPS_FORC = [15, 10, 5, 0, -5, -10, -15, -20, -25, -30, -35, -40, -45]
-TENSOES_FORC = ["220V-1F", "220V-3F", "380V-3F"]
+TENSOES_FORC = ["220V/1F", "220V/3F", "380V/3F"]
 
 
 def _norm_tensao(t):
     if not t:
         return None
-    s = t.upper().replace(" ", "").replace("/", "-").replace("HZ", "")
+    s = t.upper().replace(" ", "").replace("-", "").replace("/", "").replace("HZ", "")
     if "220" in s and "1F" in s:
-        return "220V-1F"
+        return "220V/1F"
     if "220" in s and "3F" in s:
-        return "220V-3F"
+        return "220V/3F"
     if "380" in s and "3F" in s:
-        return "380V-3F"
+        return "380V/3F"
     return None
 
 
