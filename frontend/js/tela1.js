@@ -68,9 +68,10 @@ async function t1_renderAcoesProjetoAtivo() {
   if (btnDescarregar && pathVek) {
     btnDescarregar.addEventListener('click', async () => {
       const nome = pathVek.replace(/\\/g, '/').split('/').pop();
-      if (!confirm(`Descarregar o arquivo "${nome}"?\nOs dados serão salvos antes de fechar.`)) return;
+      const escolha = await mostrarPopupDescarregar(nome);
+      if (escolha === 'cancelar') return;
       try {
-        await api.post('/api/workspace/fechar', { path: pathVek });
+        await api.post('/api/workspace/fechar', { path: pathVek, salvar: escolha === 'salvar' });
         await t1_fecharProjetoAtivo();
       } catch (e) { alert('Erro ao descarregar: ' + (e.message || e)); }
     });

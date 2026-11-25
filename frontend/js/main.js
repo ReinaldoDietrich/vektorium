@@ -229,6 +229,35 @@ function _mostrarPopupSair() {
   });
 }
 
+function mostrarPopupDescarregar(nomeArquivo) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:8px;padding:24px;min-width:360px;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+    box.innerHTML = `
+      <h3 style="margin:0 0 16px;font-size:15px;">Descarregar "${nomeArquivo}"?</h3>
+      <p style="margin:0 0 20px;font-size:13px;color:#555;">Deseja salvar as alterações antes de fechar?</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="vk-desc-cancelar" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;">Cancelar</button>
+        <button class="vk-desc-sem" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#b91c1c;">Fechar sem Salvar</button>
+        <button class="vk-desc-salvar" style="padding:8px 16px;border:none;border-radius:4px;background:#1668c7;color:#fff;cursor:pointer;font-weight:bold;">Salvar e Fechar</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    function fechar(r) { overlay.remove(); resolve(r); }
+    box.querySelector('.vk-desc-cancelar').addEventListener('click', () => fechar('cancelar'));
+    box.querySelector('.vk-desc-sem').addEventListener('click', () => fechar('sem-salvar'));
+    box.querySelector('.vk-desc-salvar').addEventListener('click', () => fechar('salvar'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar('cancelar'); });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') fechar('cancelar');
+      if (e.key === 'Enter') { e.preventDefault(); fechar('salvar'); }
+    });
+    box.querySelector('.vk-desc-salvar').focus();
+  });
+}
+
 async function sairDoApp() {
   let querSalvar = true;
   try {

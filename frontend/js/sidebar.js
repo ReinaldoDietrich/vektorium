@@ -353,9 +353,10 @@ async function loadProjetosArvore() {
       if (btnClose) {
         btnClose.addEventListener('click', async ev => {
           ev.stopPropagation();
-          if (!confirm(`Descarregar o arquivo "${nomeArquivo}"?\nOs dados serão salvos antes de fechar.`)) return;
+          const escolha = await mostrarPopupDescarregar(nomeArquivo);
+          if (escolha === 'cancelar') return;
           try {
-            await api.post('/api/workspace/fechar', { path: vekPath });
+            await api.post('/api/workspace/fechar', { path: vekPath, salvar: escolha === 'salvar' });
             (projetos || []).forEach(pp => _revisoesCachadas.delete(pp.id));
             if (state.projetoId && idParaVek[state.projetoId] === vekPath) {
               await fecharProjetoAtivo();

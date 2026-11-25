@@ -54,7 +54,8 @@ def fechar_arquivo(payload: dict = Body(...)):
     path_vek = payload.get("path", "").strip()
     if not path_vek:
         raise HTTPException(400, "Caminho do arquivo .vek é obrigatório.")
-    result = workspace.fechar_arquivo(path_vek)
+    salvar = payload.get("salvar", True)
+    result = workspace.fechar_arquivo(path_vek, salvar=salvar)
     if not result.get("ok"):
         raise HTTPException(400, result.get("erro", "Erro ao fechar."))
     return result
