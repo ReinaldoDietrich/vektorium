@@ -192,10 +192,10 @@ function t19_renderArvore() {
   box.innerHTML = nos.map(n => {
     const nivel = String(n.codigo).split('.').length - 1;
     const marcado = projeto.has(n.codigo);
-    const temTexto = comTexto.has(n.codigo);
+    const emProjeto = projeto.has(n.codigo);
     return `<div style="padding-left:${nivel * 16}px;line-height:1.7;">
       <label class="checkrow"><input type="checkbox" class="t19-id" data-codigo="${n.codigo}" ${marcado ? 'checked' : ''}>
-      <span style="color:#6b7280;">${n.codigo}</span> ${n.nome}${temTexto ? ' <span class="sub" style="color:#15803d;">· texto</span>' : ''}</label>
+      <span style="color:#6b7280;">${n.codigo}</span> ${n.nome}${emProjeto ? ' <span class="sub" style="color:#15803d;">· Projeto</span>' : ''}</label>
     </div>`;
   }).join('');
   box.querySelectorAll('.t19-id').forEach(cb => {

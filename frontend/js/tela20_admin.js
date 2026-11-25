@@ -40,7 +40,7 @@
       document.getElementById('t20_perfilEmail').textContent = u.email;
       document.getElementById('t20_perfilPapel').textContent = u.papel;
       document.getElementById('t20_perfilAssinatura').textContent = a
-        ? `${a.plano} (${a.status})${a.vence_em ? ' — vence ' + a.vence_em : ''}`
+        ? `${a.plano} (${a.status})${a.vence_em ? ' — vence ' + fmtDataBR(a.vence_em) : ''}`
         : 'Nenhuma';
       state.isMaster = u.papel === 'master';
     } catch (e) {
@@ -170,7 +170,7 @@
     tbody.innerHTML = _usuarios.map(u => {
       const status = u.assinatura_status || '—';
       const plano = u.assinatura_plano || '—';
-      const vence = u.assinatura_vence_em || '—';
+      const vence = u.assinatura_vence_em ? fmtDataBR(u.assinatura_vence_em) : '—';
       const isTrial = status.toLowerCase() === 'trial' || status.toLowerCase() === 'teste';
 
       let acoes = `<button class="btn-text" onclick="window._t20_editarUsuario('${u.id}','${(u.email||'').replace(/'/g,"\\'")}','${(u.nome||'').replace(/'/g,"\\'")}','${u.papel}','${vence !== '—' ? vence : ''}','${plano !== '—' ? plano : ''}')">Editar</button>`;

@@ -166,6 +166,12 @@ async function t17_carregarFatoresProjeto() {
     let valor = inp.value;
     if (campo === 'pct_margem') valor = parseNumBR(valor) / 100;
     await api.put(`/api/composicao-preco/fatores-projeto/${tr.dataset.fatorProjId}`, { [campo]: valor });
+    const tudo = await t17_carregarTudo(true);
+    t17_renderBlocos(tudo.composicao);
+    t17_renderResumo(tudo.resumo);
+    t17_renderTabelaOrcamento(tudo.composicao);
+    t17_renderComissionamento(tudo.comissionamento);
+    t17_renderDre(tudo.dre);
   }));
   tbody.querySelectorAll('[data-del-fator-proj]').forEach(b => b.addEventListener('click', async (e) => {
     if (!confirm('Excluir este fator do projeto?')) return;
@@ -781,14 +787,20 @@ function t17_renderComissionamento(com) {
     const tr = e.target.closest('tr');
     await api.put(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}`,
       { percentual: parseNumBR(inp.value) / 100 });
-    const tudo = await t17_carregarTudo(false);
+    const tudo = await t17_carregarTudo(true);
+    t17_renderBlocos(tudo.composicao);
+    t17_renderResumo(tudo.resumo);
+    t17_renderTabelaOrcamento(tudo.composicao);
     t17_renderComissionamento(tudo.comissionamento);
     t17_renderDre(tudo.dre);
   }));
   tbody.querySelectorAll('[data-del-vinc]').forEach(b => b.addEventListener('click', async (e) => {
     const tr = e.target.closest('tr');
     await api.del(`/api/composicao-preco/comissionamento/${tr.dataset.vincId}`);
-    const tudo = await t17_carregarTudo(false);
+    const tudo = await t17_carregarTudo(true);
+    t17_renderBlocos(tudo.composicao);
+    t17_renderResumo(tudo.resumo);
+    t17_renderTabelaOrcamento(tudo.composicao);
     t17_renderComissionamento(tudo.comissionamento);
     t17_renderDre(tudo.dre);
   }));
@@ -798,7 +810,10 @@ async function t17_vincularVendedor() {
   const sel = document.getElementById('t17_selVendedor');
   if (!sel.value) return;
   await api.post(`/api/composicao-preco/comissionamento?projeto_id=${state.projetoId}`, { vendedor_id: Number(sel.value) });
-  const tudo = await t17_carregarTudo(false);
+  const tudo = await t17_carregarTudo(true);
+  t17_renderBlocos(tudo.composicao);
+  t17_renderResumo(tudo.resumo);
+  t17_renderTabelaOrcamento(tudo.composicao);
   t17_renderComissionamento(tudo.comissionamento);
   t17_renderDre(tudo.dre);
 }

@@ -1549,19 +1549,6 @@ CP/SP — com / sem supervisão</pre>
       </div>
       <div id="t17_empresaInfo" style="margin-bottom:16px;font-size:12px;color:var(--muted,#888);"></div>
 
-      <!-- Fatores de Venda do Projeto (SE-202) -->
-      <div class="sec-title">FATORES DE VENDA DO PROJETO <span class="sub">— margem individual por tipo de produto/serviço; copie do catálogo ou edite por projeto</span></div>
-      <div class="no-print" style="margin-bottom:8px;">
-        <span class="btn-text" id="t17_btnCopiarFatoresGlobais">Copiar do Catálogo</span>
-        <span class="btn-text" id="t17_btnAddFatorProjeto" style="margin-left:8px;">+ Fator</span>
-      </div>
-      <div style="overflow-x:auto;">
-      <table class="list" style="min-width:500px;max-width:700px;">
-        <thead><tr><th style="width:70px;">Código</th><th style="width:100px;">Tipo</th><th>Descrição</th><th style="width:80px;">Margem %</th><th style="width:30px;"></th></tr></thead>
-        <tbody id="t17_fatoresProjeto"></tbody>
-      </table>
-      </div>
-
       <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:16px;">
         <div style="display:flex;gap:12px;align-items:center;">
           <label class="lbl" style="margin:0;">Margem de Negociação (%)</label>
@@ -1584,7 +1571,20 @@ CP/SP — com / sem supervisão</pre>
           <div id="t17_resumo"></div>
         </div>
         <div style="flex:1;min-width:0;">
-          <div class="sec-title">COMISSIONAMENTO</div>
+          <!-- Fatores de Venda do Projeto (SE-202) -->
+          <div class="sec-title">FATORES DE VENDA DO PROJETO <span class="sub">— margem individual por tipo de produto/serviço; copie do catálogo ou edite por projeto</span></div>
+          <div class="no-print" style="margin-bottom:8px;">
+            <span class="btn-text" id="t17_btnCopiarFatoresGlobais">Copiar do Catálogo</span>
+            <span class="btn-text" id="t17_btnAddFatorProjeto" style="margin-left:8px;">+ Fator</span>
+          </div>
+          <div style="overflow-x:auto;">
+          <table class="list" style="min-width:500px;max-width:700px;">
+            <thead><tr><th style="width:70px;">Código</th><th style="width:100px;">Tipo</th><th>Descrição</th><th style="width:80px;">Margem %</th><th style="width:30px;"></th></tr></thead>
+            <tbody id="t17_fatoresProjeto"></tbody>
+          </table>
+          </div>
+
+          <div class="sec-title" style="margin-top:20px;">COMISSIONAMENTO</div>
           <div class="no-print" style="margin-bottom:8px;">
             <select id="t17_selVendedor" style="width:220px;"></select>
             <span class="btn-text" id="t17_btnAddVendedor" style="margin-left:8px;">+ Vincular vendedor</span>

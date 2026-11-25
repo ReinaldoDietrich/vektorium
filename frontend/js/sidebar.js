@@ -166,9 +166,11 @@ async function ativarProjetoNaTela(proj) {
     if (formWrap && formWrap.style.display === 'block') {
       if (confirm('Deseja salvar as alterações do projeto atual antes de trocar?')) {
         try {
+          window._skipRefreshArvore = true;
           if (typeof window.t1_salvarProjeto === 'function') await window.t1_salvarProjeto();
           await api.post('/api/workspace/salvar-todos');
         } catch (_) {}
+        finally { window._skipRefreshArvore = false; }
       }
     }
     _aguardandoTroca = false;

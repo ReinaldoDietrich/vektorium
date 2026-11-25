@@ -304,7 +304,7 @@ def _contexto_automatico_uc(u: m.UnidadeCondensadora, eletrica: m.EletricaUC = N
     tensao_eletrica = None
     if eletrica and eletrica.tensao:
         fases = f"{eletrica.fases}F" if eletrica.fases else ""
-        tensao_eletrica = f"{eletrica.tensao}-{fases} {eletrica.frequencia or ''}".strip()
+        tensao_eletrica = "/".join(p for p in [eletrica.tensao, fases, eletrica.frequencia] if p)
     return {
         "tensao_comando": (projeto.tensao_comando if projeto else None) or tensao_eletrica,
         "tensao_equipamentos": (projeto.tensao_equipamentos if projeto else None) or tensao_eletrica,
@@ -508,7 +508,7 @@ def _calcular_selecao_uc_de_dados(db: Session, dados: dict) -> dict:
             }
             if eletrica and eletrica.tensao:
                 fases = f"{eletrica.fases}F" if eletrica.fases else ""
-                tensao_eletrica = f"{eletrica.tensao}-{fases} {eletrica.frequencia or ''}".strip()
+                tensao_eletrica = "/".join(p for p in [eletrica.tensao, fases, eletrica.frequencia] if p)
                 contexto["tensao_comando"] = contexto["tensao_comando"] or tensao_eletrica
                 contexto["tensao_equipamentos"] = contexto["tensao_equipamentos"] or tensao_eletrica
             selecoes_manuais = json.loads(sel["campos_selecionados"]) if sel["campos_selecionados"] else {}

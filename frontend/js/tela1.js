@@ -676,7 +676,7 @@ async function t1_salvarProjeto() {
   t1_renderSistemas();
   t1_carregarProjetos();
   t1_renderAcoesProjetoAtivo();
-  if (window.refreshArvoreProjetos) window.refreshArvoreProjetos();
+  if (window.refreshArvoreProjetos && !window._skipRefreshArvore) window.refreshArvoreProjetos();
 }
 
 // ---- Sistemas ----
