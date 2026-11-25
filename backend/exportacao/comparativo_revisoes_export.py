@@ -210,6 +210,33 @@ def gerar_excel_comparativo(db, revisoes: list) -> bytes:
     for i, t in enumerate(totais):
         celula(ws, w.linha, 2 + i, _fmt_rs(t), negrito=True)
     w.linha += 1
+    w.espaco()
+
+    # ---- Análise de Retorno do Investimento ----
+    custos_energia = [r["consumo"]["total"].get("custo_projeto_mes") or 0 for r in revisoes]
+    letras = ["A", "B", "C"]
+    w.bloco("Análise de Retorno do Investimento", "comparação entre projetos")
+    for i in range(n_revs):
+        for j in range(n_revs):
+            if i == j:
+                continue
+            label = f"Projeto {letras[i]} vs {letras[j]}"
+            w.subheader(label)
+            delta = totais[i] - totais[j]
+            economia = custos_energia[j] - custos_energia[i]
+            w.linha_dado(f"Investimento {letras[i]}", [totais[i]], _fmt_rs)
+            w.linha_dado(f"Investimento {letras[j]}", [totais[j]], _fmt_rs)
+            w.linha_dado("Diferença de investimento", [delta], _fmt_rs)
+            w.linha_dado(f"Custo energia/mês {letras[i]}", [custos_energia[i]], _fmt_rs)
+            w.linha_dado(f"Custo energia/mês {letras[j]}", [custos_energia[j]], _fmt_rs)
+            w.linha_dado("Economia mensal de energia", [economia], _fmt_rs)
+            if delta > 0 and economia > 0:
+                meses = round(delta / economia, 1)
+                w.linha_dado("Retorno do investimento adicional", [f"{_fmt(meses)} meses ({_fmt(meses / 12)} anos)"])
+            elif delta <= 0:
+                w.linha_dado("Retorno do investimento adicional", [f"{letras[i]} custa menos — retorno imediato"])
+            else:
+                w.linha_dado("Retorno do investimento adicional", [f"{letras[i]} custa mais e consome mais — sem justificativa econômica"])
 
     ws.freeze_panes = "A2"
     autosize(ws, w.n_cols)

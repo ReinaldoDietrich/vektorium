@@ -369,15 +369,6 @@ def calcular_consumo_sistema(db, sistema: m.SistemaRefrigeracao) -> dict:
     simples_calc = _cenario(aplicar_eev=False, forcar_degelo_eletrico=True, aplicar_modo_operacao=False,
                              aplicar_reducao_ec=False)
 
-    payback_meses = None
-    if sistema.custo_sistema_simples is not None and sistema.custo_sistema_projeto is not None:
-        delta_investimento = sistema.custo_sistema_projeto - sistema.custo_sistema_simples
-        economia_mes = simples_calc["custo_mes"] - projeto_calc["custo_mes"]
-        if economia_mes > 0:
-            payback_meses = round(delta_investimento / economia_mes, 1)
-        elif delta_investimento <= 0:
-            payback_meses = 0  # projeto não custa mais e ainda economiza — retorno imediato
-
     return {
         "disponivel": True, "modelo_uc": modelo_equipamento, "hp_uc": hp_equipamento,
         "rotulo_equipamento": rotulo_equipamento, "quantidade_paralelo": n_paralelo,
@@ -391,6 +382,4 @@ def calcular_consumo_sistema(db, sistema: m.SistemaRefrigeracao) -> dict:
         "reducao_ec_condensador_pct": round(reducao_ec * 100, 1) if tipo_motor_condensador == "EC" else None,
         "projeto": projeto_calc, "simples": simples_calc,
         "economia_mes": round(simples_calc["custo_mes"] - projeto_calc["custo_mes"], 2),
-        "payback_meses": payback_meses,
-        "custo_sistema_simples": sistema.custo_sistema_simples, "custo_sistema_projeto": sistema.custo_sistema_projeto,
     }

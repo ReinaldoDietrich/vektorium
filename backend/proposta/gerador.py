@@ -450,6 +450,28 @@ NIVEL_TITULOS = {
 }
 
 
+_TITULOS_GARANTIA = {"GARANTIA", "RESPONSABILIDADES CONTRATADA", "RESPONSABILIDADES CONTRATANTE",
+                     "LIMITACOES", "INVALIDACAO DA GARANTIA", "REPOSICAO EM GARANTIA", "OBSERVACAO IMPORTANTE"}
+
+
+def _remover_secao_garantia(doc):
+    """Remove todos os parágrafos da seção GARANTIA e seus filhos do documento."""
+    dentro = False
+    remover = []
+    for p in doc.paragraphs:
+        n = _norm(p.text)
+        if n == "GARANTIA":
+            dentro = True
+        elif dentro and n in NIVEL_TITULOS and NIVEL_TITULOS[n] == 0:
+            dentro = False
+        if dentro:
+            remover.append(p)
+    for p in remover:
+        parent = p._p.getparent()
+        if parent is not None:
+            parent.remove(p._p)
+
+
 def _forcar_pagina_nova(doc):
     """Garante pageBreakBefore nos títulos que devem iniciar em página nova (OOXML ECMA-376 §17.3.1.20).
     Aplicado no pós-processamento para sobreviver ao render do docxtpl."""
@@ -881,6 +903,8 @@ def gerar(db, projeto_id, opcoes=None):
     # NÃO altera o estilo Normal global (isso estragava a paragrafação/numeração do template);
     # formata apenas os parágrafos do ESCOPO que este gerador insere.
     doc = Document(buf)
+    if not liga("garantia"):
+        _remover_secao_garantia(doc)
     cor_sub = _cor_subtitulo(doc)          # cor padrão dos subtítulos (para unificar)
     num_id = criar_numeracao(doc)          # numeração multinível compartilhada
     _numerar_titulos(doc, num_id)          # títulos de seção (1 / 1.a) com recuo por nível

@@ -146,8 +146,8 @@ class SistemaRefrigeracao(Base):
     quantidade_degelo_dia = Column(Float, default=4)  # nº de ciclos de degelo elétrico por dia
     tempo_degelo_min = Column(Float, default=60)  # duração de 1 ciclo — Quantidade x Tempo/60 dá as
     # horas de degelo/dia, usadas no consumo (Tela D) e na estimativa de simultaneidade (Tela 5)
-    custo_sistema_simples = Column(Float)  # instalação sem inversor/EEV/degelo a gás — p/ payback
-    custo_sistema_projeto = Column(Float)  # instalação conforme selecionado no projeto
+    # custo_sistema_simples e custo_sistema_projeto: colunas existem no banco mas não são mais
+    # mapeadas (SE-204). Análise de retorno migrou para o Comparativo de Revisões.
     horas_iluminacao_dia = Column(Float, default=10)  # usada no consumo (Tela D) pra TODAS as
     # câmaras do sistema (Completo/Simples/Expositor) — ignora a premissa de 24h do cálculo de
     # carga térmica (Q6), que é conservadora de propósito pra dimensionamento, não pra custo real.

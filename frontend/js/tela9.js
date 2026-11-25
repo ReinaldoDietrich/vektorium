@@ -114,11 +114,6 @@ function t9_renderSistema(s) {
     <td style="text-align:right;font-weight:bold;">${fmtNum(cenario.kwh_total_mes)}</td>
     <td style="text-align:right;font-weight:bold;">R$ ${fmtNum(cenario.custo_mes)}</td></tr>`;
 
-  const payback = s.payback_meses != null
-    ? `${fmtNum(s.payback_meses)} mes(es) <span class="small" style="color:#6b7280;">(${fmtNum(s.payback_meses / 12)} anos)</span>`
-    : (s.custo_sistema_simples == null || s.custo_sistema_projeto == null
-        ? 'preencha Custo Sistema Simples/Projeto no cadastro do sistema (Tela 1)'
-        : '— sem economia mensal, payback não se aplica');
 
   return `<div style="border:1px solid var(--line);border-radius:6px;margin-bottom:12px;overflow:hidden;">${cab}
     <div style="padding:10px;">
@@ -147,8 +142,7 @@ function t9_renderSistema(s) {
       </tbody></table>
       </div>
       <div class="small" style="margin-top:8px;">
-        Economia mensal: <strong>R$ ${fmtNum(s.economia_mes)}</strong> ·
-        Payback: <strong>${payback}</strong>
+        Economia mensal: <strong>R$ ${fmtNum(s.economia_mes)}</strong>
       </div>
     </div>
   </div>`;
@@ -170,8 +164,7 @@ function t9_renderTotal(t) {
     </tbody></table>
     </div>
     <div class="small" style="margin-top:8px;">
-      Economia mensal total: <strong>R$ ${fmtNum(t.economia_mes)}</strong> ·
-      Payback total do projeto: <strong>${t.payback_meses != null ? fmtNum(t.payback_meses) + ' mes(es) (' + fmtNum(t.payback_meses / 12) + ' anos)' : '—'}</strong>
+      Economia mensal total: <strong>R$ ${fmtNum(t.economia_mes)}</strong>
     </div>`;
 }
 

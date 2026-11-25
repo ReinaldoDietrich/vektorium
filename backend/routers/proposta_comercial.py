@@ -108,6 +108,7 @@ def contexto(projeto_id: int, response: Response, db: Session = Depends(get_db))
             {"chave": "resumo_paineis", "rotulo": "Resumo de Painéis (Total)",  "disponivel": disp["resumo_paineis"]},
             {"chave": "orcamento",      "rotulo": "Tabela de Orçamento",        "disponivel": disp["orcamento"]},
             {"chave": "pagamento",      "rotulo": "Formas de Pagamento",        "disponivel": disp["pagamento"]},
+            {"chave": "garantia",       "rotulo": "Garantia",                   "disponivel": True},
         ],
     }
 

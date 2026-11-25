@@ -860,8 +860,6 @@ async function t1_editarSistema(id) {
   t1_atualizarTempAposCondensador();
   document.getElementById('sQuantidadeDegeloDia').value = s.quantidade_degelo_dia ?? '';
   document.getElementById('sTempoDegeloMin').value = s.tempo_degelo_min ?? '';
-  document.getElementById('sCustoSistemaSimples').value = s.custo_sistema_simples ?? '';
-  document.getElementById('sCustoSistemaProjeto').value = s.custo_sistema_projeto ?? '';
   t1_editandoSistemaId = id;
   document.getElementById('btnAddSistema').textContent = '✓';
   const btnFechar = document.getElementById('btnCancelarEdicaoSistema');
@@ -895,8 +893,6 @@ async function t1_salvarSistema() {
     modo_operacao: document.getElementById('sModoOperacao').value || null,
     quantidade_degelo_dia: parseNumBR(document.getElementById('sQuantidadeDegeloDia').value),
     tempo_degelo_min: parseNumBR(document.getElementById('sTempoDegeloMin').value),
-    custo_sistema_simples: parseNumBR(document.getElementById('sCustoSistemaSimples').value),
-    custo_sistema_projeto: parseNumBR(document.getElementById('sCustoSistemaProjeto').value),
   };
   if (payload.tipo_compressao === '4.1.1') {
     payload.delta_condensacao = 10;

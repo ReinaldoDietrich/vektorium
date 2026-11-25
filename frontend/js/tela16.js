@@ -232,6 +232,35 @@ function t16_render(dados) {
     totais.map(t => `<td class="val" style="font-weight:700;">${t16_fmtR$(t)}</td>`).join('') + '</tr>';
   html += t16_bloco('Custo Financeiro', 'resumo por bloco — Composição de Preço', corpoCusto);
 
+  // ---- Análise de Retorno do Investimento ----
+  const custosEnergia = dados.map(d => d.consumo.total.custo_projeto_mes || 0);
+  const letrasRet = ['A', 'B', 'C'];
+  let corpoRetorno = '';
+  for (let i = 0; i < dados.length; i++) {
+    for (let j = 0; j < dados.length; j++) {
+      if (i === j) continue;
+      const delta = totais[i] - totais[j];
+      const economia = custosEnergia[j] - custosEnergia[i];
+      const label = `Projeto ${letrasRet[i]} vs ${letrasRet[j]}`;
+      corpoRetorno += t16_subheader(label);
+      corpoRetorno += t16_linha('Investimento ' + letrasRet[i], [totais[i]], t16_fmtR$);
+      corpoRetorno += t16_linha('Investimento ' + letrasRet[j], [totais[j]], t16_fmtR$);
+      corpoRetorno += t16_linha('Diferença de investimento', [delta], t16_fmtR$);
+      corpoRetorno += t16_linha('Custo energia/mês ' + letrasRet[i], [custosEnergia[i]], t16_fmtR$);
+      corpoRetorno += t16_linha('Custo energia/mês ' + letrasRet[j], [custosEnergia[j]], t16_fmtR$);
+      corpoRetorno += t16_linha('Economia mensal de energia', [economia], t16_fmtR$);
+      if (delta > 0 && economia > 0) {
+        const meses = delta / economia;
+        corpoRetorno += t16_linha('Retorno do investimento adicional', [t16_fmt(meses, ' meses') + ' (' + t16_fmt(meses / 12, ' anos)') ]);
+      } else if (delta <= 0) {
+        corpoRetorno += t16_linha('Retorno do investimento adicional', [letrasRet[i] + ' custa menos — retorno imediato']);
+      } else {
+        corpoRetorno += t16_linha('Retorno do investimento adicional', [letrasRet[i] + ' custa mais e consome mais — sem justificativa econômica']);
+      }
+    }
+  }
+  html += t16_bloco('Análise de Retorno do Investimento', 'comparação entre projetos', corpoRetorno);
+
   el.innerHTML = html;
 }
 

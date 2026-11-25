@@ -75,11 +75,6 @@ def _montar_consumo(db: Session, projeto_id: int):
         "custo_simples_mes": round(sum(r["simples"]["custo_mes"] for r in disponiveis), 2),
         "economia_mes": round(sum(r["economia_mes"] for r in disponiveis), 2),
     }
-    delta_investimento_total = sum(
-        (r["custo_sistema_projeto"] or 0) - (r["custo_sistema_simples"] or 0)
-        for r in disponiveis if r["custo_sistema_simples"] is not None and r["custo_sistema_projeto"] is not None)
-    total["payback_meses"] = (round(delta_investimento_total / total["economia_mes"], 1)
-                               if total["economia_mes"] > 0 else None)
 
     observacao = projeto.observacao_consumo_eletrica if projeto.observacao_consumo_eletrica else _observacao_padrao(saida)
     return projeto, {"sistemas": saida, "total": total, "observacao": observacao,
