@@ -60,10 +60,14 @@ def licenca_status(payload: dict = Depends(exigir_jwt), db: Session = Depends(ge
     if not row:
         return {"ativa": False, "plano": None, "vence_em": None, "motivo": "sem_assinatura"}
     status, plano, vence_em = row[0], row[1], row[2]
-    ativa = status in ("active",)
-    motivo = None if ativa else status
-    if ativa and vence_em:
-        from datetime import date
+    if status == "canceled":
+        return {"ativa": False, "plano": plano,
+                "vence_em": str(vence_em) if vence_em else None,
+                "motivo": "canceled"}
+    from datetime import date
+    ativa = True
+    motivo = None
+    if vence_em:
         hoje = date.today()
         d = vence_em if isinstance(vence_em, date) else date.fromisoformat(str(vence_em)[:10])
         if d < hoje:

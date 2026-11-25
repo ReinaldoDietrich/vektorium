@@ -225,6 +225,7 @@ body.licenca-inativa #acoesProjetoAtivo .btn-text{
 #avisoLicencaInativa {
   display:none;
   position:fixed; top:0; left:0; right:0;
+  height:36px;
   z-index:9999;
   background:#d32f2f; color:#fff;
   padding:8px 16px;
@@ -232,6 +233,8 @@ body.licenca-inativa #acoesProjetoAtivo .btn-text{
   font-weight:600; font-size:14px;
   align-items:center; justify-content:center; gap:8px;
 }
+body.licenca-inativa .topbar { margin-top:36px; }
+body.licenca-inativa .shell { height:calc(100vh - 46px - 36px); }
 
 /* ===== Entidade fechada — bloqueio individual por câmara/expositor/rack etc. (FASE 2) =====
    Quando o formulário de uma entidade calculável recebe .entidade-fechada, seus campos e botões

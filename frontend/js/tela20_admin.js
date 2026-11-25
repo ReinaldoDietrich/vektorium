@@ -230,7 +230,7 @@
     vkPrompt('Editar Usuário — ' + email, [
       {label: 'Nome', name: 'nome', valor: nome},
       {label: 'Tipo', name: 'papel', valor: papel},
-      {label: 'Plano (mensal, anual, vitalicio)', name: 'plano', valor: planoAtual || ''},
+      {label: 'Plano (ex: trial, mensal, anual, vitalicio)', name: 'plano', valor: planoAtual || ''},
       {label: 'Vencimento (vazio = sem vencimento)', name: 'vence_em', tipo: 'date', valor: venceEm || ''}
     ], async (v) => {
       const novoNome = (v.nome || '').trim();
