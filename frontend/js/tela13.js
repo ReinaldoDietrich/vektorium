@@ -254,6 +254,7 @@ async function t13_carregarItensDefault() {
       <td><input data-campo="custo_unitario_padrao" type="number" step="0.01" value="${it.custo_unitario_padrao || 0}" style="width:100%;text-align:right;"></td>
       <td><input data-campo="formula_quantidade" value="${it.formula_quantidade || ''}" style="width:100%;" placeholder="SUM(cc) * val"></td>
       <td><input data-campo="formula_custo" value="${it.formula_custo || ''}" style="width:100%;" placeholder="SUM(cc) * val"></td>
+      <td style="text-align:center;"><input type="checkbox" data-campo="default" ${it.default ? 'checked' : ''}></td>
       <td><span class="btn-text danger" data-del-item>x</span></td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-campo]').forEach(inp => inp.addEventListener('change', async (e) => {
@@ -264,6 +265,7 @@ async function t13_carregarItensDefault() {
     else if (campo === 'custo_unitario_padrao') valor = parseFloat(inp.value) || 0;
     else if (campo === 'quantidade_padrao') valor = parseFloat(inp.value) || 1;
     else if (campo === 'formula_quantidade' || campo === 'formula_custo') valor = inp.value.trim() || null;
+    else if (inp.type === 'checkbox') valor = inp.checked;
     else valor = inp.value;
     await api.put(`/api/composicao-preco/itens-mestre/${tr.dataset.itemId}`, { [campo]: valor });
   }));
