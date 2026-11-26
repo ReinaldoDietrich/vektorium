@@ -715,6 +715,22 @@ function initLoginUI() {
         }
         try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
         _iniciarHeartbeat(_uid, _jwt);
+        let _hostname = 'desconhecido';
+        if (window.vektorium && window.vektorium.getHostname) {
+          try { _hostname = await window.vektorium.getHostname(); } catch (_) {}
+        }
+        try { await api.post('/api/admin/registrar-dispositivo', { fingerprint: _hostname }); } catch (_) {}
+        if (window.vektorium && window.vektorium.iniciarVerificacaoSessao) {
+          try {
+            await window.vektorium.iniciarVerificacaoSessao({
+              supabaseUrl: SUPABASE_URL,
+              supabaseAnonKey: SUPABASE_ANON_KEY,
+              userId: _uid,
+              token: _jwt,
+              hostname: _hostname,
+            });
+          } catch (_) {}
+        }
         // SE-137: pull-novos desativado — projeto 100% local; pull reimportava projetos da nuvem
         // como órfãos, causando projetos fantasma na sidebar a cada login.
         // try { await api.post('/api/cloud/pull-novos', { user_id: _uid, token: _jwt }); } catch (_) {}

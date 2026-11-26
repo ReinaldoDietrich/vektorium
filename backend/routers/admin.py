@@ -328,8 +328,61 @@ def revogar_assinatura(uid: str, payload: dict = Depends(_exigir_master),
 
 
 # ---------------------------------------------------------------------------
-# DISPOSITIVOS — master only
+# DISPOSITIVOS — registro automático no login + gestão master
 # ---------------------------------------------------------------------------
+
+@router.post("/registrar-dispositivo")
+def registrar_dispositivo(payload_body: dict = Body(...),
+                          payload: dict = Depends(exigir_jwt),
+                          db: Session = Depends(get_admin_db)):
+    """Registra o dispositivo no login. Se limite atingido e usuario nao e master, rejeita."""
+    uid = _uid(payload)
+    fingerprint = (payload_body.get("fingerprint") or "").strip()
+    if not fingerprint:
+        raise HTTPException(400, "Fingerprint obrigatório")
+
+    u = db.execute(text("SELECT papel FROM usuarios WHERE id = :uid"), {"uid": uid}).fetchone()
+    is_master = False
+    if u:
+        p = db.execute(text("SELECT is_admin FROM papeis WHERE nome = :nome"), {"nome": u[0]}).fetchone()
+        is_master = bool(p and p[0])
+
+    existente = db.execute(text(
+        "SELECT id, ativo FROM dispositivos WHERE usuario_id = :uid AND fingerprint = :fp"
+    ), {"uid": uid, "fp": fingerprint}).fetchone()
+
+    if existente:
+        if not existente[1]:
+            raise HTTPException(403, "Dispositivo desativado pelo administrador.")
+        db.execute(text(
+            "UPDATE dispositivos SET ultimo_acesso = NOW() WHERE id = :did"
+        ), {"did": existente[0]})
+        db.commit()
+        return {"ok": True, "dispositivo_id": existente[0], "novo": False}
+
+    if not is_master:
+        ass = db.execute(text(
+            "SELECT max_dispositivos FROM assinaturas WHERE usuario_id = :uid LIMIT 1"
+        ), {"uid": uid}).fetchone()
+        limite = (ass[0] if ass and ass[0] is not None else 2)
+        ativos = db.execute(text(
+            "SELECT COUNT(*) FROM dispositivos WHERE usuario_id = :uid AND ativo = TRUE"
+        ), {"uid": uid}).fetchone()
+        if ativos and ativos[0] >= limite:
+            raise HTTPException(403,
+                f"Limite de {limite} dispositivo(s) atingido. "
+                "Contate o administrador para liberar um dispositivo.")
+
+    db.execute(text(
+        "INSERT INTO dispositivos (usuario_id, fingerprint, ultimo_acesso, ativo) "
+        "VALUES (:uid, :fp, NOW(), TRUE)"
+    ), {"uid": uid, "fp": fingerprint})
+    db.commit()
+    novo = db.execute(text(
+        "SELECT id FROM dispositivos WHERE usuario_id = :uid AND fingerprint = :fp"
+    ), {"uid": uid, "fp": fingerprint}).fetchone()
+    return {"ok": True, "dispositivo_id": novo[0] if novo else None, "novo": True}
+
 
 @router.get("/dispositivos")
 def listar_dispositivos(payload: dict = Depends(_exigir_master), db: Session = Depends(get_admin_db)):

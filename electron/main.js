@@ -4,6 +4,9 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 const http = require('http');
+const https = require('https');
+const os = require('os');
+const { Worker } = require('worker_threads');
 
 const PORTA = 8842;
 const URL_APP = `http://127.0.0.1:${PORTA}/`;
@@ -12,6 +15,8 @@ let janelaPrincipal = null;
 let processoBackend = null;
 let fechandoApp = false;
 let _stderrBuffer = [];
+let _sessionWorker = null;
+let _sessionDados = null;
 
 function caminhoRecurso(rel) {
   if (app.isPackaged) {
@@ -258,6 +263,11 @@ async function criarJanela() {
 async function encerrarApp() {
   if (fechandoApp) return;
   fechandoApp = true;
+  if (_sessionWorker) {
+    _sessionWorker.postMessage('parar');
+    _sessionWorker.terminate();
+    _sessionWorker = null;
+  }
   if (processoBackend) processoBackend.removeAllListeners('exit');
 
   if (janelaPrincipal && !janelaPrincipal.isDestroyed()) {
@@ -409,6 +419,45 @@ ipcMain.handle('backup-pre-logout', async () => {
     console.error('[backup-pre-logout] falhou:', e.message);
     return false;
   }
+});
+
+ipcMain.handle('get-hostname', () => os.hostname());
+
+ipcMain.handle('iniciar-verificacao-sessao', (_event, dados) => {
+  if (_sessionWorker) {
+    _sessionWorker.postMessage('parar');
+    _sessionWorker.terminate();
+    _sessionWorker = null;
+  }
+  _sessionDados = dados;
+  const workerPath = path.join(__dirname, 'session-worker.js');
+  _sessionWorker = new Worker(workerPath, {
+    workerData: {
+      supabaseUrl: dados.supabaseUrl,
+      supabaseAnonKey: dados.supabaseAnonKey,
+      userId: dados.userId,
+      token: dados.token,
+      hostname: dados.hostname,
+    }
+  });
+  _sessionWorker.on('message', (msg) => {
+    if (msg && msg.tipo === 'sessao-tomada' && janelaPrincipal && !janelaPrincipal.isDestroyed()) {
+      janelaPrincipal.webContents.send('sessao-tomada', { hostname: msg.hostname });
+    }
+  });
+  _sessionWorker.on('error', () => {});
+  _sessionWorker.on('exit', () => { _sessionWorker = null; });
+  return { ok: true };
+});
+
+ipcMain.handle('parar-verificacao-sessao', () => {
+  if (_sessionWorker) {
+    _sessionWorker.postMessage('parar');
+    _sessionWorker.terminate();
+    _sessionWorker = null;
+  }
+  _sessionDados = null;
+  return { ok: true };
 });
 
 process.on('exit', () => { matarBackend(); });

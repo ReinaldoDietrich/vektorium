@@ -276,6 +276,9 @@ async function sairDoApp() {
   }
 
   if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
+  if (window.vektorium && window.vektorium.pararVerificacaoSessao) {
+    try { await window.vektorium.pararVerificacaoSessao(); } catch (_) {}
+  }
 
   if (typeof state !== 'undefined' && state.isMaster === true) {
     mostrarLoading('Realizando backup pré-logout...');
@@ -341,6 +344,9 @@ async function logoutDoApp() {
   }
 
   if (typeof window._pararHeartbeat === 'function') window._pararHeartbeat();
+  if (window.vektorium && window.vektorium.pararVerificacaoSessao) {
+    try { await window.vektorium.pararVerificacaoSessao(); } catch (_) {}
+  }
 
   if (typeof state !== 'undefined' && state.isMaster === true) {
     mostrarLoading('Realizando backup pré-logout...');
@@ -439,4 +445,35 @@ document.addEventListener('DOMContentLoaded', () => {
   _carregarPerfilRemoto();
   const m = location.hash.match(/^#tela(\d)$/);
   if (m) showTab(Number(m[1]));
+
+  if (window.vektorium && window.vektorium.onSessaoTomada) {
+    window.vektorium.onSessaoTomada(async (dados) => {
+      const host = dados && dados.hostname ? dados.hostname : 'outro dispositivo';
+      if (document.getElementById('overlaySessaoTomada')) return;
+      const ov = document.createElement('div');
+      ov.id = 'overlaySessaoTomada';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999999;display:flex;align-items:center;justify-content:center';
+      ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px 40px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
+        + '<h2 style="margin:0 0 12px;color:#c0392b;font-size:20px">Sessão encerrada</h2>'
+        + '<p style="margin:0 0 20px;color:#333;font-size:14px;line-height:1.5">Outro login foi detectado em: <strong>' + host + '</strong>.<br>Esta sessão foi bloqueada.</p>'
+        + '<div style="display:flex;gap:12px;justify-content:center">'
+        + '<button id="btnForcarReconexao" style="padding:10px 20px;background:#2e86de;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">Forçar Reconexão</button>'
+        + '<button id="btnSairSessao" style="padding:10px 20px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">Sair</button>'
+        + '</div></div>';
+      document.body.appendChild(ov);
+      document.getElementById('btnForcarReconexao').addEventListener('click', async () => {
+        ov.remove();
+        try {
+          const _uid = AUTH._sessao && AUTH._sessao.user ? AUTH._sessao.user.id : null;
+          const _jwt = AUTH.token();
+          if (_uid && _jwt) {
+            try { await api.post('/api/cloud/delete-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+            try { await AUTH.logoutOutros(); } catch (_) {}
+            try { await api.post('/api/cloud/create-lock', { user_id: _uid, token: _jwt }); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+      document.getElementById('btnSairSessao').addEventListener('click', () => { sairDoApp(); });
+    });
+  }
 });
